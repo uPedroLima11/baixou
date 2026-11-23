@@ -2,7 +2,8 @@ export const categories = [['all','Todas as ofertas'],['ram','Memória RAM'],['g
 export type Category=typeof categories[number][0];
 export type Offer={product_id?:string|null;gtin?:string|null;variant?:import("./identity").Variant;id:string;store:string;url:string;title:string;category:Category;brand:string|null;mpn:string|null;image:string|null;images:string[];price:number;original_price:number|null;available:boolean;seller:string;sold:number|null;rating:number|null;review_count:number|null;specs:Record<string,string>;discoveries?:{source:string;name:string;url:string}[];coupon_hint?:string|null;coupon_validated?:boolean;payment_note?:string;checked_at:string;expires_at:string;historical_median:number|null;historical_samples:number;historical_days:number;discount:number;evidence:'history'|'retailer'|'none'};
 export type SourceStatus={store:string;status:string;checked_at:string;message:string;products:number};
-export type Catalog={offers:Offer[];sources:SourceStatus[];stores?:import('./stores').StoreRecord[];configured:boolean;error?:string};
+export type StoreCoverage={store:string;collected:number;available:number;displayable:number;expired_awaiting_check:number};
+export type Catalog={coverage?:{generated_at:string;stores:StoreCoverage[]}|null;truncated?:boolean;offers:Offer[];sources:SourceStatus[];stores?:import('./stores').StoreRecord[];configured:boolean;error?:string};
 export type Alert={product_id?:string|null;product_variant?:import("./identity").Variant;id?:string;user_id?:string;category:string;offer_id:string|null;max_price:number|null;min_discount:number|null;min_drop_amount?:number|null;brands?:string[];spec_filters?:Record<string,string|number>;enabled:boolean};
 export const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
