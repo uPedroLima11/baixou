@@ -1,6 +1,6 @@
 export const categories = [['all','Todas as ofertas'],['ram','Memória RAM'],['gpu','Placas de vídeo'],['motherboard','Placas-mãe'],['cpu','Processadores'],['ssd','SSDs e HDs'],['monitor','Monitores'],['mouse','Mouses'],['keyboard','Teclados'],['chair','Cadeiras'],['pc','PCs completos'],['kit','Kits upgrade'],['peripherals','Periféricos'],['notebook','Notebooks'],['other','Outros eletrônicos']] as const;
 export type Category=typeof categories[number][0];
-export type Offer={product_id?:string|null;gtin?:string|null;variant?:import("./identity").Variant;id:string;store:string;url:string;title:string;category:Category;brand:string|null;mpn:string|null;image:string|null;images:string[];price:number;original_price:number|null;available:boolean;seller:string;sold:number|null;rating:number|null;review_count:number|null;specs:Record<string,string>;discoveries?:{source:string;name:string;url:string}[];coupon_hint?:string|null;coupon_validated?:boolean;payment_note?:string;checked_at:string;expires_at:string;historical_median:number|null;historical_samples:number;historical_days:number;discount:number;evidence:'history'|'retailer'|'none';market_median?:number|null;market_lowest?:number|null;market_stores?:number;market_checked_at?:string|null};
+export type Offer={product_id?:string|null;gtin?:string|null;variant?:import("./identity").Variant;id:string;store:string;url:string;title:string;category:Category;brand:string|null;mpn:string|null;image:string|null;images:string[];price:number;original_price:number|null;available:boolean;seller:string;sold:number|null;rating:number|null;review_count:number|null;specs:Record<string,string>;discoveries?:{source:string;name:string;url:string}[];coupon_hint?:string|null;coupon_validated?:boolean;payment_note?:string;checked_at:string;expires_at:string;historical_median:number|null;historical_samples:number;historical_days:number;discount:number;evidence:'history'|'retailer'|'none';market_median?:number|null;market_lowest?:number|null;market_stores?:number;market_highest?:number|null;market_expires_at?:string|null;seller_key?:string|null;payment_basis?:string|null;market_checked_at?:string|null};
 export type SourceStatus={store:string;status:string;checked_at:string;message:string;products:number};
 export type StoreCoverage={store:string;collected:number;available:number;displayable:number;expired_awaiting_check:number};
 export type Catalog={coverage?:{generated_at:string;stores:StoreCoverage[]}|null;truncated?:boolean;offers:Offer[];sources:SourceStatus[];stores?:import('./stores').StoreRecord[];configured:boolean;error?:string};
@@ -60,9 +60,10 @@ export function calculateEvidence(price:number,reference:number|null,history:{pr
 export function evidenceFromStats(price:number,reference:number|null,stats:{median:number|null;samples:number;days:number}){
  const n=stats.samples,days=stats.days,median=n&&stats.median!=null&&Number(stats.median)>0?Number(stats.median):null;
  const enough=n>=5&&days>=3;
- const historicalDiscount=median?Math.round((1-price/median)*100):0;
+ const historicalPercent=median?(1-price/median)*100:0;
+ const historicalDiscount=Math.floor(historicalPercent+1e-9);
  const announced=reference&&reference>price?Math.round((1-price/reference)*100):0;
- return {historical_median:enough?median:null,historical_samples:n,historical_days:days,discount:enough&&historicalDiscount>=5?historicalDiscount:announced,evidence:enough&&historicalDiscount>=5?'history' as const:announced>=5?'retailer' as const:'none' as const};
+ return {historical_median:enough?median:null,historical_samples:n,historical_days:days,discount:enough&&historicalPercent>=5?historicalDiscount:announced,evidence:enough&&historicalPercent>=5?'history' as const:announced>=5?'retailer' as const:'none' as const};
 }
 
 const CPU_RE=/\b(processador|ryzen\s*[3579]|core\s*(?:ultra\s*)?i?[3579]|athlon|pentium|celeron)\b/;

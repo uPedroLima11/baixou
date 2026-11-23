@@ -49,7 +49,7 @@ export function parseOfficialStorefront(html:string,store:OfficialStore,fetchedA
   const img=card.find('img.poly-component__picture').first().attr('src')??'';
   const used=/\b(usado|recondicionado|seminovo|open\s*box|vitrine)\b/i.test(title+' '+text);
   out.push({source:'mercadolivre',externalId:link.item,url:link.url,title,price,originalPrice:previous&&previous>price?previous:null,currency:'BRL',
-   available:/esgotad|indispon[ií]vel/i.test(text)?false:true,condition:used?'used':'new',
+   paymentBasis:pix?'cash':null,available:/esgotad|indispon[ií]vel/i.test(text)?false:true,condition:used?'used':'new',
    seller:{id:sellerId,name:store.name+' (loja oficial no Mercado Livre)',official:true,reputationLevel:'official',positiveRate:null,completedSales:null},
    images:/^https:\/\/http2\.mlstatic\.com\/[\w./-]+\.(?:webp|jpg|jpeg|png)$/i.test(img)?[img]:[],brand:store.brand??brandFromTitle(title),mpn:null,gtin:null,
    couponHint:pix&&other&&other>price?'Preço no Pix; em outros meios R$ '+other.toFixed(2).replace('.',','):null,fetchedAt});});

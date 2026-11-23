@@ -28,3 +28,9 @@ test('KaBuM discovery skips marketplace sellers already flagged in the listing',
  const html='<script id="__NEXT_DATA__" type="application/json">'+JSON.stringify({props:{pageProps:{data:JSON.stringify(data)}}})+'</script>';
  assert.deepEqual(kabumDiscovery(html),['https://www.kabum.com.br/produto/1/kit-a','https://www.kabum.com.br/produto/3/kit-c']);
 });
+
+test('history just below five percent does not become proof by rounding',()=>{
+ const stats={median:1000,samples:6,days:3};
+ assert.notEqual(evidenceFromStats(950.01,null,stats).evidence,'history');
+ assert.equal(evidenceFromStats(950,null,stats).evidence,'history');
+});

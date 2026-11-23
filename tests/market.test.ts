@@ -23,3 +23,11 @@ test('market decision uses the exact percentage and history keeps priority',()=>
  assert.equal(effectiveEvidence(hist),'history');assert.equal(effectiveDiscount(hist),22);
  assert.equal(effectiveEvidence({price:900,discount:0,evidence:'none' as const,market_median:1000,market_stores:3}),'market');
 });
+
+test('a median inflated by an extreme reference is not enough; references expire',()=>{
+ const extreme={...base,price:900,market_median:5000,market_lowest:1000,market_highest:9000,market_stores:2};
+ assert.notEqual(marketStatus(extreme),'below');
+ assert.notEqual(marketStatus({...extreme,market_highest:1100,market_expires_at:'2020-01-01'}),'below');
+ assert.notEqual(marketStatus({...extreme,market_highest:1100,market_expires_at:null}),'below');
+ assert.notEqual(marketStatus({...base,market_median:1600,market_lowest:1200,market_stores:2}),'below');
+});

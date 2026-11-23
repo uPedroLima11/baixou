@@ -1,3 +1,16 @@
+# CHECKPOINT — retomada Codex, inteligência de preços (23/11/2026)
+
+- Base recebida: 5183ec7, checkout limpo, remoto consultado; CI desse commit verde. Não foram refeitos SMTP, agendamentos ou integrações.
+- Migration nova 20261123183154 aplicada no Supabase dedicado, previamente ensaiada com rollback. Referência por vendedor (KaBuM/Pichau no ML não contam como outra empresa; demais vitrines usam seller_id), pagamento à vista equivalente, menor preço por vendedor, mediana, extremos e expiração pela primeira referência/15 minutos. ML sem Pix explícito permanece no catálogo, fora da referência. Novos seller_key/payment_basis chegam por rechecagem.
+- Não declarar abaixo do mercado se a referência maior superar 1,5× a menor ou existir concorrente mais barato. Anunciado é limitado pelo menor preço comparável; nenhuma redução de amostra mínima. Referência expirada é ignorada. Histórico decide os 5% antes de arredondar.
+- Auditoria real: em 18:30 UTC havia 1.298 ofertas ativas, zero com duas outras lojas. Exemplos com identidade: Ryzen 5 5500 (Patoloco R$634,03/WAZ R$689,99), Ryzen 7 5700X (KaBuM R$1.099,99/Guerra R$1.289,14), ASUS TUF B550M-Plus (KaBuM R$719,99/Guerra R$859,14). São comparações de duas lojas, insuficientes para afirmar mercado.
+- Achado concreto: vínculo legado da RX 7600 Challenger/Challenger PRO, com MPNs diferentes. SQL exclui vínculo incompatível com código canônico; agrupamento/alternativas/enriquecimento também rejeitam códigos conflitantes. Mantém produtos/favoritos, sem adivinhar equivalência.
+- 67 testes passaram; typecheck passou; build passou antes dos últimos ajustes de apresentação (revalidar na etapa UI). tests/market-reference.sql executado sobre ofertas reais com rollback: grants privados, view security_invoker, limites/validade/códigos. tests/persistence-rls.sql passou integralmente com rollback.
+- Advisors: somente avisos prévios de unaccent no public e proteção de senhas vazadas desativada; RLS sem políticas nas filas privadas é intencional. Nenhum plano pago habilitado.
+- UI/menu/classificação de oportunidades em implementação no próximo commit; publicação e métricas finais ainda precisam ser confirmadas.
+
+---
+
 # CHECKPOINT — categorias, identidade, preço de mercado, filtros e alertas (Claude Code, 23/11/2026, ~18h30 UTC)
 
 Expansão de lojas pausada a pedido do proprietário. Etapas em ordem, cada uma com commit próprio:
