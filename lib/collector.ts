@@ -4,7 +4,7 @@ import {adminDb,safeUrl} from './server';import {evidenceFromStats,classify,kitC
 import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct} from '../scripts/parser';
 import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
 import {productURL,categoryURL,candidateCategory,retryMinutes,verificationTTL,recheckMinutes,planBatch,pickDiscoveryPages} from './collection-policy';
-type Options={check?:boolean;max?:number;stores?:string[];deadlineMs?:number;discoveryIntervalMinutes?:number};
+type Options={check?:boolean;max?:number;stores?:string[];deadlineMs?:number;discoveryIntervalMinutes?:number;onProgress?:()=>Promise<void>};
 function errorMessage(e:unknown){return e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,220):'Falha sem mensagem';}
 const agent='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)';
 export class RemovedProduct extends Error {constructor(status:number){super('HTTP '+status+' para página não encontrada da loja');}}
@@ -60,6 +60,8 @@ export async function runCollector(options:Options={}){
    // Capacity-first: due rechecks are processed before new candidates; overdue items first by next_attempt_at.
    for(const item of [...rechecks,...pending])if(urls.size<max)urls.set(item.url,item);
    for(const {url,failures:priorFailures}of urls.values()){
+    // Alertas exigem confirmação de até 5 min: o chamador pode enviar notificações durante a coleta longa.
+    if(options.onProgress)await options.onProgress().catch(()=>console.error('Envio intermediário de alertas falhou'));
     if(Date.now()-started>deadline-10000)break;if(!allowed(url))continue;await pause();
     try{const html=await get(url);const base:ParsedProduct=source.id==='kabum'?kabumProduct(html,url):['terabyte','pichau'].includes(source.id)?generic(html,url,source):parseStoreProduct(source.id,html,url);
      if(base.category==='kit')for(const [k,v] of Object.entries(kitComponents(base.title)))base.specs['Componente do kit: '+k]??=v;

@@ -1,2 +1,4 @@
 import {runCollector} from '../lib/collector';
-const result=await runCollector({check:process.argv.includes('--check')});console.log(JSON.stringify(result));if(!result.total&&!result.skipped&&result.failures>0)process.exitCode=1;
+import {throttledNotifier} from './notify-trigger';
+const check=process.argv.includes('--check');
+const result=await runCollector({check,onProgress:check?undefined:throttledNotifier()});console.log(JSON.stringify(result));if(!result.total&&!result.skipped&&result.failures>0)process.exitCode=1;
