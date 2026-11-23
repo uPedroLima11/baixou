@@ -1,0 +1,12 @@
+Baixou!
+
+Confirme seu e-mail para começar
+
+Falta um passo para salvar seus favoritos e acompanhar preços no Baixou!.
+
+Confirmar meu e-mail: {{ .ConfirmationURL }}
+
+Se você não criou uma conta no Baixou!, ignore esta mensagem. Sua conta só será confirmada após esta ação.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

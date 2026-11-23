@@ -1,0 +1,12 @@
+Baixou!
+
+Confirme a alteração do seu e-mail
+
+Recebemos uma solicitação para alterar o e-mail da sua conta no Baixou!. Confirme esta ação pelo botão abaixo.
+
+Confirmar alteração de e-mail: {{ .ConfirmationURL }}
+
+Se você não pediu esta alteração, não confirme. Abra o Baixou! e revise a segurança da sua conta.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

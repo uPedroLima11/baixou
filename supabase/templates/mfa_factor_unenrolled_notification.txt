@@ -1,0 +1,12 @@
+Baixou!
+
+Verificação de segurança removida
+
+Um método de verificação foi removido da sua conta no Baixou!. Tipo informado: {{ .FactorType }}.
+
+Abrir minha conta: {{ .SiteURL }}
+
+Se você não reconhece esta mudança, abra o Baixou! pelo endereço oficial e revise a segurança da sua conta.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

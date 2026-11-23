@@ -1,0 +1,12 @@
+Baixou!
+
+Você recebeu um convite
+
+Você foi convidado para criar uma conta no Baixou!. Aceite o convite para começar a acompanhar preços e salvar seus produtos.
+
+Aceitar convite: {{ .ConfirmationURL }}
+
+Se você não reconhece este convite, ignore esta mensagem.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

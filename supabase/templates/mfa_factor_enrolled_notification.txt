@@ -1,0 +1,12 @@
+Baixou!
+
+Nova verificação de segurança
+
+Um método de verificação foi adicionado à sua conta no Baixou!. Tipo informado: {{ .FactorType }}.
+
+Abrir minha conta: {{ .SiteURL }}
+
+Se você não reconhece esta mudança, abra o Baixou! pelo endereço oficial e revise a segurança da sua conta.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

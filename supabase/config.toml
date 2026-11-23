@@ -10,3 +10,27 @@ double_confirm_changes = true
 enable_confirmations = true
 
 
+
+[auth.email.template.confirmation]
+subject = "Baixou! — confirme seu cadastro"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Baixou! — redefina sua senha"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "Baixou! — seu convite chegou"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Baixou! — seu link de acesso"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "Baixou! — confirme a alteração de e-mail"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.reauthentication]
+subject = "Baixou! — confirme sua identidade"
+content_path = "./supabase/templates/reauthentication.html"

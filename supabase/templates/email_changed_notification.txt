@@ -1,0 +1,12 @@
+Baixou!
+
+Seu e-mail foi alterado
+
+O endereço de e-mail da sua conta no Baixou! foi alterado.
+
+Abrir minha conta: {{ .SiteURL }}
+
+Se você não reconhece esta mudança, abra o Baixou! pelo endereço oficial e revise a segurança da sua conta.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

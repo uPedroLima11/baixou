@@ -1,0 +1,12 @@
+Baixou!
+
+Vamos recuperar seu acesso
+
+Recebemos uma solicitação para redefinir a senha da sua conta no Baixou!. Use o botão abaixo para escolher uma nova senha.
+
+Redefinir minha senha: {{ .ConfirmationURL }}
+
+Se não foi você quem pediu, ignore este e-mail. Sua senha não muda apenas por receber esta mensagem.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

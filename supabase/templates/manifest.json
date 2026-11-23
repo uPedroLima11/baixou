@@ -1,0 +1,93 @@
+[
+  {
+    "key": "confirmation",
+    "subject": "Baixou! — confirme seu cadastro",
+    "html": "confirmation.html",
+    "text": "confirmation.txt",
+    "security": false
+  },
+  {
+    "key": "recovery",
+    "subject": "Baixou! — redefina sua senha",
+    "html": "recovery.html",
+    "text": "recovery.txt",
+    "security": false
+  },
+  {
+    "key": "invite",
+    "subject": "Baixou! — seu convite chegou",
+    "html": "invite.html",
+    "text": "invite.txt",
+    "security": false
+  },
+  {
+    "key": "magic_link",
+    "subject": "Baixou! — seu link de acesso",
+    "html": "magic_link.html",
+    "text": "magic_link.txt",
+    "security": false
+  },
+  {
+    "key": "email_change",
+    "subject": "Baixou! — confirme a alteração de e-mail",
+    "html": "email_change.html",
+    "text": "email_change.txt",
+    "security": false
+  },
+  {
+    "key": "reauthentication",
+    "subject": "Baixou! — confirme sua identidade",
+    "html": "reauthentication.html",
+    "text": "reauthentication.txt",
+    "security": false
+  },
+  {
+    "key": "password_changed_notification",
+    "subject": "Baixou! — sua senha foi alterada",
+    "html": "password_changed_notification.html",
+    "text": "password_changed_notification.txt",
+    "security": true
+  },
+  {
+    "key": "email_changed_notification",
+    "subject": "Baixou! — seu e-mail foi alterado",
+    "html": "email_changed_notification.html",
+    "text": "email_changed_notification.txt",
+    "security": true
+  },
+  {
+    "key": "phone_changed_notification",
+    "subject": "Baixou! — telefone da conta alterado",
+    "html": "phone_changed_notification.html",
+    "text": "phone_changed_notification.txt",
+    "security": true
+  },
+  {
+    "key": "identity_linked_notification",
+    "subject": "Baixou! — novo método de acesso",
+    "html": "identity_linked_notification.html",
+    "text": "identity_linked_notification.txt",
+    "security": true
+  },
+  {
+    "key": "identity_unlinked_notification",
+    "subject": "Baixou! — método de acesso removido",
+    "html": "identity_unlinked_notification.html",
+    "text": "identity_unlinked_notification.txt",
+    "security": true
+  },
+  {
+    "key": "mfa_factor_enrolled_notification",
+    "subject": "Baixou! — verificação adicionada",
+    "html": "mfa_factor_enrolled_notification.html",
+    "text": "mfa_factor_enrolled_notification.txt",
+    "security": true
+  },
+  {
+    "key": "mfa_factor_unenrolled_notification",
+    "subject": "Baixou! — verificação removida",
+    "html": "mfa_factor_unenrolled_notification.html",
+    "text": "mfa_factor_unenrolled_notification.txt",
+    "security": true
+  }
+]

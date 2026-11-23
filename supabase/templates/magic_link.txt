@@ -1,0 +1,12 @@
+Baixou!
+
+Seu acesso ao Baixou!
+
+Use o botão abaixo para entrar na sua conta. O link é pessoal e só pode ser usado uma vez.
+
+Entrar na minha conta: {{ .ConfirmationURL }}
+
+Se você não solicitou este acesso, não use o link e ignore este e-mail.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

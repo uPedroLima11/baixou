@@ -1,0 +1,12 @@
+Baixou!
+
+Novo método de acesso vinculado
+
+Um método de acesso foi vinculado à sua conta no Baixou!. Método informado: {{ .Provider }}.
+
+Abrir minha conta: {{ .SiteURL }}
+
+Se você não reconhece esta mudança, abra o Baixou! pelo endereço oficial e revise a segurança da sua conta.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.

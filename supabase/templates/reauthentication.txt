@@ -1,0 +1,12 @@
+Baixou!
+
+Confirme que é você
+
+Use o código abaixo na tela que solicitou a confirmação de identidade. Ele é pessoal e não deve ser compartilhado.
+
+Código: {{ .Token }}
+
+Se você não está realizando uma ação na sua conta, ignore este código e revise a segurança do seu acesso.
+
+Abrir o Baixou!: {{ .SiteURL }}
+Nunca compartilhe links ou códigos de verificação.
