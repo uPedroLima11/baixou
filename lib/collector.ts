@@ -16,7 +16,7 @@ export function removedProductRedirect(url:string,status:number,location:string|
 export function collectorRetryMinutes(error:unknown,priorFailures:number){return error instanceof RemovedProduct?24*60:retryMinutes(priorFailures);}
 function publicProductPath(url:string){const u=new URL(url);return u.origin+u.pathname;}
 export async function runCollector(options:Options={}){
- const check=options.check??false,max=Math.min(100,Math.max(1,options.max??(Number(process.env.COLLECT_MAX_PRODUCTS)||40)));
+ const check=options.check??false,max=Math.min(200,Math.max(1,options.max??(Number(process.env.COLLECT_MAX_PRODUCTS)||40)));
  const enabled=options.stores??(process.env.COLLECT_STORES??candidateSourceIds.join(',')).split(',');
  const db=check?null:adminDb(),started=Date.now(),deadline=options.deadlineMs??(Math.min(420000,Number(process.env.COLLECT_DEADLINE_MS)||240000)),discoveryPages=options.deadlineMs?1:Math.min(4,Math.max(1,Number(process.env.COLLECT_DISCOVERY_PAGES)||1));let total=0,failures=0,discovered=0,ran=0,stockOnly=0,excluded=0;
  // Cortesia por domínio: pelo menos 1,5 s entre o início de duas requisições à mesma loja. O trabalho no banco
