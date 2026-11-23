@@ -6,7 +6,7 @@ export async function sendNotifications(options:{budgetMs?:number;maxEmails?:num
 if(!process.env.SMTP_HOST||!process.env.SMTP_USER||!process.env.SMTP_PASS){return {sent:0,configured:false}}
 const db=adminDb();const transport=nodemailer.createTransport({host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT)||465,secure:(Number(process.env.SMTP_PORT)||465)===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},connectionTimeout:Math.min(10000,options.budgetMs??10000),socketTimeout:Math.min(15000,options.budgetMs??15000)});
 const {data:profiles,error}=await db.from('profiles').select('*').eq('email_enabled',true).limit(500);if(error)throw error;
-const {data:offers,error:oe}=await db.from('offers').select('*').eq('available',true).eq('verification_status','verified').gt('checked_at',new Date(Date.now()-5*60000).toISOString()).gt('expires_at',new Date().toISOString()).order('discount',{ascending:false}).limit(200);if(oe)throw oe;
+const {data:offers,error:oe}=await db.from('offers').select('*').eq('available',true).eq('verification_status','verified').gt('checked_at',new Date(Date.now()-5*60000).toISOString()).gt('expires_at',new Date().toISOString()).order('checked_at',{ascending:false}).limit(1000);if(oe)throw oe;
 const started=Date.now(),cap=Math.min(options.maxEmails??10,Number(process.env.NOTIFY_MAX_EMAILS)||10),budget=options.budgetMs??40000;let sent=0;
 for(const p of profiles??[]){if(sent>=cap||Date.now()-started>budget)break;const {data:rules,error:re}=await db.from('alerts').select('*').eq('user_id',p.id).eq('enabled',true);if(re)throw re;
  const {data:wishlist,error:we}=await db.from('wishlist').select('offer_id,offers(product_id)').eq('user_id',p.id);if(we)throw we;

@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 import {classify,normalize,type Offer} from '../lib/types';
 export type ParsedProduct=Omit<Offer,'discount'|'evidence'|'historical_median'|'historical_samples'|'historical_days'>;
 const names:Record<string,string>={waz:'WAZ',oficinadosbits:'Oficina dos Bits',guerradigital:'Guerra Digital',patoloco:'Patoloco'};
+export class ConfirmedUnavailable extends Error {constructor(){super('Indisponibilidade explícita confirmada no produto');}}
 export function brl(value:unknown){if(typeof value==='number')return value;const text=String(value??'').replace(/[^\d.,-]/g,'');return Number(text.includes(',')?text.replace(/\./g,'').replace(',','.'):text);}
 function clean(html:string){const $=cheerio.load(html);$('script,style,noscript').remove();return $.text().replace(/\s+/g,' ').trim();}
 export function structuredNodes($:cheerio.CheerioAPI){const nodes:any[]=[];function visit(n:any){if(!n||typeof n!=='object')return;if(Array.isArray(n)){n.forEach(visit);return;}nodes.push(n);if(n.mainEntity)visit(n.mainEntity);if(n['@graph'])visit(n['@graph']);}for(const e of $('script[type="application/ld+json"]').toArray()){try{visit(JSON.parse($(e).text()));}catch{}}return nodes;}
@@ -25,12 +26,13 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
  if(id==='patoloco'){
   const root=$('[itemtype$="/Product"]').first(),offers=root.find('[itemprop="offers"]').first();
   if(!root.length||normalize($('meta[property="og:site_name"]').attr('content')??'')!=='patoloco'||!$('footer').text().includes('29.823.090/0001-00'))throw Error('Identidade de loja própria não confirmada');
+  if(!offers.length&&/Este produto está indisponível no momento!/i.test($('h1').first().parent().parent().text()))throw new ConfirmedUnavailable();
   p={name:root.find('[itemprop="name"]').first().text().trim(),brand:root.find('[itemprop="brand"]').first().text().trim(),image:root.find('[itemprop="image"]').toArray().map(e=>$(e).attr('src')??$(e).attr('href')).filter(Boolean)};
   o={priceCurrency:offers.find('[itemprop="priceCurrency"]').attr('content'),availability:offers.find('[itemprop="availability"]').attr('href')??offers.find('[itemprop="availability"]').attr('content')};
   price=brl(offers.find('[itemprop="price"]').attr('content'));original=brl(offers.find('s').first().text())||null;payment='À vista no Pix ou boleto, conforme informado no produto.';
  }else{
   p=mainProduct($,url);const offers=Array.isArray(p.offers)?p.offers:[p.offers];o=offers.find((x:any)=>isType(x,'AggregateOffer'))??offers[0];
-  if(id==='waz'){const variants=Array.isArray(o?.offers)?o.offers:[o];o=variants.find((x:any)=>normalize(x?.seller?.name??'')==='waz');if(!o)throw Error('Vendedor WAZ não confirmado');price=brl(o.price);const pix=brl($('[class*="spotPriceValue--pdp"]').first().text());if(!pix||Math.abs(pix-price)>.02)throw Error('Preço Pix diverge do schema');original=brl($('[class*="listPriceValue"]').first().text())||null;payment='À vista no Pix, confirmado no produto.';
+  if(id==='waz'){const variants=Array.isArray(o?.offers)?o.offers:[o];o=variants.find((x:any)=>normalize(x?.seller?.name??'')==='waz');if(!o)throw Error('Vendedor WAZ não confirmado');price=brl(o.price);const pix=brl($('[class*="spotPriceValue--pdp"]').first().text());if(!pix||Math.abs(pix-price)>.02)throw Error('Preço Pix diverge do schema');original=brl($('[class*="flexRow--pdp-price-buy-btn"]').first().find('[class*="listPriceValue"]').first().text())||null;payment='À vista no Pix, confirmado no produto.';
   }else if(id==='oficinadosbits'){
    const store=structuredNodes($).find(n=>isType(n,'Store')&&normalize(n.name??'')==='oficina dos bits'&&equalURL(n.url,'https://www.oficinadosbits.com.br/'));
    if(!store||o?.seller&&normalize(o.seller.name)!=='oficina dos bits')throw Error('Loja própria não confirmada');price=brl(o?.price);const pix=brl($('.price-discount__pix').first().text().match(/R\$\s*[\d.,]+/)?.[0]);if(!pix||Math.abs(pix-price)>.02)throw Error('Preço Pix não confirmado');payment='À vista no Pix, confirmado no produto.';

@@ -9,6 +9,8 @@ export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g
 export function classify(title:string):Category {
  const t=' '+normalize(title)+' ';
  if(/(?:kit|combo).*(?:upgrade|gamer|teclado|mouse|processador|placa)|\+.*placa/.test(t))return 'kit';
+ if(/^\s*(notebook|laptop)\b/.test(t))return 'notebook';
+ if(/^\s*(computador|pc gamer|desktop completo)\b/.test(t))return 'pc';
  if(/placa mae|motherboard/.test(t))return 'motherboard';
  if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';
  if(/processador|ryzen|intel core/.test(t)&&!/notebook|computador|pc gamer/.test(t))return 'cpu';

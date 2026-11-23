@@ -50,3 +50,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Infraestrutura gratuita impõe limites. Não prometer busca infinita ou cobertura de toda promoção de minutos. Monitorar capacidade de revalidação versus TTL.
 - UX de modalidades: sem queda comprovada, iniciar ofertas anunciadas; preservar escolha manual e mostrar controles destacados com contagens.
 - Antes de encerrar: testes apropriados, tipos/build, commit e push, status real de CI/deploy e checkpoint atualizado. Não deixar mudanças necessárias só locais.
+
+## Motor de expansão (23/11/2026)
+
+- Fontes operacionais comprovadas: KaBuM, WAZ, Guerra Digital e Patoloco. Oficina dos Bits tem parser/fixtures, mas HTTP403 em categorias no runner; não recolocar na rotina sem acesso legítimo comprovado. Terabyte/Pichau continuam bloqueados.
+- Filas privadas collection_state/collection_pages/product_candidates/collection_runs. Lease por loja; jobs Supabase separados e escalonados a cada5min; Actions matrix a cada30min. Não restaurar fila global nem sobrescrever cursores com relógio modular.
+- Alternar candidatos novos diversos e revalidações vencidas. Backoff de falhas e indisponíveis evita monopolizar fila. Capacidade máxima2000candidatos/loja,100detalhes por execução,8MBporresposta,timeout8s epausa1,5s. Limites são orçamento, não promessa de cobertura.
+- TTL regular60min; queda histórica comprovada>=20% usa15min. Isso limita a validade da última verificação; não prova reserva de estoque. Alertas ainda exigem confirmação recente em5min.
+- WAZ: não usar AggregateOffer.highPrice como referência nem código interno como MPN/GTIN. Guerra: mainEntity e preçoPix do próprio produto, não recomendação ou desconto global. Patoloco: indisponibilidade explícita sem preço não vira ofertaR$0; atualizar apenas estoque de registro existente e reagendar. Bits: seller ausente só admite regra de loja própria com Store/canonical/Pix confirmados; continua bloqueado no host.
+- Categoria de RAM inclui kits de memória e módulos de notebook. Não confundir NotebookRTX comGPU ou kitRAM comkitupgrade. Alertas de categoria semmarca/modelo devem casar qualquer fabricante elegível pela mediana própria, mantendo alertas de produto exato separados.
