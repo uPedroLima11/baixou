@@ -49,10 +49,29 @@ jobs:
       - name: Enviar alertas opt-in
         run: npm run notifications
 
+  # Conectores independentes (lib/connectors), em paralelo à matriz: hoje só as vitrines de lojas oficiais do
+  # Mercado Livre (~25 requisições por execução). Desligar com a variável de repositório ML_STOREFRONTS=off.
+  connectors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ML_STOREFRONTS: ${{ vars.ML_STOREFRONTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Conectores (Mercado Livre lojas oficiais)
+        run: npm run connectors
+
   # Relatório único depois das quatro lojas (antes rodava 4x por execução). Uma nova tentativa cobre
   # erros transitórios do gateway Supabase (ex.: Cloudflare 522 observado em 45199413698); falha persistente fica vermelha.
   report:
-    needs: collect
+    needs: [collect, connectors]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

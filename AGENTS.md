@@ -76,3 +76,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - KaBuM: a listagem informa sellerId/isMarketplace; itens de marketplace são descartados já na descoberta porque só o vendedor próprio é aceito.
 - Descoberta: rotas cadastradas em scripts/sources.ts têm prioridade sobre subcategorias descobertas (uma vaga por execução para estas).
 - Catálogo público: /api/catalog?page=N (400 por página, ordem desconto+id) a partir da view catalog_offers (sem descrição longa, security_invoker). O cliente carrega todas as páginas para contagens exatas e renderiza a grade em blocos de 48. O detalhe busca o registro completo em /api/product.
+
+## Mercado Livre sem OAuth (23/11/2026)
+
+- Conta Developers do proprietário está bloqueada para criar apps. API sem token: 401/403. Produto/lista: verificação de conta (não contornar). Detalhes em docs/MERCADOLIVRE_RESEARCH.md.
+- Fonte ativa: vitrines públicas de lojas oficiais (`/loja/{slug}`), via lib/connectors/mercadolivre-stores.ts e job `connectors` em collect.yml. Cobertura PARCIAL (`store_registry = partial`); não declarar catálogo completo do Mercado Livre.
+- Preço "Antes" do ML é desconto anunciado, não queda comprovada. Disponibilidade é inferida da vitrine ativa; item ausente vence pelo TTL, nunca vira "esgotado".
+- Novos slugs só após conferir com probe.yml no runner. Desligar com a variável de repositório ML_STOREFRONTS=off.

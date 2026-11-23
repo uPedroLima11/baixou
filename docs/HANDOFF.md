@@ -1,3 +1,14 @@
+# CHECKPOINT — Mercado Livre por vitrines de lojas oficiais (Claude Code, 23/11/2026, ~17h30 UTC)
+
+- **Contexto:** conta Developers bloqueada, sem OAuth. Investigação completa em `docs/MERCADOLIVRE_RESEARCH.md`. API sem token 401/403; produto/lista redirecionam para verificação de conta; sem sitemap; bibliotecas comunitárias dependem desses mesmos caminhos.
+- **Implementado:** conector `mercadolivre-lojas-oficiais` (`lib/connectors/mercadolivre-stores.ts`) lê as vitrines públicas `/loja/{slug}` de 25 lojas oficiais de tecnologia. Executor `scripts/connectors.ts` (lease, política de marketplace, persistência igual à do coletor em `lib/connectors/persist.ts`). Job `connectors` em collect.yml, paralelo à matriz.
+- **Validação hospedada:** probe 45225406075 (200 no runner) e coleta 45226618462: 329 anúncios gravados, 169 com desconto anunciado, 0 rejeitados, 0 erros. Amostras no banco: kits upgrade da Pichau ("Kit Upgrade Gamer AMD Ryzen 5 5500 + A520M + 8GB DDR4", R$ 1.349, antes R$ 2.200), RTX 5070 Gigabyte, notebooks Lenovo/Dell/Acer. `store_registry.mercadolivre = partial`, com produto de teste (migration 20261123172551).
+- **Classificador:** monitor "Full HD" não cai mais em SSD; notebook com CPU móvel (H/HX/HS/U) e RTX não cai mais em placa de vídeo.
+- **Ferramentas:** `probe.yml` (sondagem manual a partir do runner) e `connectors.yml` (validação manual de conectores).
+- **Pendências:** unificar a persistência de `lib/collector.ts` com `lib/connectors/persist.ts`; ampliar slugs de lojas oficiais (validar cada um com probe.yml); itens do ML não têm MPN, então não há comparação entre lojas por identidade.
+
+---
+
 # CHECKPOINT — acessos oficiais, paginação e conectores (Claude Code, 23/11/2026, ~16h UTC)
 
 Regra do proprietário: custo zero absoluto (sem depósito, assinatura ou API paga).
