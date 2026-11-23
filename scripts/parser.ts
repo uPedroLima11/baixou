@@ -15,3 +15,23 @@ export function kabumProduct(html:string,url:string):Omit<Offer,'historical_medi
  const images=(p.medias??[]).map((m:any)=>m.images?.gg??m.images?.g).filter((s:any)=>typeof s==='string'&&s.startsWith('https://')&&new URL(s).hostname.endsWith('kabum.com.br')).slice(0,10);
  const now=new Date();return {id:'kabum-'+(p.id??new URL(url).pathname.split('/')[2]),store:'kabum',url:url.split('?')[0],title:String(p.title).slice(0,500),category:classify(p.title),brand:p.manufacturer?.name??null,mpn,image:images[0]??null,images,price,original_price:Number(p.prices.oldPrice)>price?Number(p.prices.oldPrice):null,available:!!p.available&&p.flags?.isAvailable===true&&p.flags?.isActive===true,seller:p.sellerName,sold:null,rating:p.rating?.score?Number(p.rating.score):p.rating?.average?Number(p.rating.average):null,review_count:Number(p.rating?.count)||null,specs,checked_at:now.toISOString(),expires_at:new Date(now.getTime()+30*60000).toISOString()};
 }
+
+// ChipArt (loja própria, Next.js): dados do produto no __NEXT_DATA__ renderizado no servidor.
+// Preço = preco_pix, conferido com o "à vista no PIX" impresso no DOM. preco_lista NÃO é usado como preço antigo:
+// a razão Pix/lista varia por produto e não bate com o total parcelado, então pode ser preço de cartão.
+// Ficha estruturada (caracteristicas) traz Modelo e EAN do fabricante.
+export function chipartLinks(html:string){const $=cheerio.load(html);return [...new Set($('a[href*="/produto/"]').toArray().map(a=>String($(a).attr('href')??'').trim().replace(/\/$/,'')))].filter(h=>/^(https:\/\/www\.chipart\.com\.br)?\/produto\/[^?#\s]+\/\d+$/.test(h)&&!/\/\.{1,2}(\/|$)/.test(h)).map(h=>h.startsWith('http')?h:'https://www.chipart.com.br'+h).slice(0,200);}
+export function chipartProduct(html:string,url:string):Omit<Offer,'historical_median'|'historical_samples'|'historical_days'|'discount'|'evidence'>{
+ const $=cheerio.load(html),next=JSON.parse($('#__NEXT_DATA__').text()||'{}'),data=next.props?.pageProps?.data?.product,p=data?.produto,store=next.props?.store;
+ if(!p?.nome_produto)throw new Error('Produto não encontrado no HTML');
+ if($('meta[property="og:site_name"]').attr('content')!=='CHIPART LTDA'||store?.b2c!==true)throw new ExcludedProduct('seller_untrusted');
+ const path=new URL(url).pathname,id=path.match(/\/(\d+)$/)?.[1];if(!id||String(p.codigo_sku)!==id||'/produto'+String(p.link??'').replace(/\/$/,'')!==path)throw new Error('Produto da página diverge da URL');
+ const price=Number(p.preco_pix);if(!Number.isFinite(price)||price<=0)throw new Error('Preço inválido');
+ const pixLabel=$('span').filter((_,e)=>/^à vista no PIX$/i.test($(e).text().trim())).first(),shown=Number((pixLabel.prev('strong').text().match(/R\$\s*([\d.]+,\d{2})/)?.[1]??'').replace(/\./g,'').replace(',','.'));
+ if(!shown||Math.abs(shown-price)>.02)throw new Error('Preço Pix diverge do produto');
+ const stock=Number(p.quantidade_estoque);if(!Number.isFinite(stock))throw new Error('Estoque não informado');
+ const specs:Record<string,string>={};for(const c of data.caracteristicas??[]){const k=String(c.descricao_caracteristica??'').trim().slice(0,80),v=String(c.descricao_opcao_caracteristica??'').trim().slice(0,400);if(k&&v)specs[k]=v;}
+ const base=String(store?.imagesUrl?.detail??'');const images=base==='https://i.chipart.openk.com.br/detalhe'?[...(data.fotos??[])].sort((a:any,b:any)=>(b.padrao-a.padrao)||(a.ordem-b.ordem)).map((f:any)=>String(f.descricao_imagem??'')).filter(n=>/^[\w.-]+\.(?:jpe?g|png|webp)$/i.test(n)).map(n=>base+'/'+n).slice(0,10):[];
+ const mpn=specs.Modelo&&!/\s/.test(specs.Modelo)&&/\d/.test(specs.Modelo)?specs.Modelo:null,title=String(p.nome_produto).trim().slice(0,500),now=new Date();
+ return {id:'chipart-'+id,store:'chipart',url,title,category:classify(title),brand:p.nome_fabricante?String(p.nome_fabricante):null,mpn,image:images[0]??null,images,price,original_price:null,available:stock>0,seller:'ChipArt',sold:null,rating:null,review_count:null,specs,payment_note:'À vista no Pix, confirmado no produto.',checked_at:now.toISOString(),expires_at:new Date(now.getTime()+30*60000).toISOString()};
+}

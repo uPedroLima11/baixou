@@ -66,3 +66,14 @@ test('iByte (VTEX): own seller, schema price equals DOM Pix price, internal mpn/
  const category=readFileSync(new URL('./fixtures/expansion/ibyte-category.html',import.meta.url),'utf8');const slugs=vtexLinkTexts(category);assert.ok(slugs.length>=3);assert.ok(slugs.every(s=>/^[a-z0-9-]+$/.test(s)));
  for(const [t,code] of [['SSD Kingston 2,5" 480GB A400 SATA III SA400S37/480G','SA400S37/480G'],['Memória Kingston 8GB DIMM DDR4 3200MHz KVR32N22S6/8','KVR32N22S6/8'],['Memória Gamer 8GB DDR4-3200',null],['Placa de vídeo PCIe-4.0',null],['Cabo USB-C 2m',null],['Mouse sem fio M-170',null]] as const)assert.equal(ibyteTitleCode(t),code,t);
 });
+test('ChipArt (__NEXT_DATA__): own store, Pix price matches the DOM, explicit stock, Modelo/EAN from the spec sheet, struck price ignored',async()=>{
+ const {chipartProduct,chipartLinks}=await import('../scripts/parser');const {identityForOffer}=await import('../lib/identity');
+ const html=readFileSync(new URL('./fixtures/expansion/chipart.html',import.meta.url),'utf8'),url='https://www.chipart.com.br/produto/hardware/placamae/para-processadores-amd/b550/placamae-asus-tuf-gaming-b550mplus-chipset-b550-amd-am4-matx-ddr4/11101';
+ const p=chipartProduct(html,url);assert.equal(p.price,776.3);assert.equal(p.original_price,null,'preco_lista is not proven as a previous price');assert.equal(p.available,true);assert.equal(p.seller,'ChipArt');assert.equal(p.mpn,'90MB14A0-C1BAY0');assert.equal(p.specs.EAN,'4718017623544');assert.match(p.image??'',/^https:\/\/i\.chipart\.openk\.com\.br\/detalhe\//);
+ const id=identityForOffer({...p,historical_median:null,historical_samples:0,historical_days:0,discount:0,evidence:'none'} as Offer);assert.equal(id?.mpn,'90MB14A0C1BAY0');assert.equal(id?.gtin,'04718017623544');
+ assert.equal(chipartProduct(html.replace('"quantidade_estoque":60','"quantidade_estoque":0'),url).available,false);
+ assert.throws(()=>chipartProduct(html.replace('"preco_pix":776.3','"preco_pix":700'),url),/Pix diverge/);
+ assert.throws(()=>chipartProduct(html.replace('CHIPART LTDA','Outra Loja'),url));
+ assert.throws(()=>chipartProduct(html,url.replace('/11101','/11102')),/diverge da URL/);
+ const links=chipartLinks(readFileSync(new URL('./fixtures/expansion/chipart-category.html',import.meta.url),'utf8'));assert.equal(links.length,2);assert.ok(links.every(l=>/^https:\/\/www\.chipart\.com\.br\/produto\/.+\/\d+$/.test(l)&&!l.includes('..')));
+});

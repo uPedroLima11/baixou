@@ -1,7 +1,7 @@
 import {ExcludedProduct} from './product-policy';
 import robotsParser from 'robots-parser';import * as cheerio from 'cheerio/slim';import {createHash} from 'node:crypto';
 import {adminDb,safeUrl} from './server';import {evidenceFromStats,classify,kitComponents,type Offer} from './types';
-import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct} from '../scripts/parser';
+import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct,chipartLinks,chipartProduct} from '../scripts/parser';
 import {parseStoreProduct,structuredProductLinks,vtexLinkTexts,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
 import {productURL,categoryURL,candidateCategory,retryMinutes,verificationTTL,recheckMinutes,planBatch,pickDiscoveryPages} from './collection-policy';
 type Options={check?:boolean;max?:number;stores?:string[];deadlineMs?:number;discoveryIntervalMinutes?:number;onProgress?:()=>Promise<void>};
@@ -49,7 +49,7 @@ export async function runCollector(options:Options={}){
    const page={data:pickDiscoveryPages(duePages.data??[],new Set(source.paths.map(path=>source.origin+path)),db?discoveryPages:1,cursor)};
    for(const {url}of page.data??[]){if(!allowed(url)) {if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+86400000).toISOString()}).eq('store',source.id).eq('url',url);continue;}
     try{await pause();const html=await get(url),$=cheerio.load(html);
-     const productLinks=source.id==='kabum'?kabumDiscovery(html):source.id==='ibyte'?vtexLinkTexts(html).map(slug=>source.origin+'/'+slug+'/p'):[...$('a[href]').toArray().map(a=>$(a).attr('href')!),...structuredProductLinks($)];
+     const productLinks=source.id==='kabum'?kabumDiscovery(html):source.id==='chipart'?chipartLinks(html):source.id==='ibyte'?vtexLinkTexts(html).map(slug=>source.origin+'/'+slug+'/p'):[...$('a[href]').toArray().map(a=>$(a).attr('href')!),...structuredProductLinks($)];
      for(const raw of productLinks){const u=productURL(raw,source);if(u&&allowed(u))fresh.add(u);}
      if(db){const categories=[...new Set($('a[href],link[rel="next"]').toArray().map(e=>categoryURL($(e).attr('href')??'',source)).filter((u):u is string=>!!u&&!!allowed(u)))].slice(0,150);
       if(categories.length){const inserted=await db.from('collection_pages').upsert(categories.map(url=>({store:source.id,url})),{onConflict:'store,url',ignoreDuplicates:true});if(inserted.error)throw inserted.error;}
@@ -74,7 +74,7 @@ export async function runCollector(options:Options={}){
     // Alertas exigem confirmação de até 5 min: o chamador pode enviar notificações durante a coleta longa.
     if(options.onProgress)await options.onProgress().catch(()=>console.error('Envio intermediário de alertas falhou'));
     if(Date.now()-started>deadline-10000)break;if(!allowed(url))continue;await pause();
-    try{const html=await get(url);const base:ParsedProduct=source.id==='kabum'?kabumProduct(html,url):['terabyte','pichau'].includes(source.id)?generic(html,url,source):parseStoreProduct(source.id,html,url);
+    try{const html=await get(url);const base:ParsedProduct=source.id==='kabum'?kabumProduct(html,url):source.id==='chipart'?chipartProduct(html,url):['terabyte','pichau'].includes(source.id)?generic(html,url,source):parseStoreProduct(source.id,html,url);
      if(base.category==='kit')for(const [k,v] of Object.entries(kitComponents(base.title)))base.specs['Componente do kit: '+k]??=v;
      if(!db){console.log(JSON.stringify({store:source.id,title:base.title,price:base.price,available:base.available,mpn:base.mpn,category:base.category}));count++;continue;}
      const [stats,provenance]=await Promise.all([db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null}>(),db.from('discovery_events').select('source_id,coupon_hint,discovery_sources!inner(name,attribution_url,enabled)').eq('canonical_url',url).eq('discovery_sources.enabled',true)]);if(stats.error)throw stats.error;if(provenance.error)throw provenance.error;

@@ -7,8 +7,10 @@ export const sources=[
  {id:'guerradigital',name:'Guerra Digital',origin:'https://www.guerradigital.com.br',paths:['/hardware/memoria/ddr4/','/hardware/memoria/ddr5/','/hardware/placa-de-video/','/hardware/processador/','/hardware/placa-mae/','/hardware/ssd/','/monitores/','/cadeiras/','/perifericos/','/hardware/kit-upgrade/','/computadores/','/hardware/placa-de-video/?page=2'],product:/^\/produtos\/[^/]+\/$/},
  {id:'patoloco',name:'Patoloco',origin:'https://patoloco.com.br',paths:['/produtos/placa-de-video','/produtos/hardware','/produtos/periferico','/produtos/cadeira-gamer','/produtos/monitor','/produtos/computadores-1'],product:/^\/(?!produtos|documentos|admin|ajax|includes|integracao)[a-z0-9]+(?:-[a-z0-9]+){3,}\/?$/},
  // iByte (VTEX): categorias públicas; produtos descobertos pelo linkText do estado renderizado no servidor (sem /api/*, bloqueado no robots).
- {id:'ibyte',name:'iByte',origin:'https://www.ibyte.com.br',paths:['/hardware/placa-de-video','/hardware/processador','/hardware/memoria','/hardware/placa-mae','/armazenamento/ssd','/pcs-e-notebooks/perifericos/monitor','/pcs-e-notebooks/perifericos/mouse','/pcs-e-notebooks/perifericos/teclado','/gamer/cadeira-gamer','/hardware/fontes'],product:/^\/[a-z0-9]+(?:-[a-z0-9]+)+\/p$/}
+ {id:'ibyte',name:'iByte',origin:'https://www.ibyte.com.br',paths:['/hardware/placa-de-video','/hardware/processador','/hardware/memoria','/hardware/placa-mae','/armazenamento/ssd','/pcs-e-notebooks/perifericos/monitor','/pcs-e-notebooks/perifericos/mouse','/pcs-e-notebooks/perifericos/teclado','/gamer/cadeira-gamer','/hardware/fontes'],product:/^\/[a-z0-9]+(?:-[a-z0-9]+)+\/p$/},
+ // ChipArt (Next.js, loja própria): categorias públicas com links /produto/…/ID; dados no __NEXT_DATA__.
+ {id:'chipart',name:'ChipArt',origin:'https://www.chipart.com.br',paths:['/hardware/processadores','/hardware/placa-de-video','/hardware/placamae','/hardware/memorias','/hardware/ssd','/hardware/fonte','/monitores','/perifericos','/computadores'],product:/^\/produto\/[^?#\s]+\/\d+$/}
 ] as const;
 export type Source=typeof sources[number];
 // Candidate adapters are not store_registry operational statuses. Promotion requires hosted evidence.
-export const candidateSourceIds=['kabum','waz','oficinadosbits','guerradigital','patoloco','ibyte'];
+export const candidateSourceIds=['kabum','waz','oficinadosbits','guerradigital','patoloco','ibyte','chipart'];
