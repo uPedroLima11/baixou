@@ -2,11 +2,16 @@ import * as cheerio from 'cheerio/slim';
 import {createHash} from 'node:crypto';
 import {classify,normalize,type Offer} from '../lib/types';
 export type ParsedProduct=Omit<Offer,'discount'|'evidence'|'historical_median'|'historical_samples'|'historical_days'>;
-const names:Record<string,string>={waz:'WAZ',oficinadosbits:'Oficina dos Bits',guerradigital:'Guerra Digital',patoloco:'Patoloco'};
+const names:Record<string,string>={ibyte:'iByte',waz:'WAZ',oficinadosbits:'Oficina dos Bits',guerradigital:'Guerra Digital',patoloco:'Patoloco'};
 export class ConfirmedUnavailable extends Error {constructor(){super('Indisponibilidade explícita confirmada no produto');}}
 export function brl(value:unknown){if(typeof value==='number')return value;const text=String(value??'').replace(/[^\d.,-]/g,'');return Number(text.includes(',')?text.replace(/\./g,'').replace(',','.'):text);}
 function clean(html:string){const $=cheerio.load(html);$('script,style,noscript').remove();return $.text().replace(/\s+/g,' ').trim();}
 export function structuredNodes($:cheerio.CheerioAPI){const nodes:any[]=[];function visit(n:any){if(!n||typeof n!=='object')return;if(Array.isArray(n)){n.forEach(visit);return;}nodes.push(n);if(n.mainEntity)visit(n.mainEntity);if(n['@graph'])visit(n['@graph']);}for(const e of $('script[type="application/ld+json"]').toArray()){try{visit(JSON.parse($(e).text()));}catch{}}return nodes;}
+// VTEX (iByte): o estado renderizado no servidor lista os produtos da categoria como "linkText":"slug". Só slugs seguros.
+export function vtexLinkTexts(html:string){return [...new Set([...html.matchAll(/"linkText":"([a-z0-9]+(?:-[a-z0-9]+)+)"/g)].map(m=>m[1]))].slice(0,200);}
+// iByte imprime o código do fabricante como último termo do título, separado por espaço ("… SATA III SA400S37/480G").
+// Aceito só com '-' ou '/', letras e >=3 dígitos, e nunca termos de especificação (DDR4-3200, PCIe-4.0, USB-C…).
+export function ibyteTitleCode(title:string){const last=title.trim().split(/\s+/).at(-1)??'';return /^[A-Za-z0-9]+(?:[-/][A-Za-z0-9]+)+$/.test(last)&&last.length>=7&&/[A-Za-z]/.test(last)&&(last.match(/\d/g)?.length??0)>=3&&!/^(?:G?DDR\d|PCIE?|USB|HDMI|LGA|AM\d|WI-?FI|RGB|ARGB|SATA|NVME|M\.?2)/i.test(last)?last:null;}
 export function structuredProductLinks($:cheerio.CheerioAPI){const links=new Set<string>();let visited=0;function walk(n:any,depth=0){if(depth>12||visited++>5000||!n)return;if(Array.isArray(n)){n.forEach(x=>walk(x,depth+1));return;}if(typeof n!=='object')return;for(const value of [n.url,n['@id']])if(typeof value==='string')links.add(value);for(const key of ['@graph','mainEntity','itemListElement','item','offers']){if(typeof n[key]==='string'&&key==='item')links.add(n[key]);else walk(n[key],depth+1);}}for(const script of $('script[type="application/ld+json"]').toArray()){try{walk(JSON.parse($(script).text()));}catch{}}return [...links];}
 const isType=(n:any,type:string)=>[n?.['@type']].flat().includes(type);
 function equalURL(a:string,b:string){try{const x=new URL(a),y=new URL(b);return x.hostname===y.hostname&&x.pathname.replace(/\/$/,'')===y.pathname.replace(/\/$/,'');}catch{return false;}}
@@ -36,6 +41,15 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
   if(id==='waz'){const variants=Array.isArray(o?.offers)?o.offers:[o];o=variants.find((x:any)=>normalize(x?.seller?.name??'')==='waz');if(!o)throw Error('Vendedor WAZ não confirmado');price=brl(o.price);const pix=brl($('[class*="spotPriceValue--pdp"]').first().text());
    // Esgotado na WAZ: schema do vendedor WAZ declara OutOfStock e a página não exibe preço Pix. Não vira oferta com preço do schema.
    if(!pix&&/\/OutOfStock$/i.test(String(o.availability??'')))throw new ConfirmedUnavailable();if(!pix||Math.abs(pix-price)>.02)throw Error('Preço Pix diverge do schema');original=brl($('[class*="flexRow--pdp-price-buy-btn"]').first().find('[class*="listPriceValue"]').first().text())||null;payment='À vista no Pix, confirmado no produto.';
+  }else if(id==='ibyte'){
+   // Vendedor próprio no schema e preço Pix impresso no DOM ("Por: R$ X no PIX") igual ao schema. highPrice do AggregateOffer não é preço antigo.
+   const variants=Array.isArray(o?.offers)?o.offers:[o];o=variants.find((x:any)=>normalize(x?.seller?.name??'')==='ibyte');if(!o)throw Error('Vendedor iByte não confirmado');price=brl(o.price);
+   const selling=$('[class*="sellingPrice--product-page-best-price"]').first(),pix=brl(selling.find('[class*="sellingPriceValue"]').first().text());
+   if(!pix&&/\/OutOfStock$/i.test(String(o.availability??'')))throw new ConfirmedUnavailable();
+   if(!pix||!/no\s+pix/i.test(selling.text())||Math.abs(pix-price)>.02)throw Error('Preço Pix diverge do schema');
+   original=brl($('[class*="listPriceValue"]').first().text())||null;payment='À vista no Pix, confirmado no produto.';
+   // mpn/gtin do schema da iByte são códigos internos; o código do fabricante vem do fim do título.
+   p={...p,mpn:ibyteTitleCode(String(p.name??''))};
   }else if(id==='oficinadosbits'){
    const store=structuredNodes($).find(n=>isType(n,'Store')&&normalize(n.name??'')==='oficina dos bits'&&equalURL(n.url,'https://www.oficinadosbits.com.br/'));
    if(!store||o?.seller&&normalize(o.seller.name)!=='oficina dos bits')throw Error('Loja própria não confirmada');price=brl(o?.price);const pix=brl($('.price-discount__pix').first().text().match(/R\$\s*[\d.,]+/)?.[0]);if(!pix||Math.abs(pix-price)>.02)throw Error('Preço Pix não confirmado');payment='À vista no Pix, confirmado no produto.';
