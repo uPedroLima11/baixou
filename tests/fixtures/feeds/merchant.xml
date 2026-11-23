@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel><title>Exemplo sintético de formato</title>
+<item><g:id>A1</g:id><g:title>Processador AMD Ryzen 7 7800X3D</g:title><g:link>https://www.terabyteshop.com.br/produto/1/exemplo</g:link><g:price>2499.90 BRL</g:price><g:sale_price>1999.90 BRL</g:sale_price><g:sale_price_effective_date>2026-11-01T00:00:00-03:00/2026-12-01T00:00:00-03:00</g:sale_price_effective_date><g:availability>in_stock</g:availability><g:condition>new</g:condition><g:brand>AMD</g:brand><g:mpn>100-100000910WOF</g:mpn><g:gtin>0730143314930</g:gtin><g:image_link>https://img.terabyteshop.com.br/1.jpg</g:image_link></item>
+<item><g:id>A2</g:id><g:title>Item esgotado</g:title><g:link>https://www.terabyteshop.com.br/produto/2/x</g:link><g:price>100,00 BRL</g:price><g:availability>out of stock</g:availability></item>
+<item><g:id>A3</g:id><g:title>Pré-venda</g:title><g:link>https://www.terabyteshop.com.br/produto/3/x</g:link><g:price>100.00 BRL</g:price><g:sale_price>50.00 BRL</g:sale_price><g:sale_price_effective_date>2025-01-01/2025-01-02</g:sale_price_effective_date><g:availability>preorder</g:availability><g:gtin>123</g:gtin></item>
+<item><g:id>A4</g:id><g:title>Sem link</g:title><g:price>10 BRL</g:price></item>
+</channel></rss>
