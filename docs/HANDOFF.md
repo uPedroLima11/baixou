@@ -1,3 +1,85 @@
+# CHECKPOINT FINAL PARA CLAUDE CODE — 23/11/2026
+
+## Começar aqui
+
+Código validado e publicado: **bcb4bce**. Este bloco é o checkpoint documental posterior; consulte git log -1 para seu hash. Pasta autoritativa: D:\PROJETOS\baixou. Repositório: https://github.com/uPedroLima11/baixou . Produção: https://baixouofertas.vercel.app . Leia AGENTS.md, este bloco e docs/EXPANSION_REPORT.md; não reconstruir o projeto.
+
+- 41 testes passaram, assim como TypeScript e build. CI45191497674 aprovado para o código validado; deploy baixou-hm8xjh492-upedrolima11s-projects.vercel.app confirmado READY.
+- Última coleta manual hospedada45189145295 terminou com sucesso nas quatro lojas. As execuções manuais comprovam coleta; não comprovam o disparo do agendamento GitHub.
+- Nenhuma alteração de SMTP ou recriação de segredo foi feita nesta etapa final. Não pedir senha ou token pelo chat.
+
+## Métricas e contadores confirmados
+
+Medição Supabase de23/11/2026 às11:11:02 (SãoPaulo), seguida de validação contra a API pública já publicada:
+
+| Loja | Anúncios coletados | Disponíveis no TTL | Anúncios com desconto |
+| --- | ---: | ---: | ---: |
+| KaBuM! | 133 | 132 | 113 |
+| WAZ | 78 | 78 | 8 |
+| Guerra Digital | 97 | 59 | 0 |
+| Patoloco | 156 | 156 | 144 |
+| Total | 464 | 425 | 265 |
+
+A listagem sem filtros continha262produtos após agrupar anúncios do mesmo modelo. A API retornava425anúncios, sem truncamento. “Todas as ofertas” e a modalidade passaram a usar o mesmo conjunto elegível e agrupado dos cards; ambos deram262na validação pública. Busca, loja, preço e desconto participam das contagens. Os números mudam com a coleta e o TTL.
+
+A diferença relatada pelo usuário (378/230/227) vinha de comparar três etapas diferentes: todos os anúncios disponíveis, anúncios com desconto e produtos agrupados. Não era correto usar a primeira contagem nos filtros do modo de promoção. lib/catalog-selection.ts agora centraliza a seleção, e os testes cobrem essa divergência.
+
+As quatro lojas estavam presentes na resposta pública. Guerra Digital tinha59produtos disponíveis, mas zero descontos elegíveis: não forçar preços normais para preencher o catálogo. WAZ tinha8ofertas elegíveis. O código não pré-seleciona KaBuM/Patoloco. Agora escolhas manuais de loja são preservadas em sessionStorage; ausência de filtro inclui todas. A janela “Origem dos preços” mostra o funil por loja e o resultado no filtro atual.
+
+A função pública catalog_coverage() é SECURITY INVOKER, usa somente dados de ofertas já públicos e respeita RLS. Migration20261123140847_catalog_coverage_counts.sql aplicada. A API inclui coverage e truncated; não expõe filas ou usuários. O limite de500anúncios por resposta permanece e deve receber paginação antes de crescer além disso. Nesta validação não havia truncamento.
+
+## PRIORIDADE 1: revalidação e disparo automático do GitHub
+
+A medição encontrou171rechecagens devidas: KaBuM76(até12min), WAZ24(até12min), Guerra20(até8min), Patoloco51(até13min). Nenhum anúncio disponível estava expirado porTTL nessa fotografia. A fila “devida” antecipa o TTL, mas a margem já está curta: NÃO declarar capacidade sustentável de longo prazo nem ignorar risco de expiração futura.
+
+O GitHub workflow está ativo e configurado para cada30min, porém a consulta gh run list --event schedule retornou lista vazia durante esta etapa. A causa não foi investigada até o fim por orientação expressa do proprietário para encerrar. Verificar por que o GitHub não está produzindo execuções agendadas é a primeira retomada: o lote conservador da Vercel sozinho não foi dimensionado para sustentar todo o conjunto crescente. Não confundir sucesso manual com agendamento comprovado.
+
+O Supabase tem ativos:
+- baixou-collect-batch: */15 * * * *, lote das quatro fontes, até dois detalhes por fonte, descoberta de categoria apenas após30minsem descoberta recente;
+- baixou-collect-retry: minutos2/17/32/47, recuperação única se nenhum worker iniciou nos últimos5min.
+
+Os quatro crons individuais antigos estão inativos. Não reativá-los em paralelo. O pg_net teve erro intermitente HTTP/2; tentativa seguinte chegou ao worker. Observar net._http_response e collection_runs, inclusive exclusões de política, não só cron.job_run_details=succeeded. Estoque/favoritos/histórico não são apagados por falhas.
+
+O parser foi trocado pelo export documentado cheerio/slim após benchmark em páginas reais:672ms versus141ms de CPU para16documentos, com título/canonical/JSON/preço idênticos. Os41testes passaram após a troca. Isso é medição local do parser, NÃO homologação de um lote maior na Vercel. Não aumentar frequência/volume sem medir CPU/duração hospedadas e franquia. O lote anterior reduzido mediu2061ms deCPU/9811ms de duração; a medição ainda precedia o parser otimizado.
+
+Próximas ações, nesta ordem:
+1. Confirmar e corrigir o disparo automático GitHub, documentando o motivo real se encontrado.
+2. Medir taxas de revalidação e o backlog por loja; priorizar ofertas/favoritos e ajustar admissão/volume com orçamento medido. Não estender TTL para esconder atraso nem inventar estoque.
+3. Implementar paginação/filtros no servidor antes de ultrapassar o limite público de500anúncios; manter contagens honestas.
+4. Validar visualmente os contadores/filtros na sessão autenticada. A igualdade foi testada com dados reais da API e pela função usada pela UI; teste visual completo ainda não foi feito.
+5. Prosseguir na expansão das lojas autorizadas. Bits/Terabyte/Pichau permanecem bloqueadas; não repetir403ou recriar pesquisas já registradas.
+
+## Retomada sem plugins
+
+Claude pode não herdar os plugins nem sessões desta tarefa. Clone/leitura do GitHub público não exigem chave; push exige autenticação com permissão no repositório. Vercel e Supabase exigem login oficial no ambiente do próximo agente. Não há necessidade de trocar secrets existentes.
+
+~~~sh
+git clone https://github.com/uPedroLima11/baixou.git
+cd baixou
+npm ci
+npm test
+npm run typecheck
+npm run build
+gh auth status
+gh run list --repo uPedroLima11/baixou --workflow collect.yml --limit 5
+gh run list --repo uPedroLima11/baixou --workflow collect.yml --event schedule --limit 5
+gh workflow run collect.yml --repo uPedroLima11/baixou
+npx vercel project inspect baixou --non-interactive
+npx vercel deploy --prod --yes --scope upedrolima11s-projects
+npx supabase db query --remote=slmhkfqqeyptngjubfhn --read-only "select public.catalog_coverage()"
+~~~
+
+Se desconectado, usar gh auth login, npx vercel login e npx supabase login pelos fluxos oficiais, com o proprietário quando necessário. Confirmar escopo e projeto antes de qualquer escrita. Supabase dedicado: slmhkfqqeyptngjubfhn; não alterar o outro projeto da conta. Criar novas migrations com o CLI e não reaplicar as já executadas via db query. Não executar db push cegamente: histórico de migrations do CLI pode estar incompleto.
+
+Segredos existentes, somente nomes/destinos:
+- Vercel: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL; SUPABASE_SERVICE_ROLE_KEY e CRON_SECRET como Secret; SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM, SMTP_PASS no servidor.
+- GitHub Actions Secrets: NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY. GitHub Variable: NEXT_PUBLIC_SITE_URL. GITHUB_TOKEN é efêmero do Actions, não criar token pessoal como substituto silencioso.
+- Supabase Vault: baixou_collector_secret, cópia exclusiva de CRON_SECRET aprovada pelo usuário. Supabase Auth mantém SMTP Gmail configurado. Não guardar service_role no Vault.
+
+vercel env run não exporta Secrets; não tentar baixá-los para inspecionar. Use os ambientes hospedados já configurados. npm run collect:report depende das variáveis autorizadas do worker e escreve resumo real no Actions. Fonte de dados, filas, migrations e decisões detalhadas seguem abaixo.
+
+---
+
 # Ajuste adicional de contadores — 23/11/2026
 
 O usuário relatou 378 em “Todas as ofertas”, 230 na modalidade e 227 cards. A causa era usar a base monitorada inteira nos filtros, descontos no modo e agrupamento de produto somente nos cards. Agora lib/catalog-selection.ts fornece a mesma elegibilidade e agrupamento para filtros, modos e listagem. Respeita loja, preço, busca, desconto e validade em um mesmo instante. Favoritos continuam incluindo indisponíveis e não exibem modos de promoção que não se aplicam a eles. 41 testes passaram, incluindo três regressões específicas. Validar no navegador após o deploy deste ajuste.
