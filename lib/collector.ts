@@ -13,7 +13,7 @@ async function get(url:string){if(!safeUrl(url))throw Error('Host não permitido
 try{for(const source of sources){if(!enabled.includes(source.id)||Date.now()-started>deadline-15000)continue;let count=0;
 try{
  const robots=robotsParser(source.origin+'/robots.txt',await get(source.origin+'/robots.txt'));
- const prior=db?await db.from('offers').select('url').eq('store',source.id).order('checked_at',{ascending:true}).limit(options.deadlineMs?max:Math.floor(max/2)):{data:[]};
+ const prior=db?await db.from('offers').select('url').eq('store',source.id).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('checked_at',{ascending:true}).limit(options.deadlineMs?max:Math.floor(max/2)):{data:[]};
  if('error' in prior&&prior.error)throw prior.error;
  const signals=db?await db.from('discovery_events').select('canonical_url,discovery_sources!inner(enabled)').eq('status','ready').eq('discovery_sources.enabled',true).gte('posted_at',new Date(Date.now()-30*60000).toISOString()).order('received_at',{ascending:false}).limit(30):{data:[]};
  const urls=new Set<string>((signals.data??[]).map(x=>x.canonical_url).filter((u:string)=>u&&new URL(u).origin===source.origin));
