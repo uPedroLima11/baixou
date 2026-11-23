@@ -50,3 +50,30 @@ jobs:
       - name: Relatório real de cobertura
         if: always()
         run: npm run collect:report
+
+  # O GitHub não entregou nenhum evento schedule para este repositório (zero desde 23/11/2026 03:35 UTC,
+  # inclusive após re-registrar o cron). Revezamento: cada execução agenda a próxima com o GITHUB_TOKEN
+  # efêmero (workflow_dispatch é a exceção documentada que cria nova execução). Cadência ~15 min.
+  # Parar: variável de repositório COLLECT_RELAY=off. Se o schedule voltar a disparar, o revezamento para sozinho.
+  # Execuções duplicadas colapsam: o grupo de concorrência mantém uma só pendente.
+  relay:
+    needs: collect
+    if: always() && github.ref == 'refs/heads/main' && vars.COLLECT_RELAY != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Aguardar próxima janela e despachar coleta
+        run: |
+          recent=$(gh run list --workflow collect.yml --event schedule --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+          if [ -n "$recent" ] && [ $(( $(date +%s) - $(date -d "$recent" +%s) )) -lt 2700 ]; then
+            echo "Agendamento nativo ativo ($recent); revezamento encerrado."; exit 0
+          fi
+          sleep 540
+          gh workflow run collect.yml --ref main
+          echo "Próxima coleta despachada às $(date -u +%H:%M:%S) UTC."
