@@ -1,3 +1,12 @@
+# CHECKPOINT — desempenho de agrupamento (Codex, 23/11/2026)
+
+- Catálogo cresceu para ~1.300 anúncios. A validação no navegador revelou pausas na interação. Benchmark local de 1.305 ofertas reais: agrupamento anterior 846,55 ms; indexado 2,42 ms, com a mesma lista/ordem de ids e mesmos menores preços. Cada filtro/modo fazia sua própria varredura quadrática; agora o índice limita candidatos e sameProduct continua validando todos os critérios. Não altera correspondências nem critérios.
+- Reproduzir: npm run pricing:audit -- --benchmark. 70 testes e build/tipos passaram.
+- Payload público medido ~2,78 MB não comprimidos em quatro páginas. Já se recomenda migrar filtros/facetas/contagens ao servidor antes de expansão expressiva: cache diminui leituras ao Supabase, mas cada miss ainda lê o conjunto inteiro e há atualização por minuto. Não confundir bytes JSON com cobrança medida de tráfego. O consumo mensal real de Usage/Egress não foi obtido nesta sessão; não aumentar volume/frequência.
+- Orientação adicional do proprietário: investigar também APIs/bibliotecas comunitárias gratuitas e permitidas; não restringir pesquisa a oficial. Sem bypass, CAPTCHA, rotação para contorno ou condições contratuais incompatíveis. Pesquisa em andamento em MAJOR_STORES.md; nenhuma fonte nova foi ativada.
+
+---
+
 # CHECKPOINT — referência exibida e cobertura parcial (Codex, 23/11/2026)
 
 - Feedback do proprietário: R$4.235,28 riscado no 7800X3D não é preço normal de mercado; há preços menores em lojas ainda não integradas. Corrigido: card não mostra referência riscada do vendedor. Quando há selo numérico, mostra a mediana histórica/comparativa realmente usada. Valor anunciado fica somente em seção recolhida do detalhe, com explicação.

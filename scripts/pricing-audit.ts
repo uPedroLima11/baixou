@@ -1,7 +1,7 @@
 // Auditoria somente leitura do catálogo hospedado. Não usa service_role nem cria preços/produtos.
 import {manufacturerConflict} from '../lib/identity';
 import {marketStatus} from '../lib/market';
-import {sameProduct} from '../lib/search';
+import {sameProduct,consolidateOffers} from '../lib/search';
 import {departmentOptions} from '../lib/departments';
 import {opportunityQuality} from '../lib/opportunities';
 import {classify,type Offer} from '../lib/types';
@@ -22,6 +22,14 @@ const exact=cross.filter(g=>!conflicts.includes(g));
 const references=live.filter(o=>o.market_stores!>=2&&marketStatus(o)!=='none');
 const below=live.filter(o=>marketStatus(o)==='below');
 const categories=departmentOptions(live,now);
+if(process.argv.includes('--benchmark')){
+ const start=performance.now(),old:Offer[][]=[];for(const o of live){const g=old.find(g=>sameProduct(g[0],o));if(g)g.push(o);else old.push([o]);}
+ const expected=old.map(g=>g.reduce((a,b)=>a.price<=b.price?a:b).id),oldMs=performance.now()-start;
+ const next=performance.now(),actual=consolidateOffers(live).map(o=>o.id),newMs=performance.now()-next;
+ if(JSON.stringify(expected)!==JSON.stringify(actual))throw Error('Agrupamento indexado divergiu da regra anterior');
+ console.log(JSON.stringify({grouping_benchmark:{offers:live.length,old_ms:oldMs,indexed_ms:newMs,equivalent:true}}));
+}
+
 console.log(JSON.stringify({at:new Date(now).toISOString(),requests,payload_bytes:bytes,active_offers:live.length,
  manufacturer_conflicts:live.filter(o=>manufacturerConflict(o.mpn,o.title)).map(o=>({id:o.id,title:o.title,mpn:o.mpn,product_id:o.product_id})),
  active_by_store:Object.fromEntries([...new Set(live.map(o=>o.store))].map(s=>[s,live.filter(o=>o.store===s).length])),

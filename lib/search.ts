@@ -11,4 +11,15 @@ export function sameProduct(a:Offer,b:Offer){
  if(a.product_id&&b.product_id)return a.product_id===b.product_id;
  return !!a.mpn&&!!b.mpn&&!!a.brand&&!!b.brand&&searchable(a.mpn)===searchable(b.mpn)&&searchable(a.brand)===searchable(b.brand);
 }
-export function consolidateOffers(offers:Offer[]){const groups:Offer[][]=[];for(const offer of offers){const group=groups.find(g=>sameProduct(g[0],offer));if(group)group.push(offer);else groups.push([offer]);}return groups.map(g=>g.reduce((a,b)=>Number(a.price)<=Number(b.price)?a:b));}
+export function consolidateOffers(offers:Offer[]){
+ const groups:Offer[][]=[],index=new Map<string,Offer[][]>(),order=new Map<Offer[],number>();
+ for(const offer of offers){
+  // Índice só reduz candidatos. sameProduct continua decidindo identidade/variantes/conflitos.
+  const keys=[offer.product_id?'p:'+offer.product_id:null,offer.mpn&&offer.brand?'m:'+searchable(offer.brand)+':'+searchable(offer.mpn):null].filter((k):k is string=>!!k);
+  const candidates=[...new Set(keys.flatMap(k=>index.get(k)??[]))].sort((a,b)=>order.get(a)!-order.get(b)!);
+  let group=candidates.find(g=>sameProduct(g[0],offer));
+  if(group)group.push(offer);else{group=[offer];order.set(group,groups.length);groups.push(group);}
+  for(const key of keys){const rows=index.get(key)??[];if(!rows.includes(group))rows.push(group);index.set(key,rows);}
+ }
+ return groups.map(g=>g.reduce((a,b)=>Number(a.price)<=Number(b.price)?a:b));
+}
