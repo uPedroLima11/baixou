@@ -1,0 +1,29 @@
+name: Conectores independentes (validação manual)
+# Execução manual de lib/connectors, usada para validar um conector no ambiente hospedado antes de entrar na rotina.
+on:
+  workflow_dispatch:
+    inputs:
+      connectors:
+        description: 'IDs separados por vírgula (vazio = todos os implementados)'
+        required: false
+concurrency:
+  group: baixou-connectors
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CONNECTORS: ${{ inputs.connectors }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run connectors

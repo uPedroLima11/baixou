@@ -48,3 +48,11 @@ test('discovery prefers registered category routes and keeps one lane for discov
  assert.deepEqual(pickDiscoveryPages(due,seeds,1,1).map(p=>p.url),[o+'/a-sub']);
  assert.deepEqual(pickDiscoveryPages([{url:o+'/a-sub'}],seeds,3).map(p=>p.url),[o+'/a-sub']);
 });
+test('classifier: monitor with Full HD is a monitor, laptop with mobile CPU and RTX is a notebook',()=>{
+ assert.equal(classify('Monitor Gigabyte Gs24f14 23.8 Pol Full Hd Ips 144hz 1ms'),'monitor');
+ assert.equal(classify('Gigabyte Aero 16 Xe5, I7-12700h, Rtx 3070ti, 16gb Ddr5, 1tb'),'notebook');
+ assert.equal(classify('Placa De Vídeo Msi Geforce Rtx 5060 8gb Ventus 2x Oc Edition'),'gpu');
+ assert.equal(classify('Processador Intel Core i5-12400F'),'cpu');
+ assert.equal(classify('PC Home Completo MCL, Intel i3 8a Geração, 8GB DDR4'),'pc');
+ assert.equal(classify('SSD Kingston NV2 1TB'),'ssd');
+});

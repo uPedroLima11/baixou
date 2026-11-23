@@ -11,7 +11,10 @@ export function classify(title:string):Category {
  const t=' '+normalize(title)+' ';
  if(isUpgradeKit(t,title))return 'kit';
  if(/^\s*(notebook|laptop)\b/.test(t))return 'notebook';
- if(/^\s*(computador|pc gamer|desktop completo)\b/.test(t))return 'pc';
+ if(/^\s*(computador|pc gamer|pc home|pc completo|mini pc|desktop completo)\b/.test(t))return 'pc';
+ if(/^\s*monitor\b/.test(t))return 'monitor';
+ // Notebook sem a palavra "notebook" (ex.: "Gigabyte Aero 16, i7-12700H, RTX 3070 Ti"): CPU móvel (sufixo H/HX/HS/U) no título.
+ if(!/^\s*(placa|processador|cooler|fonte|gabinete|memoria)\b/.test(t)&&/\b(?:i[3579]\s*\d{4,5}(?:h|hx|hs|u)|ryzen\s*[3579]\s*\d{4}(?:h|hs|hx|u)|core\s*ultra\s*[3579]\s*\d{3}(?:h|u|v))\b/.test(t))return 'notebook';
  if(/^\s*(kit|combo)\b.*\b(teclado|mouse|headset|fone)\b/.test(t))return 'peripherals';
  if(/placa mae|motherboard/.test(t)&&!/^\s*processador\b/.test(t))return 'motherboard';
  if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';

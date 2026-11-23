@@ -13,7 +13,8 @@
     "collect:check": "tsx scripts/collect.ts --check",
     "notifications": "tsx scripts/notify.ts",
     "discover": "tsx scripts/discover.ts",
-    "discover:social": "tsx scripts/discord.ts"
+    "discover:social": "tsx scripts/discord.ts",
+    "connectors": "tsx scripts/connectors.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
