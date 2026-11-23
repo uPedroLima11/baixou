@@ -1,8 +1,9 @@
+import {ExcludedProduct} from '../lib/product-policy';
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {calculateEvidence,normalize,classify} from '../lib/types';import {kabumDiscovery,kabumProduct} from '../scripts/parser';import {extractLinks,canonicalProduct,isFresh,secretMatches} from '../lib/discovery';import {publicIP} from '../scripts/safe-resolver';import {createHash} from 'node:crypto';
 const fixture=readFileSync(new URL('./fixtures/kabum-product-trimmed.html',import.meta.url),'utf8'),category=readFileSync(new URL('./fixtures/kabum-category-trimmed.html',import.meta.url),'utf8');
 const url='https://www.kabum.com.br/produto/172365/memoria-ram-kingston';
 test('real KaBuM fixture extracts final price, stock, MPN, photos; does not invent sales',()=>{const p=kabumProduct(fixture,url);assert.equal(p.price,649.99);assert.equal(p.original_price,809.83);assert.equal(p.available,true);assert.equal(p.sold,null);assert.equal(p.review_count,1877);assert.equal(p.mpn,'KF432C16BB/8');assert.ok(p.images[0].includes('172365'));assert.ok(!Object.values(p.specs).some(x=>x.includes('<')));});
-test('marketplace seller rejected even when JSON-LD says in stock',()=>assert.throws(()=>kabumProduct(fixture.replace('"sellerId":0','"sellerId":42'),url),/Vendedor/));
+test('marketplace seller rejected even when JSON-LD says in stock',()=>assert.throws(()=>kabumProduct(fixture.replace('"sellerId":0','"sellerId":42'),url),ExcludedProduct));
 test('out-of-stock is not published as available',()=>assert.equal(kabumProduct(fixture.replace('"available":true','"available":false'),url).available,false));
 test('discovery handles nested string JSON category',()=>{const urls=kabumDiscovery(category);assert.ok(urls.length>0);assert.ok(urls.every((s:string)=>s.startsWith('https://www.kabum.com.br/produto/')));});
 test('retailer reference never becomes historical evidence without history',()=>{const e=calculateEvidence(100,1000,[]);assert.equal(e.evidence,'retailer');assert.equal(e.historical_median,null);});

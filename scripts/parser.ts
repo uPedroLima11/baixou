@@ -1,10 +1,11 @@
+import {ExcludedProduct} from '../lib/product-policy';
 import * as cheerio from 'cheerio';import type {Offer} from '../lib/types';import {classify} from '../lib/types';
 export function kabumDiscovery(html:string){const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');const raw=next.props?.pageProps?.data;const data=typeof raw==='string'?JSON.parse(raw):raw;return (data?.catalogServer?.data??[]).filter((p:any)=>p.code&&p.friendlyName).map((p:any)=>'https://www.kabum.com.br/produto/'+p.code+'/'+p.friendlyName);}
 export function kabumProduct(html:string,url:string):Omit<Offer,'historical_median'|'historical_samples'|'historical_days'|'discount'|'evidence'>{
  const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');const p=next.props?.pageProps?.product;
  if(!p?.title||!p?.prices)throw new Error('Produto não encontrado no HTML');
- if(Number(p.sellerId)!==0||p.sellerName!=='KaBuM!'||p.flags?.isMarketplace||p.flags?.isMarketPlaceProduct)throw new Error('Vendedor fora da lista de confiança');
- if(p.flags?.isPreOrder||p.flags?.isOpenbox)throw new Error('Pré-venda/open box não incluídos');
+ if(Number(p.sellerId)!==0||p.sellerName!=='KaBuM!'||p.flags?.isMarketplace||p.flags?.isMarketPlaceProduct)throw new ExcludedProduct('seller_untrusted');
+ if(p.flags?.isPreOrder||p.flags?.isOpenbox)throw new ExcludedProduct('condition_excluded');
  const price=Number(p.prices.priceWithDiscount);if(!Number.isFinite(price)||price<=0)throw new Error('Preço inválido');
  const specDoc=cheerio.load(p.technicalInformation?.text??'');specDoc('br').replaceWith('\n');specDoc('p,li,tr').append('\n');
  const lines=specDoc.root().text().split(/\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
