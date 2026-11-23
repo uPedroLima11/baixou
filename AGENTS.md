@@ -93,3 +93,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Filtros do catálogo e alertas usam o mesmo extrator (lib/specs.ts) e o mesmo comparador (listas = OU, `_min` = mínimo, chaves com E). Valor desconhecido nunca casa nem aparece como opção. Fabricante da placa ≠ fabricante do chip; capacidade total ≠ por módulo.
 - Avaliações nunca são transferidas entre lojas. Ficha técnica de outra loja só para o mesmo produto canônico e sempre com a origem indicada.
 - Perfil e Notificações são telas separadas no menu da conta.
+
+## Continuidade Codex — preços e departamentos (23/11/2026)
+
+- Referência agrupa vendedores independentes, não plataformas: varejista próprio/ML deduplicados; seller_id nas demais vitrines. ML sem Pix explícito não entra na referência. Não inferir condição de pagamento.
+- market_expires_at limita a referência pelo menor TTL e 15 min. Ignorar referência vencida. Dispersão acima de 1,5× ou concorrente mais barato impede selo abaixo do mercado. Não baixar critérios para preencher resultados.
+- MPNs conflitantes anulam correspondência mesmo com product_id legado igual; não transferir ficha técnica desse vínculo.
+- Departamentos e filtros compartilham lib/specs.ts. Navegação de departamentos abre Catálogo completo; ofertas sem evidência continuam consultáveis. Ordenação padrão não pontua desconto anunciado nem baixo preço absoluto.

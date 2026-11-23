@@ -1,3 +1,13 @@
+# CHECKPOINT — catálogo completo, oportunidades e Departamentos (Codex, 23/11/2026)
+
+- Segunda etapa: menu Departamentos separado dos filtros móveis; categorias/facetas/contagens vêm do catálogo válido e do mesmo offerFacets usado por filtros/alertas. Seleção abre Catálogo completo e limpa restrições anteriores para não levar a resultado vazio. Mouse, clique, Tab/Enter/Escape e toque previstos; validar browser após publicação.
+- Nova modalidade Catálogo completo preserva produtos sem desconto. Padrão de ordenação Relevância e oportunidades: correspondência da consulta, evidência histórica/mercado, economia comprovada, identidade e atualidade; desconto riscado não dá prioridade. Menor preço continua disponível. Sugestões usam a mesma classificação, sem porcentagem inflada bruta.
+- Atualização do catálogo só substitui a última resposta bem-sucedida após receber todas as páginas; 5xx mantém o catálogo anterior, cujo TTL continua sendo respeitado.
+- Detalhes e cards não afirmam Pix para ML sem confirmação; não mostram nota fictícia. Nenhuma alteração de SMTP, preferências privadas, frequência ou volume de coleta.
+- 67 testes, typecheck e build passaram antes do commit. Validação visual/CI/deploy e levantamento final continuam na etapa seguinte.
+
+---
+
 # CHECKPOINT — retomada Codex, inteligência de preços (23/11/2026)
 
 - Base recebida: 5183ec7, checkout limpo, remoto consultado; CI desse commit verde. Não foram refeitos SMTP, agendamentos ou integrações.
