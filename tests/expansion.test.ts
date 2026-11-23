@@ -59,7 +59,8 @@ test('classifier: monitor with Full HD is a monitor, laptop with mobile CPU and 
 test('iByte (VTEX): own seller, schema price equals DOM Pix price, internal mpn/gtin ignored, title code used',async()=>{
  const {vtexLinkTexts,ibyteTitleCode}=await import('../scripts/store-adapters');
  const {html,url}=fixture('ibyte');const p=parseStoreProduct('ibyte',html,url);
- assert.equal(p.price,797.9);assert.equal(p.original_price,839.9);assert.equal(p.available,true);assert.equal(p.seller,'iByte');assert.equal(p.mpn,'SA400S37/480G');assert.match(p.payment_note??'',/Pix/);
+ assert.equal(p.price,797.9);assert.equal(p.original_price,null,'De R$ 839,90 = 10x R$ 83,99: card price, not an old price');
+ const fakeOld=html.replace('currencyInteger--product-page">83<','currencyInteger--product-page">70<');assert.notEqual(fakeOld,html);assert.equal(parseStoreProduct('ibyte',fakeOld,url).original_price,839.9,'a De above the installment total stays an announced reference');assert.equal(p.available,true);assert.equal(p.seller,'iByte');assert.equal(p.mpn,'SA400S37/480G');assert.match(p.payment_note??'',/Pix/);
  assert.throws(()=>parseStoreProduct('ibyte',html.replace(/"name":"ibyte"/,'"name":"Outro Vendedor"'),url),/Vendedor iByte/);
  assert.throws(()=>parseStoreProduct('ibyte',html.replace('"price":797.9','"price":755.9'),url),/Pix diverge/);
  const category=readFileSync(new URL('./fixtures/expansion/ibyte-category.html',import.meta.url),'utf8');const slugs=vtexLinkTexts(category);assert.ok(slugs.length>=3);assert.ok(slugs.every(s=>/^[a-z0-9-]+$/.test(s)));

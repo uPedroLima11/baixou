@@ -48,6 +48,9 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
    if(!pix&&/\/OutOfStock$/i.test(String(o.availability??'')))throw new ConfirmedUnavailable();
    if(!pix||!/no\s+pix/i.test(selling.text())||Math.abs(pix-price)>.02)throw Error('Preço Pix diverge do schema');
    original=brl($('[class*="listPriceValue"]').first().text())||null;payment='À vista no Pix, confirmado no produto.';
+   // O "De" da iByte costuma ser o preço a prazo (ex.: De R$ 839,90 = 10x R$ 83,99). Preço de cartão não é preço antigo.
+   const parcels=Number($('[class*="installmentsNumber"]').first().text().trim()),parcel=brl($('[class*="installmentValue"]').first().text());
+   if(original&&parcels>0&&parcel>0&&Math.abs(parcels*parcel-original)<=Math.max(.11,parcels*.01))original=null;
    // mpn/gtin do schema da iByte são códigos internos; o código do fabricante vem do fim do título.
    p={...p,mpn:ibyteTitleCode(String(p.name??''))};
   }else if(id==='oficinadosbits'){
