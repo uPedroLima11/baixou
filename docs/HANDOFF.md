@@ -1,3 +1,7 @@
+# Ajuste adicional de contadores — 23/11/2026
+
+O usuário relatou 378 em “Todas as ofertas”, 230 na modalidade e 227 cards. A causa era usar a base monitorada inteira nos filtros, descontos no modo e agrupamento de produto somente nos cards. Agora lib/catalog-selection.ts fornece a mesma elegibilidade e agrupamento para filtros, modos e listagem. Respeita loja, preço, busca, desconto e validade em um mesmo instante. Favoritos continuam incluindo indisponíveis e não exibem modos de promoção que não se aplicam a eles. 41 testes passaram, incluindo três regressões específicas. Validar no navegador após o deploy deste ajuste.
+
 # Estado atual: expansão do motor — 23/11/2026
 
 Leia primeiro AGENTS.md e docs/EXPANSION_REPORT.md. Este bloco prevalece sobre o checkpoint-base abaixo. Domínio padrão: https://baixouofertas.vercel.app . A interface foi preservada.
