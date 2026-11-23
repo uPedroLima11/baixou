@@ -40,3 +40,11 @@ test('Mercado Livre official storefront: real Pichau cards become policy-approve
  assert.throws(()=>parseOfficialStorefront('<html></html>',{slug:'x',name:'X',brand:null}),/loja oficial/);
  assert.equal(brlFromAria('Agora: 3105 reais'),3105);assert.equal(brlFromAria('Antes: 1.234 reais com 5 centavos'),1234.05);assert.equal(brlFromAria('grátis'),null);
 });
+test('retailer storefront brand only when exactly one known manufacturer is in the title',async()=>{
+ const {brandFromTitle}=await import('../lib/connectors/mercadolivre-stores');
+ assert.equal(brandFromTitle('Cadeira Gamer Tgt Heron Tc2, Preto, Tgt-hrtc-bl03'),'TGT');
+ assert.equal(brandFromTitle('Headset Gamer Mancer Twilight S, Rainbow'),'Mancer');
+ assert.equal(brandFromTitle('Placa Mãe MSI A520M-A PRO + Processador AMD Ryzen 5 5500F'),null);
+ assert.equal(brandFromTitle('PC Gamer Completo MCL, Intel i5, GT 730 4GB'),null);assert.equal(brandFromTitle('Notebook Lenovo IdeaPad Slim 3, Intel Core i5'),'Lenovo');assert.equal(brandFromTitle('Processador AMD Ryzen 5 5600'),'AMD');
+ assert.equal(brandFromTitle('Gabinete Gamer Aquário'),null);
+});

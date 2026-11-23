@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio/slim';
 import type {Connector,MarketplaceListing} from './types';
+import {classify} from '../types';
 // Mercado Livre sem API/OAuth: vitrines públicas de LOJAS OFICIAIS (www.mercadolivre.com.br/loja/{slug}).
 // Por quê: API devolve 401/403 sem token (PolicyAgent); páginas de produto e listagens redirecionam para
 // /gz/account-verification. As vitrines respondem 200 também no runner do GitHub, o robots.txt não as bloqueia
@@ -17,6 +18,17 @@ export const ML_OFFICIAL_STORES:OfficialStore[]=[
  {slug:'jbl',name:'JBL',brand:'JBL'},{slug:'edifier',name:'Edifier',brand:'Edifier'},
 ];
 const ORIGIN='https://www.mercadolivre.com.br';
+// Vitrines de varejistas (Pichau, KaBuM!) não informam marca: usa a marca impressa no título SOMENTE quando
+// exatamente um fabricante conhecido aparece ("Kit AMD Ryzen + placa MSI" cita dois e fica sem marca).
+const KNOWN_BRANDS=['ASUS','Gigabyte','MSI','ASRock','Kingston','Corsair','XPG','ADATA','Redragon','Logitech','HyperX','Husky','Mancer','Pcyes','Rise Mode','TGT','Galax','Zotac','PNY','Palit','Sapphire','PowerColor','Inno3D','AMD','Intel','Samsung','LG','AOC','Philips','Dell','Lenovo','Acer','HP','SanDisk','Western Digital','Seagate','Crucial','Lexar','DeepCool','Cooler Master','Thermaltake','Lian Li','Gamdias','Fortrek','Apple','JBL','Edifier','Razer','SteelSeries','Havit','Keychron','Montech','Machenike'];
+// PCs e kits juntam peças de vários fabricantes: sem inferência. AMD/Intel só identificam processadores
+// (em "Notebook Lenovo, Intel i5" a marca é Lenovo, não Intel).
+export function brandFromTitle(title:string){
+ const category=classify(title);if(category==='pc'||category==='kit')return null;
+ const t=' '+title.toLowerCase().replace(/[^a-z0-9]+/g,' ')+' ';
+ const found=KNOWN_BRANDS.filter(b=>(category==='cpu'||(b!=='AMD'&&b!=='Intel'))&&t.includes(' '+b.toLowerCase()+' '));
+ return found.length===1?found[0]:null;
+}
 // "Agora: 562 reais com 97 centavos" -> 562.97
 export function brlFromAria(label:string|undefined|null){const m=String(label??'').match(/(\d[\d.]*)\s*reais(?:\s*com\s*(\d{1,2})\s*centavos?)?/i);if(!m)return null;const v=Number(m[1].replace(/\./g,''))+(m[2]?Number(m[2])/100:0);return Number.isFinite(v)&&v>0?Math.round(v*100)/100:null;}
 function canonical(href:string){try{const u=new URL(href,ORIGIN);if(u.protocol!=='https:')return null;
@@ -39,7 +51,7 @@ export function parseOfficialStorefront(html:string,store:OfficialStore,fetchedA
   out.push({source:'mercadolivre',externalId:link.item,url:link.url,title,price,originalPrice:previous&&previous>price?previous:null,currency:'BRL',
    available:/esgotad|indispon[ií]vel/i.test(text)?false:true,condition:used?'used':'new',
    seller:{id:sellerId,name:store.name+' (loja oficial no Mercado Livre)',official:true,reputationLevel:'official',positiveRate:null,completedSales:null},
-   images:/^https:\/\/http2\.mlstatic\.com\/[\w./-]+\.(?:webp|jpg|jpeg|png)$/i.test(img)?[img]:[],brand:store.brand,mpn:null,gtin:null,
+   images:/^https:\/\/http2\.mlstatic\.com\/[\w./-]+\.(?:webp|jpg|jpeg|png)$/i.test(img)?[img]:[],brand:store.brand??brandFromTitle(title),mpn:null,gtin:null,
    couponHint:pix&&other&&other>price?'Preço no Pix; em outros meios R$ '+other.toFixed(2).replace('.',','):null,fetchedAt});});
  return out;}
 const agent='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)';

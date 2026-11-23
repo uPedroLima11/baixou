@@ -22,3 +22,5 @@
 .facet legend{align-items:center}.facet-clear{color:var(--orange);font-size:11px;font-weight:500}
 .account-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.account-facts span{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;overflow-wrap:anywhere}.account-facts small{display:block;color:var(--muted);font-size:11px;margin-bottom:3px}
 .alert-facet{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}.alert-facet legend{font-size:13px;font-weight:600;margin-bottom:8px}.chip-options{display:flex;flex-wrap:wrap;gap:6px}.chip-options button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 11px;font-size:12px;min-height:32px}.chip-options button.active{border-color:var(--orange);background:var(--soft);color:var(--orange);font-weight:600}.inline-min{flex-direction:row!important;align-items:center;gap:8px!important;font-size:12px!important;color:var(--muted)}.inline-min select{padding:7px 30px 7px 10px;font-size:12px}
+
+.related-source{margin:16px 0 8px;font-size:12px}
