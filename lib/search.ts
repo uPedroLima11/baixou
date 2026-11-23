@@ -11,7 +11,21 @@ export function sameProduct(a:Offer,b:Offer){
  if(a.product_id&&b.product_id)return a.product_id===b.product_id;
  return !!a.mpn&&!!b.mpn&&!!a.brand&&!!b.brand&&searchable(a.mpn)===searchable(b.mpn)&&searchable(a.brand)===searchable(b.brand);
 }
-export function consolidateOffers(offers:Offer[]){
+export function consolidateOffers(offers:Offer[]){return groupOffers(offers).map(g=>g.reduce((a,b)=>Number(a.price)<=Number(b.price)?a:b));}
+// Mesma regra de vendedor independente da referência de mercado no banco (public.market_seller):
+// KaBuM/Pichau dentro do Mercado Livre são as próprias lojas; demais vitrines do ML contam pelo vendedor.
+export function independentSeller(o:Pick<Offer,'store'|'seller'|'seller_key'>){if(o.store!=='mercadolivre')return o.store;if(o.seller==='KaBuM! (loja oficial no Mercado Livre)')return 'kabum';if(o.seller==='Pichau (loja oficial no Mercado Livre)')return 'pichau';return o.seller_key??'mercadolivre:'+o.seller;}
+// Comparação neutra entre lojas: para cada anúncio, as ofertas do MESMO modelo (sameProduct) em >=2 vendedores
+// independentes, uma por vendedor (a mais barata), ordenadas por preço. Não é selo de promoção nem "menor preço do mercado".
+export function comparisonIndex(offers:Offer[]){
+ const index=new Map<string,Offer[]>();
+ for(const g of groupOffers(offers)){
+  const best=new Map<string,Offer>();for(const o of g){const k=independentSeller(o),prior=best.get(k);if(!prior||Number(o.price)<Number(prior.price))best.set(k,o);}
+  if(best.size<2)continue;const rows=[...best.values()].sort((a,b)=>Number(a.price)-Number(b.price));for(const o of g)index.set(o.id,rows);
+ }
+ return index;
+}
+export function groupOffers(offers:Offer[]){
  const groups:Offer[][]=[],index=new Map<string,Offer[][]>(),order=new Map<Offer[],number>();
  for(const offer of offers){
   // Índice só reduz candidatos. sameProduct continua decidindo identidade/variantes/conflitos.
@@ -21,5 +35,5 @@ export function consolidateOffers(offers:Offer[]){
   if(group)group.push(offer);else{group=[offer];order.set(group,groups.length);groups.push(group);}
   for(const key of keys){const rows=index.get(key)??[];if(!rows.includes(group))rows.push(group);index.set(key,rows);}
  }
- return groups.map(g=>g.reduce((a,b)=>Number(a.price)<=Number(b.price)?a:b));
+ return groups;
 }
