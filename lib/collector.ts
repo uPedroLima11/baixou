@@ -42,10 +42,11 @@ export async function runCollector(options:Options={}){
    if(db&&fresh.size){const pool=await db.from('product_candidates').select('url',{count:'exact',head:true}).eq('store',source.id);if(pool.error)throw pool.error;const remaining=Math.max(0,2000-(pool.count??2000));if(remaining){const inserted=await db.from('product_candidates').upsert([...fresh].slice(0,Math.min(150,remaining)).map(url=>({store:source.id,url,category:candidateCategory(url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(inserted.error)throw inserted.error;newURLs=inserted.data?.length??0;}}
    }
    const now=new Date().toISOString();
-   const newRows=db?await db.from('product_candidates').select('url,category,failures').eq('store',source.id).is('last_attempt_at',null).lte('next_attempt_at',now).order('discovered_at').limit(300):{data:[...fresh].map(url=>({url,category:candidateCategory(url),failures:0})),error:null};
+   // Até 20 candidatos nunca tentados por categoria (RPC), para o rodízio alcançar categorias recém-descobertas.
+   const newRows=db?await db.rpc('diverse_candidates',{p_store:source.id,p_per_category:20}):{data:[...fresh].map(url=>({url,category:candidateCategory(url),failures:0})),error:null};
    const due=db?await db.from('product_candidates').select('url,category,failures').eq('store',source.id).not('last_attempt_at','is',null).lte('next_attempt_at',now).order('next_attempt_at').limit(max):{data:[],error:null};if(newRows.error||due.error)throw newRows.error??due.error;
    const signals=db?await db.from('discovery_events').select('canonical_url,discovery_sources!inner(enabled)').eq('status','ready').eq('discovery_sources.enabled',true).gte('posted_at',new Date(Date.now()-30*60000).toISOString()).order('received_at',{ascending:false}).limit(20):{data:[],error:null};if(signals.error)throw signals.error;
-   const plan=planBatch(due.data??[],newRows.data??[],max),pending=plan.pending,rechecks=plan.rechecks;
+   const plan=planBatch(due.data??[],(newRows.data??[]) as {url:string;category:ReturnType<typeof candidateCategory>;failures:number}[],max),pending=plan.pending,rechecks=plan.rechecks;
    const urls=new Map<string,{url:string;failures:number}>();
    for(const signal of signals.data??[]){const u=productURL(signal.canonical_url,source);if(u)urls.set(u,{url:u,failures:0});}
    // Capacity-first: due rechecks are processed before new candidates; overdue items first by next_attempt_at.
