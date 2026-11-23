@@ -49,9 +49,25 @@ jobs:
       - name: Enviar alertas opt-in
         run: npm run notifications
 
+  # Relatório único depois das quatro lojas (antes rodava 4x por execução). Uma nova tentativa cobre
+  # erros transitórios do gateway Supabase (ex.: Cloudflare 522 observado em 45199413698); falha persistente fica vermelha.
+  report:
+    needs: collect
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
       - name: Relatório real de cobertura
-        if: always()
-        run: npm run collect:report
+        run: npm run collect:report || { echo "Nova tentativa em 30 s"; sleep 30; npm run collect:report; }
 
   # O GitHub não entregou nenhum evento schedule para este repositório (zero desde 23/11/2026 03:35 UTC,
   # inclusive após re-registrar o cron). Revezamento: cada execução agenda a próxima com o GITHUB_TOKEN
