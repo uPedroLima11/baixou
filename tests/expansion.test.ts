@@ -77,3 +77,10 @@ test('ChipArt (__NEXT_DATA__): own store, Pix price matches the DOM, explicit st
  assert.throws(()=>chipartProduct(html,url.replace('/11101','/11102')),/diverge da URL/);
  const links=chipartLinks(readFileSync(new URL('./fixtures/expansion/chipart-category.html',import.meta.url),'utf8'));assert.equal(links.length,2);assert.ok(links.every(l=>/^https:\/\/www\.chipart\.com\.br\/produto\/.+\/\d+$/.test(l)&&!l.includes('..')));
 });
+test('Shopinfo (Shopify): Pix from the price block, schema card price never becomes an old price, GTIN kept, variants refused',()=>{
+ const {html,url}=fixture('shopinfo');const p=parseStoreProduct('shopinfo',html,url);
+ assert.equal(p.price,59.9);assert.equal(p.original_price,null,'R$ 66,56 is the card price, not a previous price');assert.equal(p.available,true);assert.equal(p.seller,'Shopinfo');assert.equal(p.specs.EAN,'7890112190019');assert.match(p.payment_note??'',/Pix/);
+ assert.throws(()=>parseStoreProduct('shopinfo',html.replace('03.482.370/0001-09','x'),url),/loja própria/);
+ assert.throws(()=>parseStoreProduct('shopinfo',html.replace(/"price":"66\.56"/,'"price":"50.00"'),url),/Pix não confirmado/);
+ assert.throws(()=>parseStoreProduct('shopinfo',html.replace(/"offers":\{/,'"offers":[{"@type":"Offer","price":"70.00","priceCurrency":"BRL","availability":"http://schema.org/InStock"},{').replace(/("url":"[^"]+variant=\d+"\})/,'$1]'),url),/variantes|ambíguo|Preço/);
+});

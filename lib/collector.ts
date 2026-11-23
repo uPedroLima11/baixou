@@ -49,7 +49,7 @@ export async function runCollector(options:Options={}){
    const page={data:pickDiscoveryPages(duePages.data??[],new Set(source.paths.map(path=>source.origin+path)),db?discoveryPages:1,cursor)};
    for(const {url}of page.data??[]){if(!allowed(url)) {if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+86400000).toISOString()}).eq('store',source.id).eq('url',url);continue;}
     try{await pause();const html=await get(url),$=cheerio.load(html);
-     const productLinks=source.id==='kabum'?kabumDiscovery(html):source.id==='chipart'?chipartLinks(html):source.id==='ibyte'?vtexLinkTexts(html).map(slug=>source.origin+'/'+slug+'/p'):[...$('a[href]').toArray().map(a=>$(a).attr('href')!),...structuredProductLinks($)];
+     const productLinks=source.id==='kabum'?kabumDiscovery(html):source.id==='chipart'?chipartLinks(html):source.id==='shopinfo'?$('a[href*="/products/"]').toArray().map(a=>String($(a).attr('href')??'').replace(/^\/collections\/[a-z0-9-]+(?=\/products\/)/,'')):source.id==='ibyte'?vtexLinkTexts(html).map(slug=>source.origin+'/'+slug+'/p'):[...$('a[href]').toArray().map(a=>$(a).attr('href')!),...structuredProductLinks($)];
      for(const raw of productLinks){const u=productURL(raw,source);if(u&&allowed(u))fresh.add(u);}
      if(db){const categories=[...new Set($('a[href],link[rel="next"]').toArray().map(e=>categoryURL($(e).attr('href')??'',source)).filter((u):u is string=>!!u&&!!allowed(u)))].slice(0,150);
       if(categories.length){const inserted=await db.from('collection_pages').upsert(categories.map(url=>({store:source.id,url})),{onConflict:'store,url',ignoreDuplicates:true});if(inserted.error)throw inserted.error;}

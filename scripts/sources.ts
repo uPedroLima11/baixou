@@ -9,8 +9,10 @@ export const sources=[
  // iByte (VTEX): categorias públicas; produtos descobertos pelo linkText do estado renderizado no servidor (sem /api/*, bloqueado no robots).
  {id:'ibyte',name:'iByte',origin:'https://www.ibyte.com.br',paths:['/hardware/placa-de-video','/hardware/processador','/hardware/memoria','/hardware/placa-mae','/armazenamento/ssd','/pcs-e-notebooks/perifericos/monitor','/pcs-e-notebooks/perifericos/mouse','/pcs-e-notebooks/perifericos/teclado','/gamer/cadeira-gamer','/hardware/fontes'],product:/^\/[a-z0-9]+(?:-[a-z0-9]+)+\/p$/},
  // ChipArt (Next.js, loja própria): categorias públicas com links /produto/…/ID; dados no __NEXT_DATA__.
- {id:'chipart',name:'ChipArt',origin:'https://www.chipart.com.br',paths:['/hardware/processadores','/hardware/placa-de-video','/hardware/placamae','/hardware/memorias','/hardware/ssd','/hardware/fonte','/monitores','/perifericos','/computadores'],product:/^\/produto\/[^?#\s]+\/\d+$/}
+ {id:'chipart',name:'ChipArt',origin:'https://www.chipart.com.br',paths:['/hardware/processadores','/hardware/placa-de-video','/hardware/placamae','/hardware/memorias','/hardware/ssd','/hardware/fonte','/monitores','/perifericos','/computadores'],product:/^\/produto\/[^?#\s]+\/\d+$/},
+ // Shopinfo (Shopify da própria loja): coleções públicas; produto /products/{handle}. Pix vem do bloco de preço (schema = cartão).
+ {id:'shopinfo',name:'Shopinfo',origin:'https://shopinfo.com.br',paths:['/collections/hardware','/collections/kit-upgrade','/collections/monitores','/collections/perifericos','/collections/pc-gamer','/collections/refrigeracao','/collections/hardware?page=2'],product:/^\/products\/[a-z0-9]+(?:-[a-z0-9]+)+$/}
 ] as const;
 export type Source=typeof sources[number];
 // Candidate adapters are not store_registry operational statuses. Promotion requires hosted evidence.
-export const candidateSourceIds=['kabum','waz','oficinadosbits','guerradigital','patoloco','ibyte','chipart'];
+export const candidateSourceIds=['kabum','waz','oficinadosbits','guerradigital','patoloco','ibyte','chipart','shopinfo'];

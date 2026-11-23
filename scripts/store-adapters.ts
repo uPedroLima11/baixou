@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio/slim';
 import {createHash} from 'node:crypto';
 import {classify,normalize,type Offer} from '../lib/types';
 export type ParsedProduct=Omit<Offer,'discount'|'evidence'|'historical_median'|'historical_samples'|'historical_days'>;
-const names:Record<string,string>={ibyte:'iByte',waz:'WAZ',oficinadosbits:'Oficina dos Bits',guerradigital:'Guerra Digital',patoloco:'Patoloco'};
+const names:Record<string,string>={shopinfo:'Shopinfo',ibyte:'iByte',waz:'WAZ',oficinadosbits:'Oficina dos Bits',guerradigital:'Guerra Digital',patoloco:'Patoloco'};
 export class ConfirmedUnavailable extends Error {constructor(){super('Indisponibilidade explícita confirmada no produto');}}
 export function brl(value:unknown){if(typeof value==='number')return value;const text=String(value??'').replace(/[^\d.,-]/g,'');return Number(text.includes(',')?text.replace(/\./g,'').replace(',','.'):text);}
 function clean(html:string){const $=cheerio.load(html);$('script,style,noscript').remove();return $.text().replace(/\s+/g,' ').trim();}
@@ -36,6 +36,17 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
   p={name:root.find('[itemprop="name"]').first().text().trim(),brand:root.find('[itemprop="brand"]').first().text().trim(),image:root.find('[itemprop="image"]').toArray().map(e=>$(e).attr('src')??$(e).attr('href')).filter(Boolean)};
   o={priceCurrency:offers.find('[itemprop="priceCurrency"]').attr('content'),availability:offers.find('[itemprop="availability"]').attr('href')??offers.find('[itemprop="availability"]').attr('content')};
   price=brl(offers.find('[itemprop="price"]').attr('content'));original=brl(offers.find('s').first().text())||null;payment='À vista no Pix ou boleto, conforme informado no produto.';
+ }else if(id==='shopinfo'){
+  // Shopify da própria loja (SHP Brasil). O schema traz o preço de CARTÃO; o Pix vem do bloco de preço do produto.
+  // Preço de cartão não é preço antigo: original fica nulo. Variantes múltiplas são recusadas (preço ambíguo).
+  if($('meta[property="og:site_name"]').attr('content')!=='Shopinfo'||!$('footer').text().includes('03.482.370/0001-09'))throw Error('Identidade de loja própria não confirmada');
+  const products=structuredNodes($).filter(n=>isType(n,'Product'));if(products.length!==1)throw Error('Produto principal não identificado sem ambiguidade');p=products[0];
+  const offers=(Array.isArray(p.offers)?p.offers:[p.offers]).filter(Boolean);if(offers.length!==1)throw Error('Produto com variantes: preço ambíguo');o=offers[0];
+  const card=brl(o.price),block=$('.shopinfo-pdp-price-block').first(),pix=brl(block.find('.shopinfo-price__pix-hero').first().text());
+  if(!pix&&/\/OutOfStock$/i.test(String(o.availability??'')))throw new ConfirmedUnavailable();
+  if(!pix||!/pix/i.test(block.text())||!(card>0)||pix>card+.01||pix<card*.8)throw Error('Preço Pix não confirmado no produto');
+  price=pix;original=null;payment='À vista no Pix, confirmado no produto; no cartão o preço é maior.';
+  const gtin=String(p.gtin??'').replace(/\D/g,'');if(gtin)p={...p,additionalProperty:[...(p.additionalProperty??[]),{name:'EAN',value:gtin}]};
  }else{
   p=mainProduct($,url);const offers=Array.isArray(p.offers)?p.offers:[p.offers];o=offers.find((x:any)=>isType(x,'AggregateOffer'))??offers[0];
   if(id==='waz'){const variants=Array.isArray(o?.offers)?o.offers:[o];o=variants.find((x:any)=>normalize(x?.seller?.name??'')==='waz');if(!o)throw Error('Vendedor WAZ não confirmado');price=brl(o.price);const pix=brl($('[class*="spotPriceValue--pdp"]').first().text());

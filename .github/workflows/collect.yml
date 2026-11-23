@@ -13,9 +13,9 @@ jobs:
   collect:
     strategy:
       fail-fast: false
-      max-parallel: 6
+      max-parallel: 7
       matrix:
-        store: [kabum, waz, guerradigital, patoloco, ibyte, chipart]
+        store: [kabum, waz, guerradigital, patoloco, ibyte, chipart, shopinfo]
     runs-on: ubuntu-latest
     timeout-minutes: 13
     env:
