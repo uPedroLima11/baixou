@@ -1,6 +1,6 @@
 import {ExcludedProduct} from './product-policy';
 import robotsParser from 'robots-parser';import * as cheerio from 'cheerio/slim';import {createHash} from 'node:crypto';
-import {adminDb,safeUrl} from './server';import {calculateEvidence,classify,type Offer} from './types';
+import {adminDb,safeUrl} from './server';import {evidenceFromStats,classify,type Offer} from './types';
 import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct} from '../scripts/parser';
 import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
 import {productURL,categoryURL,candidateCategory,retryMinutes,verificationTTL,recheckMinutes,planBatch} from './collection-policy';
@@ -55,8 +55,8 @@ export async function runCollector(options:Options={}){
     if(Date.now()-started>deadline-10000)break;if(!allowed(url))continue;await pause();
     try{const html=await get(url);const base:ParsedProduct=source.id==='kabum'?kabumProduct(html,url):['terabyte','pichau'].includes(source.id)?generic(html,url,source):parseStoreProduct(source.id,html,url);
      if(!db){console.log(JSON.stringify({store:source.id,title:base.title,price:base.price,available:base.available,mpn:base.mpn,category:base.category}));count++;continue;}
-     const history=await db.from('price_history').select('price,observed_at').eq('offer_id',base.id).gte('observed_at',new Date(Date.now()-30*86400000).toISOString()).order('observed_at',{ascending:false}).limit(1000);if(history.error)throw history.error;
-     const evidence=calculateEvidence(base.price,base.original_price,history.data??[]),ttl=verificationTTL(evidence.evidence,evidence.discount);
+     const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number}>();if(stats.error)throw stats.error;
+     const evidence=evidenceFromStats(base.price,base.original_price,stats.data??{median:null,samples:0,days:0}),ttl=verificationTTL(evidence.evidence,evidence.discount);
      const identity=identityForOffer({...base,...evidence} as Offer);let productId:string|null=null;
      if(identity){const resolved=await db.rpc('resolve_catalog_product',{p_brand:identity.brand,p_mpn:identity.mpn,p_gtin:identity.gtin,p_variant:identity.variant});if(resolved.error)throw resolved.error;productId=resolved.data;}
      const provenance=await db.from('discovery_events').select('source_id,coupon_hint,discovery_sources!inner(name,attribution_url,enabled)').eq('canonical_url',url).eq('discovery_sources.enabled',true);if(provenance.error)throw provenance.error;

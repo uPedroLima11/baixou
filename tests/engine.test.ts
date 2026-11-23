@@ -1,5 +1,5 @@
 import {ExcludedProduct} from '../lib/product-policy';
-import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {calculateEvidence,normalize,classify} from '../lib/types';import {kabumDiscovery,kabumProduct} from '../scripts/parser';import {extractLinks,canonicalProduct,isFresh,secretMatches} from '../lib/discovery';import {publicIP} from '../scripts/safe-resolver';import {createHash} from 'node:crypto';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {calculateEvidence,evidenceFromStats,normalize,classify} from '../lib/types';import {kabumDiscovery,kabumProduct} from '../scripts/parser';import {extractLinks,canonicalProduct,isFresh,secretMatches} from '../lib/discovery';import {publicIP} from '../scripts/safe-resolver';import {createHash} from 'node:crypto';
 const fixture=readFileSync(new URL('./fixtures/kabum-product-trimmed.html',import.meta.url),'utf8'),category=readFileSync(new URL('./fixtures/kabum-category-trimmed.html',import.meta.url),'utf8');
 const url='https://www.kabum.com.br/produto/172365/memoria-ram-kingston';
 test('real KaBuM fixture extracts final price, stock, MPN, photos; does not invent sales',()=>{const p=kabumProduct(fixture,url);assert.equal(p.price,649.99);assert.equal(p.original_price,809.83);assert.equal(p.available,true);assert.equal(p.sold,null);assert.equal(p.review_count,1877);assert.equal(p.mpn,'KF432C16BB/8');assert.ok(p.images[0].includes('172365'));assert.ok(!Object.values(p.specs).some(x=>x.includes('<')));});
@@ -14,3 +14,12 @@ test('extracts link entities without reusing publication text',()=>{const links=
 test('canonical URL strips tracking; rejects private/external/unsafe schemes',()=>{assert.equal(canonicalProduct(url+'?utm_source=a'),url);for(const bad of ['http://127.0.0.1/','https://evil.com/produto/1','file:///etc/passwd','https://user@www.kabum.com.br/produto/1'])assert.throws(()=>canonicalProduct(bad));});
 test('network resolver rejects local, link-local, mapped and reserved IPs',()=>{for(const s of ['127.0.0.1','10.0.0.1','169.254.169.254','172.16.0.1','192.168.0.1','::1','::ffff:127.0.0.1','fc00::1'])assert.equal(publicIP(s),false);assert.equal(publicIP('8.8.8.8'),true);});
 test('stale and future source posts rejected; webhook secret constant hash',()=>{const now=Date.now();assert.ok(isFresh(new Date(now).toISOString(),now));assert.equal(isFresh(new Date(now-31*60000).toISOString(),now),false);assert.equal(isFresh(new Date(now+3600000).toISOString(),now),false);assert.ok(secretMatches('test-secret',createHash('sha256').update('test-secret').digest('hex')));assert.equal(secretMatches('wrong',null),false);});
+test('aggregated history stats give the same evidence as raw history',()=>{
+ const now=Date.parse('2026-11-23T12:00:00Z'),h=(d:number,p:number)=>({price:p,observed_at:new Date(now-d*3600000).toISOString()});
+ const rows=[h(0.5,10),h(2,100),h(26,110),h(50,120),h(51,90),h(75,100),h(800,1)];
+ const raw=calculateEvidence(80,null,rows,now);
+ const valid=rows.filter(r=>Date.parse(r.observed_at)<now-3600000&&Date.parse(r.observed_at)>now-30*86400000);
+ const agg=evidenceFromStats(80,null,{median:100,samples:valid.length,days:new Set(valid.map(r=>r.observed_at.slice(0,10))).size});
+ assert.deepEqual(agg,raw);assert.equal(raw.evidence,'history');assert.equal(raw.discount,20);
+ assert.equal(evidenceFromStats(80,100,{median:null,samples:0,days:0}).evidence,'retailer');
+});

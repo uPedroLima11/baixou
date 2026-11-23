@@ -27,6 +27,11 @@ export function calculateEvidence(price:number,reference:number|null,history:{pr
  const days=new Set(valid.map(x=>x.observed_at.slice(0,10))).size;
  const sorted=valid.map(x=>x.price).sort((a,b)=>a-b);
  const n=sorted.length;const median=n?(n%2?sorted[(n-1)/2]:(sorted[n/2-1]+sorted[n/2])/2):null;
+ return evidenceFromStats(price,reference,{median,samples:n,days});
+}
+// Same decision from aggregates computed in Postgres (price_history_stats), so the collector does not download raw history.
+export function evidenceFromStats(price:number,reference:number|null,stats:{median:number|null;samples:number;days:number}){
+ const n=stats.samples,days=stats.days,median=n&&stats.median!=null&&Number(stats.median)>0?Number(stats.median):null;
  const enough=n>=5&&days>=3;
  const historicalDiscount=median?Math.round((1-price/median)*100):0;
  const announced=reference&&reference>price?Math.round((1-price/reference)*100):0;
