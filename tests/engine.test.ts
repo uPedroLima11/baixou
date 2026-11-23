@@ -23,3 +23,8 @@ test('aggregated history stats give the same evidence as raw history',()=>{
  assert.deepEqual(agg,raw);assert.equal(raw.evidence,'history');assert.equal(raw.discount,20);
  assert.equal(evidenceFromStats(80,100,{median:null,samples:0,days:0}).evidence,'retailer');
 });
+test('KaBuM discovery skips marketplace sellers already flagged in the listing',()=>{
+ const data={catalogServer:{data:[{code:1,friendlyName:'kit-a',sellerId:0,sellerName:'KaBuM!',flags:{isMarketplace:false}},{code:2,friendlyName:'kit-b',sellerId:13070,sellerName:'A.CIOLI',flags:{isMarketplace:true}},{code:3,friendlyName:'kit-c'}]}};
+ const html='<script id="__NEXT_DATA__" type="application/json">'+JSON.stringify({props:{pageProps:{data:JSON.stringify(data)}}})+'</script>';
+ assert.deepEqual(kabumDiscovery(html),['https://www.kabum.com.br/produto/1/kit-a','https://www.kabum.com.br/produto/3/kit-c']);
+});

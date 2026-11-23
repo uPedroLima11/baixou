@@ -1,6 +1,7 @@
 import {ExcludedProduct} from '../lib/product-policy';
 import * as cheerio from 'cheerio/slim';import type {Offer} from '../lib/types';import {classify} from '../lib/types';
-export function kabumDiscovery(html:string){const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');const raw=next.props?.pageProps?.data;const data=typeof raw==='string'?JSON.parse(raw):raw;return (data?.catalogServer?.data??[]).filter((p:any)=>p.code&&p.friendlyName).map((p:any)=>'https://www.kabum.com.br/produto/'+p.code+'/'+p.friendlyName);}
+export function kabumDiscovery(html:string){const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');const raw=next.props?.pageProps?.data;const data=typeof raw==='string'?JSON.parse(raw):raw;// Listagem já informa vendedor: itens de marketplace seriam excluídos por kabumProduct (só vendedor próprio), então nem são baixados.
+ return (data?.catalogServer?.data??[]).filter((p:any)=>p.code&&p.friendlyName&&!(p.sellerId!=null&&Number(p.sellerId)!==0)&&p.flags?.isMarketplace!==true).map((p:any)=>'https://www.kabum.com.br/produto/'+p.code+'/'+p.friendlyName);}
 export function kabumProduct(html:string,url:string):Omit<Offer,'historical_median'|'historical_samples'|'historical_days'|'discount'|'evidence'>{
  const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');const p=next.props?.pageProps?.product;
  if(!p?.title||!p?.prices)throw new Error('Produto não encontrado no HTML');
