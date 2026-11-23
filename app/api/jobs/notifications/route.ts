@@ -1,0 +1,4 @@
+import {NextResponse} from 'next/server';import {createHmac,timingSafeEqual} from 'node:crypto';import {sendNotifications} from '@/lib/notifications';
+export const runtime='nodejs';export const maxDuration=60;
+export async function POST(req:Request){const key=process.env.SUPABASE_SERVICE_ROLE_KEY,time=req.headers.get('x-baixou-time')??'',sig=req.headers.get('x-baixou-signature')??'';if(!key)return NextResponse.json({error:'unavailable'},{status:503});if(!/^\d{13}$/.test(time)||Math.abs(Date.now()-Number(time))>60000||!/^[a-f0-9]{64}$/.test(sig))return NextResponse.json({error:'unauthorized'},{status:401});const expected=createHmac('sha256',key.trim()).update('notify:'+time).digest('hex');if(!timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return NextResponse.json({error:'unauthorized'},{status:401});try{return NextResponse.json(await sendNotifications());}catch{return NextResponse.json({error:'send_failed'},{status:503});}}
+

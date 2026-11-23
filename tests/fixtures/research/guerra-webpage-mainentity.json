@@ -1,0 +1,31 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "WebPage",
+  "name": "Memória Patriot Viper Elite 32GB DDR4 3600MHz CL20 Vermelha",
+  "mainEntity": {
+    "@type": "Product",
+    "@id": "https://www.guerradigital.com.br/produtos/patriot-viper-elite-32gb-1x32gb-ddr4-3600mhz-cl20-vermelha-pve2432g360c0/",
+    "name": "Patriot Viper Elite 32GB (1x32GB) DDR4 3600MHz CL20 Vermelha (PVE2432G360C0)",
+    "image": "https://acdn-us.mitiendanube.com/stores/002/025/067/products/mem-ddr4-32gb-3600mhz-patriot-viper-elite-ii-vermelho-pve2432g360c0-31-3f840d9f5c902737e816626706125219-480-0.webp",
+    "sku": "PVE2432G360C0",
+    "brand": {
+      "@type": "Thing",
+      "name": "Patriot"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": "https://www.guerradigital.com.br/produtos/patriot-viper-elite-32gb-1x32gb-ddr4-3600mhz-cl20-vermelha-pve2432g360c0/",
+      "priceCurrency": "BRL",
+      "price": "1999",
+      "availability": "http://schema.org/InStock",
+      "inventoryLevel": {
+        "@type": "QuantitativeValue",
+        "value": "3"
+      },
+      "seller": {
+        "@type": "Organization",
+        "name": "Guerra Digital"
+      }
+    }
+  }
+}

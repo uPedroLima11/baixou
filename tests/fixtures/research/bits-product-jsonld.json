@@ -1,0 +1,20 @@
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Memória 8GB DDR4 3200MHz Synex - Dissipador Preto - SX8GB-D4-3200HZ",
+    "sku": "40147",
+    "brand": {
+      "@type": "Brand",
+      "name": "Diversos"
+    },
+    "image": "https://cdn.shoppub.io/cdn-cgi/image/w=1000,h=1000,q=80,f=auto/oficinadosbits/media/uploads/produtos/foto/kerqkahl/file.png",
+    "offers": {
+      "@type": "Offer",
+      "priceCurrency": "BRL",
+      "price": "499.99",
+      "availability": "https://schema.org/InStock",
+      "url": "https://www.oficinadosbits.com.br/produto/memoria-8gb-ddr4-3200mhz-synex-dissipador-preto-sx8gb-d4-3200hz/"
+    }
+  }
+]
