@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import * as cheerio from 'cheerio';
-import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable} from '../scripts/store-adapters';import {classify,kitComponents,type Alert,type Offer} from '../lib/types';import {identityForOffer} from '../lib/identity';import {matchesAlert} from '../lib/alert-rules';import {diverseCandidates,categoryURL,productURL,retryMinutes,verificationTTL,planBatch,recheckMinutes} from '../lib/collection-policy';import {sources} from '../scripts/sources';
+import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable} from '../scripts/store-adapters';import {classify,kitComponents,type Alert,type Offer} from '../lib/types';import {identityForOffer} from '../lib/identity';import {matchesAlert} from '../lib/alert-rules';import {diverseCandidates,categoryURL,productURL,retryMinutes,verificationTTL,planBatch,recheckMinutes,pickDiscoveryPages} from '../lib/collection-policy';import {sources} from '../scripts/sources';
 function fixture(file:string){const html=readFileSync(new URL('./fixtures/expansion/'+file+'.html',import.meta.url),'utf8');return {html,url:cheerio.load(html)('link[rel=canonical]').attr('href')!};}
 test('real WAZ ItemList exposes products even without visible anchor links',()=>{const html=readFileSync(new URL('./fixtures/expansion/waz-category.html',import.meta.url),'utf8'),source=sources.find(s=>s.id==='waz')!;const links=structuredProductLinks(cheerio.load(html)).map(u=>productURL(u,source)).filter(Boolean);assert.equal(new Set(links).size,12);});
 test('Patoloco explicit unavailability without price cannot become a fake free offer or transient failure',()=>{const {html,url}=fixture('patoloco-unavailable');assert.throws(()=>parseStoreProduct('patoloco',html,url),ConfirmedUnavailable);});
@@ -40,4 +40,11 @@ test('KaBuM combo with abbreviated CPU after + is an upgrade kit, plain motherbo
  assert.equal(classify('Placa Mãe MSI A520M-A PRO + 5 5500F + Air Cooler MACH1 ARTIC 120mm + Memória XPG 8GB'),'kit');assert.equal(kitComponents('Placa Mãe MSI A520M-A PRO + 5 5500F + Air Cooler')['Processador'],'5 5500F');
  assert.equal(classify('Placa Mãe MSI A520M-A PRO, AMD AM4, DDR4, Micro ATX'),'motherboard');
  assert.equal(classify('Placa Mãe ASUS B550M + Memória 16GB DDR4'),'motherboard');
+});
+test('discovery prefers registered category routes and keeps one lane for discovered subcategories',()=>{
+ const o='https://x.test',seeds=new Set([o+'/kit',o+'/gpu']),due=[{url:o+'/a-sub'},{url:o+'/b-sub'},{url:o+'/kit'},{url:o+'/gpu'}];
+ assert.deepEqual(pickDiscoveryPages(due,seeds,3).map(p=>p.url),[o+'/a-sub',o+'/kit',o+'/gpu']);
+ assert.deepEqual(pickDiscoveryPages(due,seeds,1,0).map(p=>p.url),[o+'/kit']);
+ assert.deepEqual(pickDiscoveryPages(due,seeds,1,1).map(p=>p.url),[o+'/a-sub']);
+ assert.deepEqual(pickDiscoveryPages([{url:o+'/a-sub'}],seeds,3).map(p=>p.url),[o+'/a-sub']);
 });

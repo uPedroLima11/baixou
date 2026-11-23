@@ -12,3 +12,7 @@ export function recheckMinutes(available:boolean,ttl:number){return available?Ma
 // Capacity-first admission: due rechecks keep the live catalog fresh; new candidates only use leftover slots,
 // plus a small discovery lane (10%) in larger batches so expansion never stops completely.
 export function planBatch<R,P extends {category:string}>(rechecks:R[],pending:P[],max:number){const lane=max>=10?Math.ceil(max/10):0;const due=rechecks.slice(0,Math.max(0,max-Math.min(lane,pending.length)));const fresh=diverseCandidates(pending,max-due.length);return {rechecks:due,pending:fresh};}
+
+// Rotas cadastradas (categorias principais) têm prioridade; uma vaga por execução fica para subcategorias descobertas
+// (com 1 vaga, alterna pelo cursor). Entrada já vem ordenada por última tentativa (nunca visitadas primeiro).
+export function pickDiscoveryPages<T extends {url:string}>(due:T[],seeds:Set<string>,n:number,cursor=0):T[]{const seeded=due.filter(p=>seeds.has(p.url)),found=due.filter(p=>!seeds.has(p.url));const foundSlots=n>1?1:cursor%2;const picked=[...found.slice(0,foundSlots)];for(const p of seeded)if(picked.length<n)picked.push(p);for(const p of found.slice(foundSlots))if(picked.length<n)picked.push(p);return picked;}
