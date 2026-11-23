@@ -1,3 +1,16 @@
+# CHECKPOINT — acessos oficiais, paginação e conectores (Claude Code, 23/11/2026, ~16h UTC)
+
+Regra do proprietário: custo zero absoluto (sem depósito, assinatura ou API paga).
+
+- **Acessos:** `docs/ACCESS_GUIDE.md` traz o passo a passo de Mercado Livre (app no DevCenter, só leitura + offline_access, redirect `/api/integrations/mercadolivre/callback`), Shopee (afiliados + Open API) e AliExpress (Portals + app Affiliates API), com nomes de secrets e o que cada API devolve, além da mensagem para Pichau/Terabyte. Amazon (sem elegibilidade) e Magalu (Awin pede depósito) ficam em espera. Nenhum cadastro foi feito; aguardando o proprietário.
+- **Conectores:** `lib/connectors/` tem contrato, política de publicação para marketplace e conversão para `ParsedProduct`, com testes. Os três conectores estão registrados como NÃO implementados. Ao receber credenciais: implementar `listings()`, rota OAuth do ML com refresh token rotativo numa tabela privada (service_role), extrair a persistência de `lib/collector.ts` para reuso e só então marcar `implemented=true` após consulta hospedada real.
+- **Paginação:** `/api/catalog?page=N` (400 por página). Verificado em produção: página 0 = 400, página 1 = 356, total 756, página inválida = 400 (Bad Request); sem descrição longa na listagem. A interface mostrou 48 cards, "Mostrar mais (404 restantes)" e 96 após clicar; altura da página ~10.800 px (antes ~105.000). Contagens usam o conjunto completo: 452 produtos na modalidade de ofertas. Limitação: páginas buscadas em instantes diferentes; deduplicação por id evita repetição, mas uma oferta pode mudar de posição entre páginas e só aparecer no próximo carregamento.
+- **View `catalog_offers`** (migration 20261123160626, aplicada via db query): security_invoker, anon com SELECT, specs sem "Descrição do fabricante". Payload de 756 ofertas: 2,0 MB → 1,55 MB.
+- **Descoberta:** rotas cadastradas antes de subcategorias descobertas (antes, a ordem alfabética punha monitor-portátil/macbook-air na frente de kit-upgrade, e cursores pares visitavam 1 página). A KaBuM descarta itens de marketplace já na listagem (48 dos 60 na de kits). "Ofertas do dia" da KaBuM carrega via cliente (0 links no HTML) e não foi incluída.
+- **Estado medido às ~16h UTC:** 756 ofertas ativas (KaBuM 260, Patoloco 248, WAZ 125, Guerra 123), zero vencidas; cadeia relay ininterrupta desde 14:42 UTC. Kits: a página de kits da KaBuM ainda não tinha sido visitada no momento da medição (código de prioridade publicado depois). Conferir `select count(*) from offers where category='kit' and available`.
+
+---
+
 # CHECKPOINT — grandes lojas, variedade e kits upgrade (Claude Code, 23/11/2026, noite)
 
 Prioridade do proprietário: grandes lojas (Mercado Livre, Amazon, Terabyte, Pichau, Magalu, Shopee, AliExpress) antes de lojas menores. iByte e similares ficam para depois.

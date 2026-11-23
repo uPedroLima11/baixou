@@ -65,3 +65,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Agendamento final: um lote Vercel a cada 15 minutos (até dois detalhes por fonte; categorias não se repetem antes de 30 minutos), Actions amplo (60 detalhes por loja) a cada ~15 minutos via job relay; desligar com a variável COLLECT_RELAY=off. Crons individuais antigos estão inativos. O lote reduzido mediu 2.061 ms de CPU; conferir Usage antes de aumentar frequência/volume.
 - Há recuperação condicional aos minutos 2/17/32/47 quando nenhum worker começou nos últimos cinco minutos. Não repetir trabalho já iniciado para mascarar falha de resposta HTTP/2.
 - Vendedor/condição rejeitados são exclusões de política: expires_at vence, verification_status=excluded e nova tentativa após 24 horas. Não marcar available=false sem comprovar esgotamento e não tratá-los como erro de rede.
+
+## Grandes lojas, conectores e catálogo (23/11/2026)
+
+- Custo zero é inegociável: sem API paga, assinatura, depósito (inclusive Awin) ou infraestrutura paga. Se um painel pedir pagamento, parar e avisar.
+- Prioridade: Mercado Livre, Shopee, AliExpress (APIs oficiais gratuitas, dependem de cadastro do proprietário), Pichau/Terabyte (pedido de feed ou liberação do robô), Amazon/Magalu em espera. Lojas pequenas (iByte etc.) só depois. Passos e mensagens em docs/ACCESS_GUIDE.md; sondagem em docs/MAJOR_STORES.md.
+- Nunca fazer cadastro, autorização ou envio de mensagem em nome do proprietário sem confirmação. Credenciais só via `gh secret set` / `vercel env add` feitos por ele; nunca pelo chat.
+- Conectores oficiais ficam em lib/connectors (contrato, política de publicação, conversão para ParsedProduct). `implemented=true` somente após consulta hospedada real com produtos, preço, disponibilidade e vendedor. Marketplace exige BRL, estoque confirmado, condição nova, host permitido e vendedor confiável (oficial, nível de reputação aceito ou ≥95% positivo com ≥100 vendas). Preço original de API é desconto anunciado, nunca queda comprovada; cupom de API é dica não validada.
+- Kits upgrade = CPU + placa-mãe (com/sem RAM). Não confundir com PC completo, kit de memória ou combo de periféricos. Kits não recebem identidade canônica.
+- KaBuM: a listagem informa sellerId/isMarketplace; itens de marketplace são descartados já na descoberta porque só o vendedor próprio é aceito.
+- Descoberta: rotas cadastradas em scripts/sources.ts têm prioridade sobre subcategorias descobertas (uma vaga por execução para estas).
+- Catálogo público: /api/catalog?page=N (400 por página, ordem desconto+id) a partir da view catalog_offers (sem descrição longa, security_invoker). O cliente carrega todas as páginas para contagens exatas e renderiza a grade em blocos de 48. O detalhe busca o registro completo em /api/product.
