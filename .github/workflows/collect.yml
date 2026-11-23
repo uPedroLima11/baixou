@@ -56,7 +56,7 @@ jobs:
   # Mercado Livre (~25 requisições por execução). Desligar com a variável de repositório ML_STOREFRONTS=off.
   connectors:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
