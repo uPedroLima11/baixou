@@ -83,3 +83,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Fonte ativa: vitrines públicas de lojas oficiais (`/loja/{slug}`), via lib/connectors/mercadolivre-stores.ts e job `connectors` em collect.yml. Cobertura PARCIAL (`store_registry = partial`); não declarar catálogo completo do Mercado Livre.
 - Preço "Antes" do ML é desconto anunciado, não queda comprovada. Disponibilidade é inferida da vitrine ativa; item ausente vence pelo TTL, nunca vira "esgotado".
 - Novos slugs só após conferir com probe.yml no runner. Desligar com a variável de repositório ML_STOREFRONTS=off.
+
+## Qualidade de preço, categorias e filtros (23/11/2026)
+
+- Categoria segue a identidade principal do produto (início do título), depois regras de títulos que começam pela marca; palavras soltas só no fim. Regressões com títulos reais em tests/classify.test.ts. Reclassificar o banco só com migration que confira a categoria antiga (ver 20261123175542).
+- Identidade: código do fabricante vem só de dados da loja (parênteses, MPN de um termo, código de peça no fim do título, modelo informado). Nunca por semelhança. Kits nunca têm identidade.
+- Três evidências distintas (lib/market.ts): queda comprovada (histórico), abaixo do mercado (mesmo produto canônico em >=2 outras lojas agora, >=5% abaixo da mediana, comparação exata) e desconto anunciado. O preço riscado é limitado pela diferença real para outras lojas sempre que houver comparação. Referência calculada por refresh_market_reference() no job report.
+- Todas as fontes atuais publicam preço à vista/Pix. Uma fonte nova com outra base de preço não pode entrar na referência de mercado sem separar a base.
+- Filtros do catálogo e alertas usam o mesmo extrator (lib/specs.ts) e o mesmo comparador (listas = OU, `_min` = mínimo, chaves com E). Valor desconhecido nunca casa nem aparece como opção. Fabricante da placa ≠ fabricante do chip; capacidade total ≠ por módulo.
+- Avaliações nunca são transferidas entre lojas. Ficha técnica de outra loja só para o mesmo produto canônico e sempre com a origem indicada.
+- Perfil e Notificações são telas separadas no menu da conta.

@@ -45,7 +45,9 @@ jobs:
       - name: Resolver links candidatos
         run: npm run discover
       - name: Confirmar preços e estoque nas lojas
-        run: npm run collect
+        # Uma nova tentativa para 5xx transitório do gateway Supabase (Cloudflare 522 em 45199413698 e na rodada de e17a6ff).
+        # Idempotente: lease por loja; falha persistente continua vermelha.
+        run: npm run collect || { echo "Nova tentativa em 30 s"; sleep 30; npm run collect; }
       - name: Enviar alertas opt-in
         run: npm run notifications
 

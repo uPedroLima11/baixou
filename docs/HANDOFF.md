@@ -1,3 +1,20 @@
+# CHECKPOINT — categorias, identidade, preço de mercado, filtros e alertas (Claude Code, 23/11/2026, ~18h30 UTC)
+
+Expansão de lojas pausada a pedido do proprietário. Etapas em ordem, cada uma com commit próprio:
+
+1. **Categorias** (3c7fc9c): a auditoria das 1.379 ofertas achou celulares e cartões microSD em RAM, coolers e Smart TV em processadores, webcams/cabos "Full HD" em SSD, suportes e carregadores como o produto principal, MacBooks em "outros" e placas-mãe que começam pela marca em RAM. classify() agora decide primeiro pelo início do título. 40 títulos reais em tests/classify.test.ts. Migration 20261123175542 reclassificou 207 ofertas, só onde a categoria antiga ainda batia; o único trigger de offers reage a product_id.
+2. **Identidade** (e17a6ff): manufacturerCode() e aliases de marca. Simulação nas 1.282 ofertas ativas: identidade forte 484 → 621, chaves entre lojas 16 → 26. Ofertas ganham a identidade nova na próxima verificação. "3.200MHz" virava 200 MHz; corrigido (joinThousands), e a migration 20261123180601 removeu a frequência inválida de 13 produtos canônicos e 10 ofertas.
+3. **Preço de mercado** (1b48a6a): colunas market_* em offers, função refresh_market_reference() (service_role) e view catalog_offers recriada com as colunas (migration 20261123180020). Na primeira execução: 477 ofertas avaliadas, 27–31 com 1 outra loja e nenhuma com 2 ou mais, então "Abaixo do mercado" ainda mostra 0 (correto: referência insuficiente). Exemplos de desconto anunciado limitado pelo mercado: KaBuM Ryzen 5 8500G anunciava 52% a R$ 799,99 contra R$ 859,14 em outra loja. Recalculado a cada ciclo no job report (`npm run market:refresh`).
+4. **Especificações** (86ea620, ba0f2ad): lib/specs.ts compartilhado. /api/product devolve a ficha técnica do mesmo produto canônico de outra loja, com a origem indicada. Vitrines de varejistas do ML usam a marca do título só quando há exatamente um fabricante (nunca em PC/kit; AMD/Intel só para CPU). Sem avaliações no ML; nada transferido.
+5. **Filtros dinâmicos** (634178e): facetas por categoria geradas do catálogo elegível, com contagens cruzadas. Verificado em produção: Placas de vídeo → Chip gráfico (NVIDIA 39, AMD 7), GPU, Memória de vídeo e Fabricante da placa; NVIDIA filtra 46 → 39.
+6. **Alertas** (86ea620, 634178e): spec_filters aceita listas e `_min`; a regra de alerta usa o mesmo extrator. Testes com os exemplos do proprietário (DDR5 16 GB R$ 100 abaixo do histórico; NVIDIA ≥12 GB).
+7. **Perfil e Notificações** separados no menu da conta (634178e). NÃO verificado com usuário logado (sem credencial de teste nesta sessão).
+
+- **Falhas:** a rodada da coleta com código e17a6ff teve Patoloco/WAZ vermelhas por Cloudflare 522 no gateway Supabase (a API de gestão também deu 502 no mesmo horário). O passo de coleta ganhou uma nova tentativa.
+- **Pendências:** validar Perfil/Notificações logado; acompanhar se "Abaixo do mercado" ganha itens à medida que as identidades novas se propagam; o catálogo ainda baixa ~1,5 MB por visita (todas as páginas) para facetas e contagens exatas. Se crescer muito, mover facetas para o servidor.
+
+---
+
 # CHECKPOINT — Mercado Livre por vitrines de lojas oficiais (Claude Code, 23/11/2026, ~17h30 UTC)
 
 - **Contexto:** conta Developers bloqueada, sem OAuth. Investigação completa em `docs/MERCADOLIVRE_RESEARCH.md`. API sem token 401/403; produto/lista redirecionam para verificação de conta; sem sitemap; bibliotecas comunitárias dependem desses mesmos caminhos.
