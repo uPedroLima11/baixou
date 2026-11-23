@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {publicDb} from '@/lib/supabase';
+export async function GET(req:Request){const id=new URL(req.url).searchParams.get('id');if(!id||id.length>100)return NextResponse.json([],{status:400});const db=publicDb();if(!db)return NextResponse.json([]);const {data,error}=await db.from('price_history').select('price,observed_at').eq('offer_id',id).gte('observed_at',new Date(Date.now()-30*86400000).toISOString()).order('observed_at',{ascending:true}).limit(1000);return NextResponse.json(data??[],{status:error?503:200});}
