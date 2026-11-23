@@ -39,7 +39,8 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
  }else if(id==='shopinfo'){
   // Shopify da própria loja (SHP Brasil). O schema traz o preço de CARTÃO; o Pix vem do bloco de preço do produto.
   // Preço de cartão não é preço antigo: original fica nulo. Variantes múltiplas são recusadas (preço ambíguo).
-  if($('meta[property="og:site_name"]').attr('content')!=='Shopinfo'||!$('footer').text().includes('03.482.370/0001-09'))throw Error('Identidade de loja própria não confirmada');
+  // Shopify é loja de vendedor único. O CNPJ da SHP Brasil vem no HTML do servidor (bloco de cabeçalho), não no rodapé visível.
+  if($('meta[property="og:site_name"]').attr('content')!=='Shopinfo'||new URL(canonical).hostname!=='shopinfo.com.br'||!html.includes('03.482.370/0001-09'))throw Error('Identidade de loja própria não confirmada');
   const products=structuredNodes($).filter(n=>isType(n,'Product'));if(products.length!==1)throw Error('Produto principal não identificado sem ambiguidade');p=products[0];
   const offers=(Array.isArray(p.offers)?p.offers:[p.offers]).filter(Boolean);if(offers.length!==1)throw Error('Produto com variantes: preço ambíguo');o=offers[0];
   const card=brl(o.price),block=$('.shopinfo-pdp-price-block').first(),pix=brl(block.find('.shopinfo-price__pix-hero').first().text());
