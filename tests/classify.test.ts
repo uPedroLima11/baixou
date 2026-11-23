@@ -1,0 +1,48 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {classify} from '../lib/types';
+// Títulos reais coletados em 23/11/2026 (KaBuM, WAZ, Guerra Digital, Patoloco, Mercado Livre).
+const cases:[string,string][]=[
+ ['Celular Samsung Galaxy S25 Ultra 5g, 256gb, 12gb, Câm. Quád. Cor Prata','other'],
+ ['Tablet Samsung Galaxy Tab S10 FE WiFi, 128GB, 8GB, Tela 10.9" 90Hz, S Pen e Capa','other'],
+ ['Smart TV 4K 50" LG QNED Mini LED AI QNED70 2026 Processador α7 Ger9 HDR10 Xbox Bluetooth','other'],
+ ['Cartão De Memória Micro SD 64gb Pcyes','other'],
+ ['Cooler Para Processador DeepCool AK620 G2 WH, 120mm, Branco, R-AK620G2-WHNNMN-GJD','peripherals'],
+ ['Pcyes Frost Pulse Argb Cooler Para Processador White Ghost','peripherals'],
+ ['Suporte de Placa de Vídeo Rise Mode, ARGB, 500mm, Aura V1, Branco - RM-SPVG-01-AR','peripherals'],
+ ['Suporte de Mesa Articulado para Monitor de 17" a 32" North Bayou, com Pistão a Gás, VESA, Preto','peripherals'],
+ ['Fonte p/ Notebook (Carregador) 65W - USB-C Lenovo Yoga e Thinkpad - 4X20M26270 (Original Lenovo)','peripherals'],
+ ['Cabo HDMI PCYes Ultra HD 2.0 HDR 3D 30AWG 2 Metros (PHM20-2)','peripherals'],
+ ['Webcam Full HD Logitech Brio 500 - Branco','peripherals'],
+ ['Fones de ouvido Corsair Hs80 Rgb Usb Gamer','peripherals'],
+ ['Teclado e Mouse Sem Fio Dell KM3322W, USB, ABNT2, Preto - 580-BBBB','peripherals'],
+ ['Monitor Gamer LG UltraGear 27G411B, 27"", Full HD, IPS, 144Hz, 1ms, HDMI, DP, G-Sync','monitor'],
+ ['iMac Apple Tela Retina 24" 4.5K, Chip M4, CPU 10 Núcelos, GPU 10 Núcleos, Neural Engine de 16 Núcleos','pc'],
+ ['Personal AI Supercomputer - NVIDIA DGX Spark 2-Pack with Cable Bundle - 128GB RAM 4TB SSD','pc'],
+ ['Servidor Lenovo ThinkServer ST50 v3 - 7DF3A02SBR (Xeon 6315P 4C, 1x 16GB DDR5, SSD 960GB)','pc'],
+ ['Mini PC Machenike Mini2 Intel i5-12450H, 16GB RAM, SSD 512GB, Wifi 6, Branco - Mini2-3545HD4','pc'],
+ ['Workstation móvel 16pol Lenovo Thinkpad P16v Gen2 21KYS8JE00 (Ultra 7 155H, 32GB, 2TB nVME','notebook'],
+ ['MacBook Pro Apple 16", M4 Pro, CPU 14 Núcleos, GPU 20 Núcleos, Neural Engine de 16 Núcleos','notebook'],
+ ['Notebook Samsung Galaxy Book6 Ultra 16" AMOLED Copilot+ PC, Windows 11 Home','notebook'],
+ ['Gigabyte Aero 16 Xe5, I7-12700h, Rtx 3070ti, 16gb Ddr5, 1tb','notebook'],
+ ['MSI PRO B650M-P, Chipset B650, AMD AM5, M-ATX, DDR5 (911-7E27-006)','motherboard'],
+ ['Gigabyte X870 EAGLE WIFI7, AMD, ATX, DDR5, RGB, Wi-Fi 7, Bluetooth (9MX87EG7-00-G11)','motherboard'],
+ ['ASUS TUF B850-PLUS WIFI, AMD AM5 , ATX, DDR5, Wi-fi 7, Preto (90MB1J30-M0EAY0)','motherboard'],
+ ['Placa-Mãe Husky Nexus A520, M.2 NVMe, DDR4 3200MHz, Ryzen 5000/4000/3000, Micro-ATX, 64GB Dual Channel','motherboard'],
+ ['ASRock AMD Radeon RX 7600 Challenger OC, 8GB GDDR6, 128-bit, FSR, Ray Tracing (90-GA62ZZ-00UANF)','gpu'],
+ ['Galax GeForce RTX 4070 Ti EX Gamer 1-Click OC V2 RGB 12GB GDDR6X 192 bit (47IOM7MD7ADT)','gpu'],
+ ['Zotac Rtx 5060 Twin Edge Placa Vídeo 8gb Gddr7 Cooling Ar','gpu'],
+ ['Processador AMD Ryzen 5 7600X, 5.3GHz, Cache 38MB, AM5, Radeon Graphics - 100-100000593','cpu'],
+ ['AMD Ryzen 5 5600, Cache 35MB, 3.5GHz (4.4GHz Max Turbo), AM4, Sem Vídeo (100-100000927BOX)','cpu'],
+ ['AMD Athlon 3000G 2-Core, 4-Thread, 3.5 GHz Base, Socket AM4 35W (YD3000C6FHSBX)','cpu'],
+ ['Memória RAM Kingston Fury Beast, RGB, 32GB (2x16GB), 5600MHz, DDR5, CL36, Branco - KF556C36BWEAK2-3','ram'],
+ ['Memória RAM Para Notebook Adata XPG, 16GB, 4800MHz, DDR5, CL42 - AD5S480016G-S','ram'],
+ ['SSD240GB Adata 2.5 SU650 ASU650SS-240GT-R 240GB preto','ssd'],
+ ['Seagate BarraCuda 1TB 64MB Cache SATA 6.0Gb/s 3.5" Hard Drive (ST1000DM010)','ssd'],
+ ['Sandisk Ssd Nvme Optimus Gx 7100 Desempenho Superior Preto','ssd'],
+ ['Poltrona Gamer Mancer Fenrir Z Purple Edition, Mcr-fnz-pn','chair'],
+ ['Kit Upgrade Gamer Amd Ryzen 5 5500 + A520m + 8gb Ddr4 Cor Preto','kit'],
+ ['PC Gamer MCL, AMD Ryzen 5 5500, RX 580 8GB, 8GB DDR4, SSD 240GB, 500W 80 Plus','pc'],
+];
+test('classification follows the product identity, not isolated words (real store titles)',()=>{
+ for(const [title,expected] of cases)assert.equal(classify(title),expected,title);
+});

@@ -10,22 +10,45 @@ export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g
 export function classify(title:string):Category {
  const t=' '+normalize(title)+' ';
  if(isUpgradeKit(t,title))return 'kit';
- if(/^\s*(notebook|laptop)\b/.test(t))return 'notebook';
- if(/^\s*(computador|pc gamer|pc home|pc completo|mini pc|desktop completo)\b/.test(t))return 'pc';
- if(/^\s*monitor\b/.test(t))return 'monitor';
- // Notebook sem a palavra "notebook" (ex.: "Gigabyte Aero 16, i7-12700H, RTX 3070 Ti"): CPU móvel (sufixo H/HX/HS/U) no título.
- if(!/^\s*(placa|processador|cooler|fonte|gabinete|memoria)\b/.test(t)&&/\b(?:i[3579]\s*\d{4,5}(?:h|hx|hs|u)|ryzen\s*[3579]\s*\d{4}(?:h|hs|hx|u)|core\s*ultra\s*[3579]\s*\d{3}(?:h|u|v))\b/.test(t))return 'notebook';
- if(/^\s*(kit|combo)\b.*\b(teclado|mouse|headset|fone)\b/.test(t))return 'peripherals';
- if(/placa mae|motherboard/.test(t)&&!/^\s*processador\b/.test(t))return 'motherboard';
- if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';
- if(/processador|ryzen|intel core/.test(t)&&!/notebook|computador|pc gamer/.test(t))return 'cpu';
- if(/memoria|\bram\b|\bddr\s*[345]\b/.test(t)&&!/notebook.*ssd|computador|pc gamer/.test(t))return 'ram';
- if(/notebook|laptop/.test(t))return 'notebook';
- if(/computador|pc gamer|desktop completo/.test(t))return 'pc';
- if(/ssd|disco rigido| hd /.test(t))return 'ssd';if(/monitor/.test(t))return 'monitor';
- if(/mousepad|mouse pad/.test(t))return 'peripherals';if(/mouse/.test(t))return 'mouse';if(/teclado/.test(t))return 'keyboard';if(/cadeira/.test(t))return 'chair';
- if(/headset|fone|webcam|microfone|controle|gabinete|fonte|cooler/.test(t))return 'peripherals';return 'other';
+ // 1) Identidade principal: o tipo de produto no início do título prevalece sobre palavras soltas
+ //    ("Cooler para Processador" é cooler; "Celular ... 8GB RAM" é celular; "Webcam Full HD" não é HD).
+ for(const [re,category] of HEAD_RULES)if(re.test(t))return category;
+ // 2) Títulos que começam pela marca (comum na Guerra Digital e no Mercado Livre).
+ if(/\b(smart\s*tv|smartphone|celular|smartwatch|tablet)\b/.test(t))return 'other';
+ if(MOBILE_CPU_RE.test(t))return 'notebook';
+ if(/\bchipset\b/.test(t)||((/\b(am[45]|lga\s*\d{4})\b/.test(t)||/\b(e\s*atx|atx|matx|m\s*atx|micro\s*atx|mini\s*itx)\b/.test(t))&&/\b[abhxzqw]r?x?\d{3}[a-z]?m?\b/.test(t)&&!CPU_MODEL_RE.test(t)))return 'motherboard';
+ if(/\b(geforce|radeon|rtx\s*\d{3,4}|gtx\s*\d{3,4}|rx\s*\d{3,4}|arc\s*[ab]\d{3})\b/.test(t)&&/\b\d{1,2}\s*gb\b/.test(t))return 'gpu';
+ if(CPU_MODEL_RE.test(t)&&!/\b(cooler|notebook|computador|pc)\b/.test(t))return 'cpu';
+ // 3) Último recurso: palavras-chave, com exclusões para não confundir menções de especificação.
+ if(/\b(notebook|laptop|macbook)\b/.test(t))return 'notebook';
+ if(/\b(computador|pc gamer|desktop completo)\b/.test(t))return 'pc';
+ if(/\bssd\b|\bdisco rigido\b|\bhdd\b/.test(t))return 'ssd';
+ if(/mousepad|mouse pad/.test(t))return 'peripherals';if(/\bmouse\b/.test(t))return 'mouse';if(/\bteclado\b/.test(t))return 'keyboard';if(/\bcadeira\b/.test(t))return 'chair';
+ if(/\b(headset|fone|webcam|microfone|controle|gabinete|fonte|cooler|ventoinha)\b/.test(t))return 'peripherals';
+ return 'other';
 }
+const MOBILE_CPU_RE=/\b(?:i[3579]\s*\d{4,5}(?:h|hx|hs|u)|ryzen\s*[3579]\s*\d{4}(?:h|hs|hx|u)|core\s*ultra\s*[3579]\s*\d{3}(?:h|u|v))\b/;
+// Ordem importa: acessórios que citam o produto principal vêm antes dele ("suporte para monitor", "fonte para notebook").
+const HEAD_RULES:[RegExp,Category][]=[
+ [/^\s*(suporte|braco articulado|carregador|fonte p(ara)?|bateria|capa|case|bolsa|mochila|pelicula|base refrigerada|cooler para notebook)\b/,'peripherals'],
+ [/^\s*(cartao de memoria|cartao micro\s*sd|micro\s*sd|pen\s*drive|pendrive|memoria flash)\b/,'other'],
+ [/^\s*(smart\s*tv|tv|televisor|smartphone|celular|iphone|tablet|ipad|smartwatch|relogio|galaxy\s*(watch|tab|buds)|console|playstation|xbox|nintendo|jogo|game|microsoft 365|antivirus|kaspersky|garantia|refrigerador|geladeira)\b/,'other'],
+ [/^\s*(notebook|laptop|macbook|chromebook|ultrabook|workstation movel)\b/,'notebook'],
+ [/^\s*(computador|pc|desktop|imac|mini\s*pc|all\s*in\s*one|workstation|servidor|personal ai supercomputer)\b/,'pc'],
+ [/^\s*monitor\b/,'monitor'],
+ [/^\s*(cadeira|poltrona)\b/,'chair'],
+ [/^\s*(placa de video|placa grafica|tarjeta grafica|tarjeta de video)\b/,'gpu'],
+ [/^\s*(placa mae|motherboard)\b/,'motherboard'],
+ [/^\s*processador\b/,'cpu'],
+ [/^\s*(memoria|kit de memoria|kit memoria)\b/,'ram'],
+ [/^\s*(ssd\w*|hd|hdd|disco|nvme|m 2|seagate barracuda)\b/,'ssd'],
+ [/^\s*(kit|combo)\b.*\b(teclado|mouse|headset|fone)\b/,'peripherals'],
+ [/^\s*(teclado e mouse|mouse e teclado)\b/,'peripherals'],
+ [/^\s*(mousepad|mouse pad)\b/,'peripherals'],
+ [/^\s*mouse\b/,'mouse'],
+ [/^\s*teclado\b/,'keyboard'],
+ [/^\s*(cooler|water\s*cooler|air\s*cooler|ventoinha|fan|kit fan|kit ventoinhas|pasta termica|dissipador|controlador(a)? de fan|controladora|gabinete|fonte|headset|fones?|microfone|webcam|camera web|camera webcam|caixa de som|soundbar|controle|joystick|volante|hub|cabo|adaptador|estabilizador|nobreak|filtro de linha|protetor|roteador|switch|placa de rede|placa de captura|conferencecam)\b/,'peripherals'],
+];
 export function calculateEvidence(price:number,reference:number|null,history:{price:number;observed_at:string}[],now=Date.now()){
  const valid=history.filter(x=>x.price>0&&Date.parse(x.observed_at)<now-3600000&&Date.parse(x.observed_at)>now-30*86400000);
  const days=new Set(valid.map(x=>x.observed_at.slice(0,10))).size;
