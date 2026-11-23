@@ -1,4 +1,41 @@
-# CHECKPOINT FINAL PARA CLAUDE CODE — 23/11/2026
+# CHECKPOINT — confiabilidade da coleta (Claude Code, 23/11/2026, tarde)
+
+Este bloco prevalece sobre os anteriores no que se refere a agendamento e capacidade.
+
+## Agendamento GitHub: causa e correção
+
+- Fato medido: `gh run list --workflow collect.yml --event schedule` vazio e API `actions/runs?event=schedule` com total 0. O workflow existe desde 03:35 UTC; o cron antigo de 5 min (≈115 janelas) e o de 30 min nunca geraram execução. Também após re-registrar o cron (`4,19,34,49 * * * *`, push às 14:19 UTC) a janela de 14:34 não disparou. Workflow `active`, Actions habilitado, YAML válido (dispatch funciona), repositório público com atividade. Não há causa de configuração identificável no repositório: o agendador do GitHub não está entregando `schedule` aqui. Não afirmar outra causa sem evidência.
+- Correção sem credencial nova: job `relay` em collect.yml. Ao fim de cada execução (inclusive com falha de uma loja), espera 540 s e despacha a próxima com o `GITHUB_TOKEN` efêmero (`workflow_dispatch` é a exceção documentada que cria nova execução). Cadência efetiva ≈15 min. Para sozinho se houver run `schedule` nos últimos 45 min. Desligar: variável de repositório `COLLECT_RELAY=off`. Duplicatas colapsam pelo grupo de concorrência (uma pendente). Se a cadeia morrer (cancelamento, incidente GitHub), reiniciar com `gh workflow run collect.yml`; o lote Supabase→Vercel continua como base mínima.
+- Verificado: execução 45196999712 (14:42 UTC, commit 91e3fc5) terminou verde nas quatro lojas e no relay, que despachou sozinho a 45199413698 às 14:55 UTC. Totais: WAZ 59 (33 esgotamentos confirmados, zero "Pix diverge"), Patoloco 58, KaBuM 41 (19 exclusões de vendedor), Guerra 15. Relatório ao fim de um job: devidas KaBuM 37/Patoloco 48/WAZ 16; disponíveis com TTL vencido KaBuM 19/Patoloco 25/WAZ 1. O backlog ainda convergia; NÃO declarar capacidade sustentável antes de acompanhar várias horas de relatórios com vencidas próximas de zero.
+- Alternativa mais robusta, NÃO ativada: pg_cron despachando o workflow pela API do GitHub. Exige token fine-grained só deste repositório com Actions: read/write, criado pelo proprietário e guardado no Vault (`baixou_github_dispatch`). Não criar nem pedir o token pelo chat.
+
+## Capacidade de revalidação (medida)
+
+- Antes: 50 anúncios com estoque e TTL vencido (KaBuM 40) às 14:16 UTC; só o lote Vercel rodava (~8 verificações/15 min ≈32/h) contra ~390 disponíveis com TTL 60 min. Mesmo com Actions a cada 30 min, 50 por loja com metade das vagas para candidatos novos não cobria KaBuM/Patoloco.
+- Agora (`lib/collection-policy.ts`): admissão capacidade-primeiro (`planBatch`): rechecagens devidas antes de candidatos novos; faixa mínima de 10% para descoberta em lotes ≥10 (lote Vercel de 2 só revalida quando há devidas). Rechecagem marcada 20 min antes do TTL (`recheckMinutes`: 40 min para TTL 60, 5 min para TTL 15; indisponível 180 min). Actions: 60 detalhes por loja por execução. TTL NÃO foi alterado.
+- Primeira execução com a política (45193091233): 211 verificações em uma rodada (antes ~100), zero falhas de loja; KaBuM vencidas 40→21. Necessidade estimada com o conjunto atual: KaBuM ~40/execução, Patoloco ~45/execução a cada 15 min; cabe em 60. Crescimento do conjunto ativo fica limitado pela faixa de 10%.
+- `npm run collect:report` agora inclui por loja: rechecagens devidas, atraso máximo e disponíveis com TTL vencido. Usar isso para decidir aumento de volume.
+
+## Orçamento gratuito
+
+- GitHub Actions: repositório público, minutos de runners padrão sem cobrança. ~4 execuções/h × (4 jobs de coleta ~3–4 min + relay ~9 min ocioso).
+- Supabase egress: o coletor baixava até 1.000 linhas de histórico por verificação; com 30 dias de buckets horários e ~400 verificações/h a projeção passava de 10 GB/mês (franquia gratuita 5 GB). Migration `20261123142040_price_history_stats.sql` (aplicada via db query, service_role apenas; anon/authenticated sem EXECUTE, verificado) agrega mediana/amostras/dias no Postgres com a mesma regra; teste de equivalência em tests/engine.test.ts; valores gravados conferidos em produção.
+- Catálogo público: ~1,16 MB do Supabase por cache miss (specs = 43%: descrição do fabricante). Cache de borda subiu para `s-maxage=60, stale-while-revalidate=240`; o cliente revalida `expires_at` no instante da renderização, então cache não exibe oferta vencida. PENDENTE: retirar a descrição da listagem (view/RPC) e carregá-la no detalhe; acompanhar Egress no painel Supabase com tráfego real.
+- Vercel: lote inalterado (*/15, 2 por loja). Não aumentar sem medir CPU no Usage.
+
+## Outras correções
+
+- WAZ: 37 de 50 tentativas falhavam como "Preço Pix diverge do schema". Página amostrada: vendedor WAZ com `OutOfStock` no schema e sem preço Pix exibido. Agora é `ConfirmedUnavailable` (atualiza só estoque de oferta existente, reagenda 3 h), nunca oferta com preço do schema. Fixture real reduzida `tests/fixtures/expansion/waz-out-of-stock.html`.
+- 44 testes, typecheck e build passam. CI verde em todos os commits desta etapa; deploy de produção READY.
+
+## Expansão: situação
+
+- Mercado Livre, Amazon, Magalu, Shopee e AliExpress: exigem conta/aprovação/OAuth do proprietário (ver PRIMARY_SOURCES.md). Pichau/Terabyte: 403 já documentado. Nenhuma integrável sem essas autorizações; não simular.
+- Sondagem leve (robots + home com UA do coletor) entre pendentes: iByte responde 200 e é VTEX com JSON-LD (mesma plataforma da WAZ) — próxima candidata. Chipart/Nagem 200 sem JSON-LD na home; FGTec Magento; Hardstore/Shopinfo redirecionam. Nada disso é integração: exige adaptador, fixtures, vendedor próprio e teste hospedado.
+
+---
+
+# CHECKPOINT ANTERIOR — 23/11/2026
 
 ## Começar aqui
 
