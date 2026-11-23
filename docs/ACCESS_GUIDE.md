@@ -108,3 +108,15 @@ Guarde as respostas: elas são a autorização documentada que o projeto exige.
 Mensagem pronta, não enviada:
 
 > Olá! Somos o Baixou! (https://baixouofertas.vercel.app), catálogo gratuito de ofertas de tecnologia. Encontramos a API de preços com Pichau/Terabyte. Antes de considerar uma integração, vocês autorizam por escrito exibir preços e comparações em nosso catálogo público no plano gratuito, sem depósito, assinatura, cartão ou cobrança excedente? Precisamos também confirmar a autorização das fontes originais, a cota disponível para preços, horário da última observação, vendedor, MPN/GTIN, condição nova, estoque e base Pix/à vista. A coleta é diária ou há confirmação recente por anúncio? Sem esses dados não podemos anunciar estoque atual nem promoção comprovada. Obrigado!
+
+## Mensagens prontas (23/11/2026) — enviar somente pelo proprietário
+
+**Lomadee + campanha TeraByte** (cadastro gratuito em https://www.lomadee.com.br; depois pedir aprovação na marca TeraByte). Após aprovado, conferir em "Credenciais de API" se existe busca de produtos com preço, disponibilidade, URL e EAN. Perguntar ao suporte Lomadee:
+
+> Olá! Mantenho o Baixou! (https://baixouofertas.vercel.app), comparador gratuito de hardware que mostra preço à vista, histórico próprio e alertas por e-mail, sempre com link para a loja. Gostaria de confirmar: (1) a API de produtos da Lomadee está disponível para publishers e retorna preço, disponibilidade, URL e EAN da TeraByte? (2) com que frequência os preços são atualizados? (3) a TeraByte permite exibir esses preços em um comparador com histórico e alertas? Não usamos cupons nem cashback. Obrigado!
+
+**Pichau Creator Network** (candidatura em https://afiliados.pichau.com.br/application). No campo de descrição:
+
+> Baixou! é um comparador gratuito de hardware (https://baixouofertas.vercel.app) que publica preço à vista, disponibilidade e link direto para a loja, sem copiar descrições nem avaliações. Para não acessar o site da Pichau com robôs (bloqueados), pedimos um feed XML/CSV ou endpoint de produtos (título, preço Pix, estoque, URL, EAN/código do fabricante) e autorização para exibir esses preços, com atualização ao menos a cada hora.
+
+**Amazon:** não enviar ainda. Pré-requisitos: conta Associados aceita, 10 vendas qualificadas/30 dias (Creators API) **e** aprovação escrita para recurso de rastreamento/alerta de preço (Políticas, cl. 6(y)).

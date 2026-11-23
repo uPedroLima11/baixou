@@ -103,3 +103,17 @@ Associados: https://associados.amazon.com.br. A Creators API exige conta aceita 
 Shopee e AliExpress (API gratuita e ampla), Pichau/Terabyte (kits upgrade, depende de resposta das lojas), Mercado Livre (teste com token), Awin/Magalu (bloqueado por custo), Amazon (depende de vendas). Cada integração nova roda como job próprio na matriz do Actions, então não reduz a capacidade de revalidação das quatro lojas atuais.
 
 iByte (VTEX, home 200 com JSON-LD) e outras lojas menores ficam registradas para uma etapa futura.
+
+## Redes de afiliados brasileiras (Claude Code, 23/11/2026, só leitura; nenhum cadastro/contato)
+
+| Fonte | Grátis | Dados de produto | Pichau/Terabyte/Amazon | Exibir preço em comparador |
+|---|---|---|---|---|
+| [Lomadee](https://www.lomadee.com.br/llms.txt) (ex-Social Soul) | Sim, sem depósito citado | Oficialmente só links/cupons + MCP de marcas. API de busca de produtos citada apenas por terceiro ([Content Egg](https://ce-docs.keywordrush.com/modules/affiliate/lomadeeproducts)), ~10 req/min, sem atualização por ID — **não verificada** | **Terabyte** ([página da marca](https://www.lomadee.com.br/en/brands/terabyte), 2%, cookie 1 dia). Pichau/Amazon não | Não encontrado; terceiro ([Cuelinks](https://www.cuelinks.com/campaigns/terabyteshop-affiliate-program)) diz que a Terabyte veda deals/cupons — **não verificado** |
+| [Afilio](https://www.afilio.com.br/) | Sim | Não encontrado | Nenhuma | — |
+| [Actionpay](https://actionpay.com.br/) | Não verificado | Não encontrado | Nenhuma | — |
+| Rakuten Advertising | Não verificado no BR | Feed/API globais | Nenhuma encontrada | Por anunciante |
+| [Pichau Creator Network](https://afiliados.pichau.com.br/) | Sim, aprovação manual 3–5 dias | Só links (feed/API não mencionados; site 403 ao robô) | Pichau | Não verificado |
+| [Terabyte Parceiros](https://www.terabyteshop.com.br/site/regras-programa-de-parceiros) | Sim (conta de cliente) | Não mencionado (403 ao robô) | Terabyte | Não verificado |
+| [Amazon Associados](https://associados.amazon.com.br/help/operating/policies) | Sim | Só Creators API | Amazon | Preço só via API; **cl. 6(y): site não pode ter rastreamento/alerta de preço sem aprovação da Amazon** |
+
+Conclusões: (1) Lomadee/Terabyte é o único caminho novo plausível, mas a API de produtos e o direito de exibir preço precisam ser confirmados no painel/por escrito; (2) Pichau só oferece links — pedir feed na candidatura; (3) **Amazon: mesmo com Creators API, histórico e alertas de preço (núcleo do Baixou!) exigem aprovação escrita da Amazon.** Isso rebaixa a Amazon abaixo de Pichau/Terabyte. O caso G305 (Amazon R$ 161,91) não pode virar coleta.
