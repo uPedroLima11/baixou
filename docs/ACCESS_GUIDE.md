@@ -73,7 +73,7 @@ Uma integração só é considerada ativa depois de consultas reais devolverem p
 
 As duas bloqueiam robôs com Cloudflare; só a loja pode liberar. Envie pelos canais dos programas de parceiros:
 - Pichau: https://afiliados.pichau.com.br (cadastro gratuito, depois contato do time de parceiros).
-- Terabyte: https://landing.terabyteshop.com.br/parceiros/
+- Terabyte: https://landing.terabyteshop.com.br/parceiros/ — contato oficial publicado: parceiros@terabyteshop.com.br
 
 Guarde as respostas: elas são a autorização documentada que o projeto exige.
 
@@ -83,8 +83,8 @@ Guarde as respostas: elas são a autorização documentada que o projeto exige.
 >
 > Sou Pedro, responsável pelo Baixou! (https://baixouofertas.vercel.app), um comparador gratuito de ofertas de hardware que direciona o usuário para a página da loja, sem intermediar vendas.
 >
-> Gostaríamos de exibir produtos da [loja] com preço e estoque corretos, incluindo kits upgrade. Há alguma destas opções disponível para parceiros?
-> 1. Feed de produtos (XML, CSV ou JSON) com preço, preço à vista, estoque, URL e imagem; ou
+> Gostaríamos de exibir produtos da [loja] com preço e estoque corretos, incluindo kits upgrade. Precisamos de uma opção gratuita, sem depósito, assinatura ou taxa por acesso. Há alguma destas opções disponível para parceiros?
+> 1. Feed de produtos (XML, CSV ou JSON) com preço à vista/Pix, condição de pagamento, estoque, vendedor, URL, imagem e MPN/GTIN quando disponíveis; ou
 > 2. Autorização para coleta limitada das páginas públicas pelo robô identificado "BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)", com no máximo uma requisição a cada 1,5 s, respeitando o robots.txt.
 >
 > Usamos links de afiliado da [loja] quando aprovados e removemos qualquer dado mediante solicitação.

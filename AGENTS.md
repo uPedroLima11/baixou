@@ -100,3 +100,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - market_expires_at limita a referência pelo menor TTL e 15 min. Ignorar referência vencida. Dispersão acima de 1,5× ou concorrente mais barato impede selo abaixo do mercado. Não baixar critérios para preencher resultados.
 - MPNs conflitantes anulam correspondência mesmo com product_id legado igual; não transferir ficha técnica desse vínculo.
 - Departamentos e filtros compartilham lib/specs.ts. Navegação de departamentos abre Catálogo completo; ofertas sem evidência continuam consultáveis. Ordenação padrão não pontua desconto anunciado nem baixo preço absoluto.
+
+- Feedback de preço do proprietário: não destacar o preço riscado como preço normal. Cards exibem somente a referência efetivamente usada na evidência; valor do vendedor fica recolhido no detalhe. Comparação limitada às fontes deve dizer Abaixo das lojas comparadas/cobertura parcial; nunca afirmar menor preço de todo o mercado. Desconto apenas anunciado recebe selo textual.

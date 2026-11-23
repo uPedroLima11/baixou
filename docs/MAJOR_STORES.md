@@ -1,3 +1,15 @@
+# Atualização Codex — 23/11/2026
+
+Reconsulta das fontes oficiais, sem repetir 403 de produtos nem fazer cadastros:
+
+- [Pichau Creator Network](https://afiliados.pichau.com.br/): cadastro gratuito com análise manual, links e canal de alertas; não publica contrato de feed XML/CSV/JSON ou API de catálogo. Pedido pronto em ACCESS_GUIDE.md. A existência de alertas não autoriza leitura automatizada de canais privados.
+- [Terabyte Parceiros](https://landing.terabyteshop.com.br/parceiros/): inscrição por formulário e aprovação por e-mail; canal publicado **parceiros@terabyteshop.com.br**. Não documenta feed de catálogo. A busca encontrou documentação de ferramenta interna de relatórios sob domínio da loja, exigindo usuário Manager/ACL: não é uma API pública para parceiros e não foi usada nem autenticada.
+- [Amazon onboarding](https://associados.amazon.com.br/creatorsapi/docs/en-us/onboarding/register-for-creators-api) e [elegibilidade](https://associados.amazon.com.br/creatorsapi/docs/en-us/troubleshooting/error-codes-and-messages): aceitação final em Associados e 10 vendas qualificadas nos últimos 30 dias. Sem credenciais/conta elegível comprovada, conector continua desativado. Nenhum catálogo HTML coletado.
+- Pichau via vitrine ML continua sendo cobertura parcial do marketplace, sem integração direta. Nenhuma das três lojas foi promovida a operacional nesta etapa.
+- Regra atual é custo zero absoluto: Awin/Magalu não deve ser recomendado enquanto houver depósito. O trecho antigo abaixo que admite decidir por pagamento está superado.
+
+---
+
 # Grandes lojas e marketplaces — caminhos oficiais (23/11/2026)
 
 Complementa `docs/PRIMARY_SOURCES.md`; não repetir a pesquisa registrada lá. Nenhum cadastro, pagamento ou contorno foi feito.
@@ -59,13 +71,11 @@ São as fontes principais de **kits upgrade**. O bloqueio é Cloudflare: só a p
 
 Risco documentado: desenvolvedores relatam `403` em `/sites/MLB/search` mesmo com token válido ([relatos públicos](https://www.reclameaqui.com.br/mercado-livre/erro-403-forbidden-ao-acessar-endpoint-sitesmlbsearch-da-api-do-mercado-livre_4HqcUyVoCdJmt4Lv/)). Com o token, testar também `/products/search`, `/products/{id}/items` e `/highlights/MLB/category/{id}`. Só declarar operacional após teste real; marketplace exige filtrar vendedor (reputação, loja oficial) e condição "novo".
 
-### 5. Magazine Luiza — rede Awin (verificar; pode exigir depósito)
+### 5. Magazine Luiza — rede Awin (desativada pelo custo de adesão)
 
 A Open API do Magalu é só para sellers, e o programa Parceiro/Influenciador Magalu oferece links, não catálogo. Fontes de terceiros citam Magalu na Awin, mas isso não foi confirmado em fonte oficial.
 
-1. Se aceitar a condição de cadastro da Awin (a documentação cita depósito reembolsável de US$ 5, contrário à regra de custo zero; decisão sua), crie conta Publisher em https://www.awin.com/br.
-2. Candidate-se aos programas Magalu (se existir) e KaBuM (perfil 17729) e verifique em Toolbox → Create-a-Feed se há feed de produtos liberado.
-3. Secrets: `AWIN_PUBLISHER_ID`, `AWIN_FEED_KEY`.
+Não prosseguir com Awin: depósito viola custo zero. Só retomar com alternativa oficialmente gratuita verificada.
 
 ### 6. Amazon — só após vendas qualificadas
 
@@ -73,6 +83,6 @@ Associados: https://associados.amazon.com.br. A Creators API exige conta aceita 
 
 ## Ordem recomendada
 
-Shopee e AliExpress (API gratuita e ampla), Pichau/Terabyte (kits upgrade, depende de resposta das lojas), Mercado Livre (teste com token), Awin/Magalu (custo de cadastro a decidir), Amazon (depende de vendas). Cada integração nova roda como job próprio na matriz do Actions, então não reduz a capacidade de revalidação das quatro lojas atuais.
+Shopee e AliExpress (API gratuita e ampla), Pichau/Terabyte (kits upgrade, depende de resposta das lojas), Mercado Livre (teste com token), Awin/Magalu (bloqueado por custo), Amazon (depende de vendas). Cada integração nova roda como job próprio na matriz do Actions, então não reduz a capacidade de revalidação das quatro lojas atuais.
 
 iByte (VTEX, home 200 com JSON-LD) e outras lojas menores ficam registradas para uma etapa futura.

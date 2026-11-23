@@ -1,4 +1,4 @@
-import {effectiveEvidence,marketDiscount,marketStatus} from './market';
+import {marketDiscount,marketStatus} from './market';
 import {normalize,type Offer} from './types';
 // Critérios editoriais explícitos, sem popularidade ou vendas estimadas. Preço riscado não dá pontos.
 export function opportunityQuality(o:Offer){
@@ -10,6 +10,7 @@ export function opportunityQuality(o:Offer){
 export function compareOpportunities(a:Offer,b:Offer,query=''){
  const q=normalize(query),relevance=(o:Offer)=>q&&normalize(o.title).includes(q)?1:0;
  const x=opportunityQuality(a),y=opportunityQuality(b);
- return relevance(b)-relevance(a)||y.tier-x.tier||y.savings-x.savings||Number(!!b.product_id)-Number(!!a.product_id)||Date.parse(b.checked_at)-Date.parse(a.checked_at)||a.id.localeCompare(b.id);
+ const completeness=(o:Offer)=>Number(!!o.image)+Number(!!o.brand)+Math.min(Object.keys(o.specs??{}).length,5)/5;
+ return relevance(b)-relevance(a)||y.tier-x.tier||y.savings-x.savings||Number(!!b.product_id)-Number(!!a.product_id)||completeness(b)-completeness(a)||Date.parse(b.checked_at)-Date.parse(a.checked_at)||a.id.localeCompare(b.id);
 }
-export function opportunityLabel(o:Offer){const q=opportunityQuality(o);return q.tier===3?'Histórico e mercado favoráveis':q.tier===2?'Oportunidade com evidência verificada':effectiveEvidence(o)==='retailer'?'Desconto anunciado pela loja':'Produto monitorado';}
+export function opportunityLabel(o:Offer){const q=opportunityQuality(o);return q.tier===3?'Histórico e comparação favoráveis':q.tier===2?'Evidência no histórico ou nas lojas comparadas':'';}

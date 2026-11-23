@@ -36,3 +36,9 @@ export function effectiveDiscount(o:MarketFields){
 }
 // Anúncio com preço riscado muito acima do que outras lojas praticam agora.
 export function announcedOverstated(o:MarketFields){return o.evidence==='retailer'&&(o.market_stores??0)>0&&(Number(o.discount)||0)-effectiveDiscount(o)>=10;}
+// A referência visível deve ser a mesma usada no selo. Preço riscado da loja não é referência comprovada.
+export function discountReference(o:Offer){
+ if(effectiveEvidence(o)==='history'&&Number(o.historical_median)>0)return {label:'Mediana histórica',amount:Number(o.historical_median)};
+ if(marketStatus(o)==='below')return {label:'Mediana de '+o.market_stores+' outras lojas comparadas',amount:Number(o.market_median)};
+ return null;
+}

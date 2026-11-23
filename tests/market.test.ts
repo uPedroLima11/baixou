@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {marketStatus,effectiveEvidence,effectiveDiscount,announcedOverstated} from '../lib/market';
+import {marketStatus,effectiveEvidence,effectiveDiscount,announcedOverstated,discountReference} from '../lib/market';
 const base={price:1300,discount:35,evidence:'retailer' as const};
 test('struck-through price is not a super deal when other stores sell the same model at similar prices',()=>{
  // Exemplo do proprietário: R$ 1.300 com R$ 2.000 riscado; outras lojas a 1.300, 1.400 e 1.500 (mediana 1.400).
@@ -30,4 +30,10 @@ test('a median inflated by an extreme reference is not enough; references expire
  assert.notEqual(marketStatus({...extreme,market_highest:1100,market_expires_at:'2020-01-01'}),'below');
  assert.notEqual(marketStatus({...extreme,market_highest:1100,market_expires_at:null}),'below');
  assert.notEqual(marketStatus({...base,market_median:1600,market_lowest:1200,market_stores:2}),'below');
+});
+
+test('visible reference matches the actual comparison, never the inflated struck-through price',()=>{
+ const o={...base,original_price:4235.28,price:1679.99,market_median:2164.625,market_lowest:2063.14,market_highest:2266.11,market_stores:2} as import('../lib/types').Offer;
+ assert.equal(discountReference(o)?.amount,2164.625);
+ assert.equal(discountReference({...o,market_stores:0}),null);
 });

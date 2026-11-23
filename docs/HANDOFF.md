@@ -1,3 +1,13 @@
+# CHECKPOINT — referência exibida e cobertura parcial (Codex, 23/11/2026)
+
+- Feedback do proprietário: R$4.235,28 riscado no 7800X3D não é preço normal de mercado; há preços menores em lojas ainda não integradas. Corrigido: card não mostra referência riscada do vendedor. Quando há selo numérico, mostra a mediana histórica/comparativa realmente usada. Valor anunciado fica somente em seção recolhida do detalhe, com explicação.
+- Renomeado o modo para **Abaixo das lojas comparadas** e explicitada cobertura parcial no card/detalhe. Não afirmar menor preço do mercado inteiro. O selo de 22% do exemplo vem de R$1.679,99 vs mediana R$2.164,625 de duas outras lojas, nunca dos R$4.235,28 anunciados. Essa amostra não inclui todo o varejo nem invalida preços mais baixos de fora.
+- Anúncios sem evidência independente recebem selo textual Anunciada; percentual anunciado não vira destaque numérico nem prioridade padrão.
+- Departamentos: corrigido contraste de botões herdado do cabeçalho. Contadores das modalidades agora respeitam também os filtros técnicos selecionados. Navegação desktop DDR5 validada em produção com 29 resultados e checkbox correspondente. Viewport móvel 390×844 revelou o contraste corrigido; validar versão final clara/escura, toque/teclado.
+- 70 testes, tipos e build passaram após esses ajustes. Pendentes apenas confirmação final de CI/deploy/browser, auditoria final e checkpoint de publicação.
+
+---
+
 # CHECKPOINT — auditoria real e códigos divergentes (Codex, 23/11/2026, ~18h46 UTC)
 
 - Auditoria pública reproduzível: npm run pricing:audit (sem service_role, só leitura, todas as páginas; falha explícita em HTTP não OK). Mediu 1.325 anúncios ativos às 18:44:52 UTC, 21 grupos entre fontes sem divergência detectada pela regra atual, 2 grupos legados conflitantes, 1 modelo com referência de 2 outros vendedores e 1 preço abaixo da amostra. Zero divergências entre classificação armazenada e classify() nessa fotografia. Contagens variam com TTL/cache/coleta; não tratar como auditoria manual de todo modelo.
