@@ -1,23 +1,48 @@
-# Etapa atual: expansão do motor — 23/11/2026
+# Estado atual: expansão do motor — 23/11/2026
 
-Leia docs/EXPANSION_REPORT.md para medições e evidências desta etapa. O domínio continua https://baixouofertas.vercel.app e a interface foi preservada.
+Leia primeiro AGENTS.md e docs/EXPANSION_REPORT.md. Este bloco prevalece sobre o checkpoint-base abaixo. Domínio padrão: https://baixouofertas.vercel.app . A interface foi preservada.
 
-## Estado atual que prevalece sobre o checkpoint-base
+## Concluído e testado nesta etapa
 
-- Fontes operacionais com produtos reais persistidos pelo runner: KaBuM!, WAZ, Guerra Digital e Patoloco. Cadastro atualizado somente após conferir estoque/preço/imagem e offers no Supabase.
-- Oficina dos Bits: parser e fixtures de HTML atual HTTP200 implementados; duas categorias retornaram403 no GitHub runner, incluindo o caminho conhecido de memória. Status blocked e removida da rotina. Não contornar; requer acesso/feed autorizado. Terabyte/Pichau continuam bloqueados.
-- Filas privadas novas: collection_state, collection_pages, product_candidates, collection_runs. Migration20261123130748_progressive_collection_queue aplicada. RLS e privilégios negam leitura para anon/authenticated; service_role tem acesso, conferido em SQL.
-- Migration20261123131654_per_store_collection_schedule aplicada: substitui o cron global por quatro jobs, um por loja, com offsets de minuto0/1/2/3 e intervalo5min. Confirmar net._http_response e collection_runs; sucesso do SQLcron sozinho não comprova HTTP/coleta.
-- Actions usa matrix das quatro fontes a cada30min, max50detalhes/fonte, deadline interno4min. WorkersVercel por fonte têm35s e até10detalhes/ciclo. Lease é por loja, evitando bloquear outras fontes e evitando duplicar execução da mesma fonte.
-- Uma página por ciclo, cursores persistentes e alternância entre categorias conhecidas e links/paginação públicos observados. JSON-LD ItemList também descobre produtos: fixtureWAZ contém12sem precisar deâncoras. Sem chamar APIs internas como contorno.
-- Novos candidatos e verificações vencidas têm faixas alternadas; categorias são intercaladas. Falhas recebem backoff15minaté6h. Produtos explicitamente indisponíveis sem preço naPatoloco são reagendados180min; só atualizar estoque de registro já existente, nunca criar preçoR$0.
-- Limites gratuitos:2000candidatosporloja, até150novoslinks/página,8MB/resposta, timeout8s e pausa1,5s. TTLregular60min; queda histórica>=20%TTL15min. Nunca estenderTTLsemconsulta. Alertas continuam exigindo verificação recente5min. Monitorar capacidade/idade; não prometer toda promoção de minutos.
-- RAM inclui kit de memória e módulo de notebook; notebookRTX não éGPU. Alertas de categoria semmarca/modelo aceitamqualquerprodutocompatível usando mediana própria. Produto exato continua identidadecanônica separada.
-- 37testes de motor/parsers passaram; tipos/build e CI passaram. Fixtures são reduções de páginas reais, não produtos de produção. RLS privada confirmada. scripts/collection-report.ts gera relatório reproduzível, inclusive resumo noActions: npm run collect:report.
-- A coleta teve falhas reais durante homologação: Bits403; um ciclo ocioso era tratado comoerroCLI e foi corrigido; falhasKaBuM antigas registraram apenasFalha, semcausahistóricarecuperável. Agora preservamos mensagens seguras de erroPostgREST. RevalidaçãoVercel posterior daKaBuM respondeu200,total2,discovered24,failures0. Não atribuir a403ouesgotamento semevidência.
-- Links externos/afiliados resolvidos passam pelos hosts dosnovosadaptadores; origem/compras continuam na loja. Nenhuma chave de afiliado ou credencial nova adicionada.
+- Quatro lojas operacionais após coleta hospedada e gravação real no Supabase: KaBuM!, WAZ, Guerra Digital e Patoloco. Oficina dos Bits possui parser e fixtures atuais, mas duas categorias retornaram HTTP 403 no GitHub runner. Foi removida da rotina, sem bypass. Terabyte e Pichau continuam bloqueadas.
+- Na medição de 10:47:26 (São Paulo): 828 URLs candidatas, 204 páginas de descoberta, 406 anúncios detalhados persistidos, 370 disponíveis dentro do TTL e 223 com desconto anunciado. Todas as 14 categorias tinham estoque ativo. Zero quedas comprovadas: ainda faltam dias mínimos de histórico. Não confundir anúncios com modelos únicos.
+- Existem correspondências reais entre lojas pela identidade canônica. Foram revisados três modelos Kingston, com MPN e variantes consistentes entre KaBuM/Guerra Digital e KaBuM/Patoloco. O banco tinha 209 identidades canônicas representadas e 193 anúncios sem identificador forte na consulta posterior. Não fundir esses anúncios por título aproximado.
+- Alertas de categoria sem marca/modelo foram testados com Kingston, Corsair, XPG e Husky, modelos e lojas diferentes, usando a mediana própria. Kits RAM e módulos de notebook classificam como RAM; notebook RTX não classifica como GPU. Produto exato continua sendo uma regra separada por identidade/variante.
+- 38 testes de motor/parsers passaram; TypeScript e build passaram. Rodada hospedada 45185654640 terminou com sucesso nos quatro jobs, incluindo o relatório real de cobertura. Commits posteriores devem ser conferidos no CI/deploy atual.
+- Filas privadas tiveram privilégios conferidos: anon não lê product_candidates; authenticated não lê collection_state; service_role lê. RLS sem política nas tabelas do worker é intencional.
 
-O checkpoint-base abaixo preserva arquitetura e decisões anteriores; substitua referências antigas de KaBuM única, TTL30 ou cron global pelas informações acima.
+## Coleta e orçamento gratuito
+
+- Filas persistentes: collection_state, collection_pages, product_candidates e collection_runs. Cursores não dependem de módulo do relógio. Cada loja tem lease próprio; falha de uma fonte não bloqueia as demais.
+- Descoberta alterna categorias conhecidas, links públicos observados e paginação permitida pelo robots. Também lê JSON-LD ItemList: fixture WAZ contém 12 produtos sem depender de âncoras. Não chamar APIs internas como contorno.
+- Novidades diversas e revalidações vencidas têm faixas alternadas. Falhas recebem backoff de 15 minutos a seis horas. Estoque explicitamente indisponível sem preço na Patoloco é reconsultado após três horas; não criar preço zero. Vendedor/condição excluídos são reagendados após 24 horas, sem fingir esgotamento nem falha técnica.
+- Limites: 2.000 candidatos por loja, até 150 novos links por página, 8 MB por resposta, timeout de oito segundos e pausa de 1,5 segundo por domínio. Logs têm retenção de sete dias; histórico mantém 35 dias. Favoritos/alertas não expiram.
+- TTL regular de 60 minutos; queda histórica de pelo menos 20% usa 15 minutos. Falha não renova TTL. Alertas exigem confirmação recente em cinco minutos. Esses limites não reservam estoque nem garantem capturar promoções de minutos.
+- **Agendamento final:** Supabase Cron baixou-collect-batch ativo em */15, chamando /api/jobs/collect?batch=1. Uma invocação compartilha memória entre as quatro lojas, até dois detalhes por fonte e orçamento de 35 segundos. Categorias só são revisitadas pelo fallback após 30 minutos sem descoberta recente. Actions continua com matriz das quatro fontes a cada 30 minutos, até 50 detalhes por fonte e deadline de quatro minutos.
+- O lote amplo inicial mediu 4.167 ms de CPU, alto demais para extrapolar chamadas frequentes no Hobby. O lote reduzido rodou nas quatro lojas: sete verificações, zero falhas, 9.811 ms de duração e 2.061 ms de CPU. A frequência de 15 minutos deixa margem para descoberta periódica e uso público. São amostras, não medição mensal nem garantia de franquia ilimitada; acompanhar Usage na Vercel.
+- Existe falha intermitente de transporte HTTP/2 no pg_net. A tentativa seguinte chegou ao worker com HTTP 200. O job baixou-collect-retry roda aos minutos 2/17/32/47 e só envia uma recuperação se nenhum worker começou nos últimos cinco minutos. Não repete um lote que já chegou à aplicação, mesmo se a resposta se perder. Verificar net._http_response e collection_runs, não apenas o status SQL do cron.
+- Os quatro crons individuais antigos ficaram inativos somente na mesma transação que ativou o lote testado. Não reativá-los em paralelo, pois isso consome franquia redundante.
+
+## Migrations adicionais aplicadas via CLI
+
+- 20261123130748_progressive_collection_queue.sql: filas, cursores, observabilidade e RLS privada.
+- 20261123131654_per_store_collection_schedule.sql: promoção condicionada a ofertas reais e primeiros crons por loja (agora inativos).
+- 20261123134010_batched_collection_budget.sql: prepara o job em lote inicialmente inativo.
+- 20261123134605_activate_batched_collection.sql: troca atômica para lote de 15 minutos, após teste hospedado.
+- 20261123135330_excluded_product_state.sql: verification_status=excluded, preservando disponibilidade e favorito quando vendedor/condição não são aceitos.
+- 20261123135509_collector_transport_retry.sql: recuperação limitada do transporte e índice de heartbeat.
+
+Não reaplicar migrations. O histórico CLI pode estar incompleto por terem sido aplicadas via db query. Não copiar chaves do Vault para documentos ou logs.
+
+## Falhas e próximos passos
+
+As primeiras rodadas foram parcialmente vermelhas por Bits 403, ciclo ocioso tratado como erro e mensagens de banco genéricas. Corrigimos a classificação de ciclo ocioso e preservamos mensagens seguras. Logs posteriores esclareceram que erros recentes KaBuM eram rejeições de vendedores terceiros: agora são exclusões de política, não esgotamento nem falha técnica. Não inventar uma causa para erros históricos sem mensagem recuperável.
+
+Próximos passos: acompanhar idade/CPU/franquia; aumentar capacidade somente com medição; aprofundar identificação/especificações conservadoras; ampliar fontes com acesso realmente autorizado. Amazon/Shopee/AliExpress dependem de conta e aprovação; APIs de seller Mercado Livre/Magalu não são feed global. Pesquisa e links oficiais estão em docs/PRIMARY_SOURCES.md. Não simular credenciais ou integração.
+
+npm run collect:report consulta os dados reais e escreve o resumo do Actions. Reportar separadamente candidatos, anúncios persistidos, estoque dentro do TTL, descontos anunciados, quedas comprovadas e identidades fortes. O catálogo API ainda limita a resposta a 500 anúncios: preparar paginação antes de ampliar a listagem pública além disso. A fila de descoberta pode ser maior sem transformar todo candidato em card.
+
+O checkpoint-base abaixo registra arquitetura, e-mail e decisões anteriores. Referências antigas a KaBuM única, TTL de 30 minutos ou cron global de cinco minutos foram substituídas pelas decisões acima.
 
 ---
 
