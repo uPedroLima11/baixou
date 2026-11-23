@@ -104,3 +104,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Feedback de preço do proprietário: não destacar o preço riscado como preço normal. Cards exibem somente a referência efetivamente usada na evidência; valor do vendedor fica recolhido no detalhe. Comparação limitada às fontes deve dizer Abaixo das lojas comparadas/cobertura parcial; nunca afirmar menor preço de todo o mercado. Desconto apenas anunciado recebe selo textual.
 
 - Expansão: avaliar APIs não oficiais e bibliotecas comunitárias gratuitas quando o acesso e a publicação forem permitidos. Não descartar pela origem não oficial. TelePromo/Pichau usa /api/ bloqueado pelo robots; scraper Terabyte antigo repete HTML bloqueado; AmzPy depende de impersonação/proxies. Falcon Data Hub é candidata de terceiro: endpoint público de lojas HTTP200, mas coleta diária e redistribuição em massa exige autorização escrita; não publicar como fonte ativa. Pesquisa e pedidos em MAJOR_STORES.md/ACCESS_GUIDE.md.
+
+## Continuidade Claude Code — e-mails e referência anunciada (23/11/2026)
+
+- Alertas por e-mail: modelo em lib/email-templates.ts, envio em lib/notifications.ts. Reserva/finalização atômicas (`claim_notification`/`finish_notification`, service_role); não reenviar `unknown`; um aviso por usuário/produto/dia e só novo aviso abaixo do último preço notificado. Hosts de e-mail incluem Mercado Livre (safeUrl do coletor não inclui).
+- SMTP existe só na Vercel (valores sensitive, não baixáveis). Prévia do modelo: workflow manual email-preview.yml, envia só ao remetente com [TESTE]. Não usar para usuários.
+- Templates Auth: `npx supabase config push --remote=slmhkfqqeyptngjubfhn` só depois de conferir que o diff contém apenas template.* (CLI 3.x não reseta propriedades não declaradas). Avisos de segurança não declarados de propósito.
+- `historical_max` (≥5 amostras/≥3 dias) limita o desconto anunciado. Preço "de" acima do maior preço observado não é praticado; nunca usar como evidência.

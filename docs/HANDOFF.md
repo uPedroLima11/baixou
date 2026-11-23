@@ -1,3 +1,34 @@
+# CHECKPOINT — Claude Code retoma após Codex, 23/11/2026 (~19h45 UTC)
+
+## Trabalho interrompido do Codex (recuperado, nada descartado)
+
+- Encontrado sem commit sobre 7d44a71 (nenhum commit/deploy posterior): (1) tratamento de produto removido da Patoloco (redirect para /pagina-nao-encontrada → `RemovedProduct`, nova tentativa em 24 h, sem seguir redirect) + fixture de kit sem preço; (2) 13 templates do Supabase Auth + manifesto + teste + script de payload; (3) gerador de e-mail de alerta `lib/email-templates.ts` ainda não ligado ao envio; (4) migration `20261123191425_notification_delivery_claims.sql` **vazia**. Completados e commitados em 07bad93, 17e20fa, 6c1e4ed.
+
+## E-mails
+
+- Alertas (Nodemailer): assunto com nome compacto + preço verificado (`Baixou! 🔔 X atingiu R$`, `📉 X caiu para R$` com histórico, `🔥 X por R$` abaixo das lojas comparadas), HTML em tabelas com preheader, imagem da loja (hosts permitidos), loja/vendedor/pagamento, motivo + evidência apenas comprovada, botão para o Baixou!, link direto da loja, gerenciar alertas (`/?conta=notificacoes` abre a tela) e desativar; versão texto; `List-Unsubscribe` one-click (POST /api/unsubscribe?token=).
+- **Bug corrigido:** o envio filtrava por `safeUrl`, que não inclui Mercado Livre — alertas de 433 anúncios ML nunca seriam enviados. Agora usa a lista de hosts de e-mail.
+- Idempotência no Postgres (migration 20261123191425 aplicada): `claim_notification`/`finish_notification` (service_role apenas). Um envio por usuário/produto/dia (fuso SP), reserva atômica entre Vercel e Actions, falha SMTP temporária repete até 3x com espera 10/20/40 min, 5xx é permanente, `sending` sem resposta >15 min vira `unknown` e não é reenviado. `notification_state` só é gravado no sucesso. Ensaio com rollback: tests/notification-claims.sql (todas as verificações passaram).
+- Prévia real: workflow manual `email-preview.yml` → rota assinada `?check=preview` (SMTP só existe na Vercel; Actions não tem SMTP_* configurados) → envia SOMENTE ao SMTP_USER, assunto `[TESTE]`, faixa amarela de teste. Execução 45249778514: aceito pelo SMTP, assunto `[TESTE] Baixou! 🔔 Headset Gamer Redragon Cadmus atingiu R$ 189,90`. **Recebimento/renderização dependem de confirmação do proprietário.**
+- Supabase Auth: 6 templates de acesso publicados por `config push` (diff conferido: só 12 campos assunto/conteúdo; SMTP e flags intocados). 7 avisos de segurança só preparados. Nenhum e-mail Auth disparado nesta sessão.
+- **Não homologado com e-mail real:** disparo de alerta por condição verdadeira na conta do proprietário (perfil com email_enabled=false e 0 alertas no banco; navegador sem sessão; Claude in Chrome desconectado). Testes automatizados cobrem preço máximo, queda R$/%, AND, histórico mínimo, teto global, alerta pausado, lista de desejos, escape/hosts, dedupe e retries.
+
+## Perfil e Notificações
+
+- Notificações ganhou: pausar/reativar, editar condições (mantém ≥1), excluir com confirmação, nome do produto em alertas de produto, preferência "Avisar quedas da lista de desejos" (coluna já existia sem UI). Deep links `?conta=notificacoes|perfil`. RLS `own_alerts` (ALL) cobre update. Sem sessão o link abre o login (verificado no navegador). Validação logada pendente.
+
+## Preço
+
+- `historical_max` (migration 20261123194500 aplicada: coluna, `price_history_stats` com max, view catalog_offers recriada mantendo grants/security_invoker). Gravado só com ≥5 amostras em ≥3 dias, portanto **nulo até ~26/11** (histórico começou 23/11). Desconto anunciado é limitado também pela diferença para o maior preço observado; card mostra "Preço "de" não praticado nos N dias monitorados"; detalhe explica.
+- G305: no banco só KaBuM (kabum-97092, R$ 169,99, "de" R$ 488,62 = 65% anunciado, mpn G305, título com 910-005281). Sem outra loja nem histórico: aparece só como "Anunciada", sem prioridade. Amazon R$ 161,91 é observação do proprietário, NÃO integrada/validada. Regressão em tests/market.test.ts.
+
+## Operação (19:33 UTC)
+
+- Ativas no TTL: KaBuM 366, WAZ 163, Guerra 168, Patoloco 249, ML 433. Vencidas disponíveis: WAZ 2, ML 1. Actions 45246942562 e anteriores verdes. Fila: Patoloco 1.925 candidatos (1.381 devidos, 16 com falha), KaBuM 1.213 (655 devidos) — backlog de descoberta, não falha. Banco 24 MB, 6.301 observações.
+- Catálogo: 2,94 MB JSON descomprimido, mas **~430 KB transferidos** (brotli, CDN HIT). Facetas no servidor não são urgentes; atualização por minuto agora pausa com a aba oculta.
+
+---
+
 # CHECKPOINT FINAL — Codex, 23/11/2026, 15h57 São Paulo
 
 ## Entrega e publicação verificadas
