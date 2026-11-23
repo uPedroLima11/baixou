@@ -7,7 +7,7 @@ import type {ParsedProduct} from '../../scripts/store-adapters';
 // mediana agregada no Postgres -> evidência (anunciado x comprovado) -> TTL -> identidade -> offers -> histórico horário.
 // TODO: unificar com lib/collector.ts quando os demais conectores oficiais forem implementados.
 export async function persistVerifiedProduct(db:SupabaseClient,base:ParsedProduct){
- const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number}>();if(stats.error)throw stats.error;
+ const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null}>();if(stats.error)throw stats.error;
  const evidence=evidenceFromStats(base.price,base.original_price,stats.data??{median:null,samples:0,days:0}),ttl=verificationTTL(evidence.evidence,evidence.discount);
  const identity=identityForOffer({...base,...evidence} as Offer);let productId:string|null=null;
  if(identity){const resolved=await db.rpc('resolve_catalog_product',{p_brand:identity.brand,p_mpn:identity.mpn,p_gtin:identity.gtin,p_variant:identity.variant});if(resolved.error)throw resolved.error;productId=resolved.data;}

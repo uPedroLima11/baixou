@@ -34,3 +34,8 @@ test('history just below five percent does not become proof by rounding',()=>{
  assert.notEqual(evidenceFromStats(950.01,null,stats).evidence,'history');
  assert.equal(evidenceFromStats(950,null,stats).evidence,'history');
 });
+test('historical max only with enough history; never from a single day',async()=>{
+ const {evidenceFromStats}=await import('../lib/types');
+ assert.equal(evidenceFromStats(169.99,488.62,{median:170,samples:3,days:1,max:180}).historical_max,null);
+ assert.equal(evidenceFromStats(169.99,488.62,{median:170,samples:6,days:3,max:179.99}).historical_max,179.99);
+});
