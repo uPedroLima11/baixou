@@ -14,7 +14,8 @@
     "notifications": "tsx scripts/notify.ts",
     "discover": "tsx scripts/discover.ts",
     "discover:social": "tsx scripts/discord.ts",
-    "connectors": "tsx scripts/connectors.ts"
+    "connectors": "tsx scripts/connectors.ts",
+    "market:refresh": "tsx scripts/market-reference.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",

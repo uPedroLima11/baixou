@@ -85,7 +85,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Referência de preço de mercado (mesmo produto em outras lojas)
+        run: npm run market:refresh || { echo "Nova tentativa em 30 s"; sleep 30; npm run market:refresh; }
       - name: Relatório real de cobertura
+        if: always()
         run: npm run collect:report || { echo "Nova tentativa em 30 s"; sleep 30; npm run collect:report; }
 
   # O GitHub não entregou nenhum evento schedule para este repositório (zero desde 23/11/2026 03:35 UTC,
