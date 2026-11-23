@@ -36,3 +36,8 @@ test('upgrade kits are CPU + motherboard bundles, never PCs, RAM kits or periphe
  const offer={category:'kit',brand:'AMD',mpn:'100-100000927BOX',title:kit[1],specs:{}} as unknown as Offer;assert.equal(identityForOffer(offer),null);
  const kabum=sources.find(s=>s.id==='kabum')!;assert.ok(categoryURL('/hardware/kit-hardware/kit-upgrade?page_number=2',kabum));assert.ok(categoryURL('/espaco-gamer/cadeiras-gamer',kabum));assert.equal(categoryURL('/hardware/placas-mae?page_number=99',kabum),null);
 });
+test('KaBuM combo with abbreviated CPU after + is an upgrade kit, plain motherboard stays motherboard',()=>{
+ assert.equal(classify('Placa Mãe MSI A520M-A PRO + 5 5500F + Air Cooler MACH1 ARTIC 120mm + Memória XPG 8GB'),'kit');assert.equal(kitComponents('Placa Mãe MSI A520M-A PRO + 5 5500F + Air Cooler')['Processador'],'5 5500F');
+ assert.equal(classify('Placa Mãe MSI A520M-A PRO, AMD AM4, DDR4, Micro ATX'),'motherboard');
+ assert.equal(classify('Placa Mãe ASUS B550M + Memória 16GB DDR4'),'motherboard');
+});
