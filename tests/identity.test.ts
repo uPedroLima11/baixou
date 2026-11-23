@@ -20,3 +20,13 @@ test('manufacturer code comes from store data only: parentheses, single-token MP
  assert.equal(manufacturerCode('16GB','Memória 16GB'),null);assert.equal(manufacturerCode(null,'Mouse Gamer - 16000DPI'),null);
  assert.equal(canonicalBrand('RYZEN'),'amd');assert.equal(canonicalBrand('Palit Microsystem'),'palit');assert.equal(canonicalBrand('XPG'),'adata');assert.equal(canonicalBrand('Kingston Fury'),'kingston');
 });
+
+test('real store title and technical sheet with different AMD codes cannot identify the product',async()=>{
+ const {manufacturerConflict,manufacturerCode}=await import('../lib/identity');
+ const title='Processador AMD Ryzen 5 5500 - 100-100000457BOX';
+ assert.equal(manufacturerConflict('100-100000651WOF',title),true);
+ assert.equal(manufacturerCode('100-100000651WOF',title),null);
+ assert.equal(identityForOffer({...base,mpn:'100-100000651WOF',title}),null);
+ assert.equal(manufacturerConflict('9600X','Ryzen 5 9600X - 100-100001405WOF'),false);
+ assert.equal(manufacturerConflict('AG15-71P-53D9','Notebook Acer AG15-71P-53D9 - NX.JH6AL.001'),false);
+});

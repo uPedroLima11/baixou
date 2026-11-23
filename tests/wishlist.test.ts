@@ -6,3 +6,9 @@ test('failed verification differs from confirmed out of stock',()=>{assert.equal
 test('future offers in other stores renew saved canonical product without mutation',()=>{const future={...saved,id:'future',store:'pichau',price:500,expires_at:new Date(now+60000).toISOString()};assert.equal(currentSavedOffer(saved,[future],now),future);assert.equal(saved.id,'old');assert.equal(currentSavedOffer(saved,[{...future,product_id:'different',mpn:'different'}],now),saved);});
 
 test('seller policy exclusion preserves saved product and does not claim out of stock',()=>{const excluded={...saved,verification_status:'excluded',available:true,expires_at:new Date(now+60000).toISOString()} as Offer;assert.equal(offerState(excluded,now),'excluded');assert.equal(offerStateLabel(excluded,now),'Oferta fora dos critérios');assert.equal(currentSavedOffer(saved,[excluded],now),saved);});
+
+test('saved kit refreshes the same listing without requiring a canonical identity',()=>{
+ const kitOffer={...saved,category:'kit' as const,product_id:null};
+ const fresh={...kitOffer,price:800,expires_at:'2099-01-01'};
+ assert.equal(currentSavedOffer(kitOffer,[fresh]).price,800);
+});

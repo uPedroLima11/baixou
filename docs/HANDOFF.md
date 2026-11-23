@@ -1,3 +1,16 @@
+# CHECKPOINT — auditoria real e códigos divergentes (Codex, 23/11/2026, ~18h46 UTC)
+
+- Auditoria pública reproduzível: npm run pricing:audit (sem service_role, só leitura, todas as páginas; falha explícita em HTTP não OK). Mediu 1.325 anúncios ativos às 18:44:52 UTC, 21 grupos entre fontes sem divergência detectada pela regra atual, 2 grupos legados conflitantes, 1 modelo com referência de 2 outros vendedores e 1 preço abaixo da amostra. Zero divergências entre classificação armazenada e classify() nessa fotografia. Contagens variam com TTL/cache/coleta; não tratar como auditoria manual de todo modelo.
+- Achado adicional: Ryzen 5 5500 no título, mas MPN de 5800X3D na ficha de KaBuM/Guerra. Não escolher um código por palpite. manufacturerConflict detecta códigos da mesma família divergentes; impede identidade, agrupamento, enriquecimento e propagação de alertas para outro produto. Modelo e código de peça com formatos distintos (Acer AG15/NX, Ryzen 9600X/100-...) não são tratados automaticamente como contradição.
+- Migration 20261123184447 aplicada após ensaio com rollback; isolou 7 vínculos com códigos divergentes, preservando preço/histórico/favoritos. Alertas ligados a esses anúncios permanecem vinculados ao anúncio original. RX7600 PRO continua sem referência de mercado por conflito com canônico; não presumir equivalência.
+- Favorito de kit agora renova a mesma URL/id mesmo sem identidade canônica; regressão adicionada.
+- Banco: ~24,2 MB, 5.076 observações de preço; histórico começa hoje (não há 3 dias mínimos). pg_net teve HTTP 200 em 18:15/18:30/18:45 UTC. Nenhum agendamento/volume foi aumentado. Em 18:40 havia TTL vencido KaBuM52/Patoloco15/ML48; depois do ciclo o conjunto recuperou. Ausência em vitrine ML não comprova esgotamento. Ainda acompanhar oscilação/capacidade, sem ampliar TTL.
+- CI 45240836238 (375e3cd) verde; produção READY dpl_3JSSsNVNTVNApVU3EEPCQ9WpbS77 para 375e3cd. Coleta 45240551077: collect×4/connectors/report verdes, relay ainda aguardando. Código novo de quarentena aguarda publicação e validação hospedada.
+- Reconsulta de expansão em MAJOR_STORES.md: Pichau/Terabyte dependem de aprovação/feed/liberação; Amazon exige elegibilidade. Mensagem pronta em ACCESS_GUIDE.md, canal Terabyte confirmado. Nenhum contato/cadastro feito.
+- Ajustes de apresentação e feedback do proprietário sobre referência riscada seguem no próximo commit.
+
+---
+
 # CHECKPOINT — catálogo completo, oportunidades e Departamentos (Codex, 23/11/2026)
 
 - Segunda etapa: menu Departamentos separado dos filtros móveis; categorias/facetas/contagens vêm do catálogo válido e do mesmo offerFacets usado por filtros/alertas. Seleção abre Catálogo completo e limpa restrições anteriores para não levar a resultado vazio. Mouse, clique, Tab/Enter/Escape e toque previstos; validar browser após publicação.

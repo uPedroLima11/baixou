@@ -11,5 +11,5 @@ export function offerStateLabel(o:Offer,now=Date.now()){
  return state==='excluded'?'Oferta fora dos critérios':state==='out_of_stock'?'Indisponível':state==='verification_failed'?'Falha na verificação':state==='expired'?'Verificação expirada':'Oferta ativa';
 }
 export function currentSavedOffer(saved:Offer,offers:Offer[],now=Date.now()){
- return offers.filter(o=>offerState(o,now)==='active'&&sameProduct(saved,o)).reduce((best,o)=>!best||o.price<best.price?o:best,null as Offer|null)??saved;
+ return offers.filter(o=>offerState(o,now)==='active'&&(saved.id===o.id||sameProduct(saved,o))).reduce((best,o)=>!best||o.price<best.price?o:best,null as Offer|null)??saved;
 }

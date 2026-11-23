@@ -9,7 +9,16 @@ export function canonicalBrand(value:string){const b=normalize(value).replace(/\
 // ("… - 90MB1HD0-M0EAY0" ou "(911-7E27-006)"), preferido a um nome de modelo; 4) modelo com espaços ("B550M-A PRO").
 const NOT_CODE=/^(?:\d+(?:GB|TB|MHZ|MTS|HZ|W|MM|MS)|DDR\d|GDDR\d\w*|PCIE\d*|USB\d*|RGB|ARGB|WIFI\d*|HDMI|BOX)$/;
 function compactCode(raw:string){const code=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');return code.length>=4&&code.length<=40&&/[A-Z]/.test(code)&&/\d/.test(code)&&!NOT_CODE.test(code)?code:null;}
+function titlePart(title:string){return title.match(/\(([A-Za-z0-9][A-Za-z0-9./-]{4,38})\)\s*$/)?.[1]??title.match(/\s[-–]\s([A-Za-z0-9][A-Za-z0-9./-]{4,38})\s*$/)?.[1];}
+export function manufacturerConflict(mpn:string|null|undefined,title=''){
+ const raw=(mpn??'').trim(),explicit=raw.match(/\(([^()]{4,40})\)/)?.[1]??(!/\s/.test(raw)?raw:null),tail=titlePart(title);
+ const a=explicit?compactCode(explicit):null,b=tail&&/[-./]/.test(tail)?compactCode(tail):null;
+ // Modelo e part number podem ser códigos diferentes legítimos (ex.: Acer AG15 e NX.*).
+ // Só declara conflito dentro da mesma família explícita de códigos, sem inferir equivalência.
+ return !!a&&!!b&&a!==b&&!!explicit&&!!tail&&/[-/]/.test(explicit)&&explicit.toUpperCase().split(/[-/]/)[0]===tail.toUpperCase().split(/[-/]/)[0];
+}
 export function manufacturerCode(mpn:string|null|undefined,title=''){
+ if(manufacturerConflict(mpn,title))return null;
  const raw=(mpn??'').trim();
  const inner=raw.match(/\(([^()]{4,40})\)/)?.[1];if(inner&&compactCode(inner))return compactCode(inner);
  if(raw&&!/\s/.test(raw)&&compactCode(raw))return compactCode(raw);
@@ -21,9 +30,9 @@ export function variantsCompatible(a:Variant={},b:Variant={}){for(const key of O
 // "3.200MHz" (milhar com ponto) não pode virar 200 MHz na normalização.
 export const joinThousands=(s:string)=>s.replace(/(\d)\.(\d{3})(?!\d)/g,'$1$2');
 export function variantForOffer(o:Pick<Offer,'title'|'category'|'specs'>):Variant{const text=normalize(joinThousands(o.title+' '+Object.values(o.specs??{}).join(' ')));const v:Variant={};if(o.category==='ram'||/kit.*memoria/.test(text)){const pack=text.match(/\b(\d{1,2})\s*x\s*(\d{1,3})\s*gb\b/);if(pack){v.modules=Number(pack[1]);v.per_module_gb=Number(pack[2]);v.total_gb=Number(pack[1])*Number(pack[2]);}else{const cap=text.match(/\b(\d{1,3})\s*gb\b/);if(cap)v.total_gb=Number(cap[1]);}const ddr=text.match(/\bddr\s*([345])\b/);if(ddr)v.ddr=ddr[1];const speed=text.match(/\b(\d{3,5})\s*(?:mhz|mts)\b/);if(speed)v.frequency=Number(speed[1]);if(/notebook|sodimm|so dimm/.test(text))v.form_factor='sodimm';else if(/desktop|udimm|dimm/.test(text))v.form_factor='dimm';}return v;}
-export function identityForOffer(o:Offer){if(o.category==='kit')return null;/* kits combinam vários fabricantes/MPNs: nunca casar com o componente avulso */const brand=canonicalBrand(o.brand??'');if(!brand)return null;const mpn=manufacturerCode(o.mpn,o.title);
+export function identityForOffer(o:Offer){if(o.category==='kit'||manufacturerConflict(o.mpn,o.title))return null;/* códigos conflitantes e kits não sustentam identidade */const brand=canonicalBrand(o.brand??'');if(!brand)return null;const mpn=manufacturerCode(o.mpn,o.title);
 const rawGTIN=Object.entries(o.specs??{}).find(([k])=>/^(ean|gtin|ean13|ean 13|upc)$/i.test(k))?.[1]?.replace(/\D/g,'')??o.gtin??'';const gtin=validGTIN(rawGTIN)?rawGTIN.padStart(14,'0'):null;
 return mpn||gtin?{brand,mpn,gtin,variant:variantForOffer(o)}:null;}
-export function matchesProductAlert(a:Alert,o:Offer){if(a.product_id)return !!o.product_id&&a.product_id===o.product_id&&variantsCompatible(a.product_variant??{},o.variant??{});return !!a.offer_id&&a.offer_id===o.id;}
-export function notificationKey(o:Offer){return o.product_id?'product:'+o.product_id:'offer:'+o.id;}
+export function matchesProductAlert(a:Alert,o:Offer){if(manufacturerConflict(o.mpn,o.title))return !!a.offer_id&&a.offer_id===o.id;if(a.product_id)return !!o.product_id&&a.product_id===o.product_id&&variantsCompatible(a.product_variant??{},o.variant??{});return !!a.offer_id&&a.offer_id===o.id;}
+export function notificationKey(o:Offer){return o.product_id&&!manufacturerConflict(o.mpn,o.title)?'product:'+o.product_id:'offer:'+o.id;}
 export function cheapestPerProduct(offers:Offer[]){const map=new Map<string,Offer>();for(const o of offers){const key=notificationKey(o),prior=map.get(key);if(!prior||Number(o.price)<Number(prior.price))map.set(key,o);}return [...map.values()];}
