@@ -4,7 +4,7 @@ export type Offer={product_id?:string|null;gtin?:string|null;variant?:import("./
 export type SourceStatus={store:string;status:string;checked_at:string;message:string;products:number};
 export type StoreCoverage={store:string;collected:number;available:number;displayable:number;expired_awaiting_check:number};
 export type Catalog={coverage?:{generated_at:string;stores:StoreCoverage[]}|null;truncated?:boolean;offers:Offer[];sources:SourceStatus[];stores?:import('./stores').StoreRecord[];configured:boolean;error?:string};
-export type Alert={product_id?:string|null;product_variant?:import("./identity").Variant;id?:string;user_id?:string;category:string;offer_id:string|null;max_price:number|null;min_discount:number|null;min_drop_amount?:number|null;brands?:string[];spec_filters?:Record<string,string|number>;enabled:boolean};
+export type Alert={product_id?:string|null;product_variant?:import("./identity").Variant;id?:string;user_id?:string;category:string;offer_id:string|null;max_price:number|null;min_discount:number|null;min_drop_amount?:number|null;brands?:string[];spec_filters?:Record<string,string|number|(string|number)[]>;enabled:boolean};
 export const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 export function classify(title:string):Category {
