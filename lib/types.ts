@@ -6,7 +6,19 @@ export type Catalog={offers:Offer[];sources:SourceStatus[];stores?:import('./sto
 export type Alert={product_id?:string|null;product_variant?:import("./identity").Variant;id?:string;user_id?:string;category:string;offer_id:string|null;max_price:number|null;min_discount:number|null;min_drop_amount?:number|null;brands?:string[];spec_filters?:Record<string,string|number>;enabled:boolean};
 export const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-export function classify(title:string):Category {const t=' '+normalize(title)+' ';if(/kit|combo|\+.*placa/.test(t))return 'kit';if(/notebook|laptop/.test(t))return 'notebook';if(/computador|pc gamer|desktop completo/.test(t))return 'pc';if(/placa mae|motherboard/.test(t))return 'motherboard';if(/memoria|ddr[345]/.test(t))return 'ram';if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';if(/placa mae|motherboard/.test(t))return 'motherboard';if(/processador|ryzen|intel core/.test(t))return 'cpu';if(/ssd|disco rigido| hd /.test(t))return 'ssd';if(/monitor/.test(t))return 'monitor';if(/mouse/.test(t))return 'mouse';if(/teclado/.test(t))return 'keyboard';if(/cadeira/.test(t))return 'chair';if(/headset|fone|webcam|microfone|controle|gabinete|fonte|cooler/.test(t))return 'peripherals';return 'other';}
+export function classify(title:string):Category {
+ const t=' '+normalize(title)+' ';
+ if(/(?:kit|combo).*(?:upgrade|gamer|teclado|mouse|processador|placa)|\+.*placa/.test(t))return 'kit';
+ if(/placa mae|motherboard/.test(t))return 'motherboard';
+ if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';
+ if(/processador|ryzen|intel core/.test(t)&&!/notebook|computador|pc gamer/.test(t))return 'cpu';
+ if(/memoria|\bram\b|\bddr\s*[345]\b/.test(t)&&!/notebook.*ssd|computador|pc gamer/.test(t))return 'ram';
+ if(/notebook|laptop/.test(t))return 'notebook';
+ if(/computador|pc gamer|desktop completo/.test(t))return 'pc';
+ if(/ssd|disco rigido| hd /.test(t))return 'ssd';if(/monitor/.test(t))return 'monitor';
+ if(/mousepad|mouse pad/.test(t))return 'peripherals';if(/mouse/.test(t))return 'mouse';if(/teclado/.test(t))return 'keyboard';if(/cadeira/.test(t))return 'chair';
+ if(/headset|fone|webcam|microfone|controle|gabinete|fonte|cooler/.test(t))return 'peripherals';return 'other';
+}
 export function calculateEvidence(price:number,reference:number|null,history:{price:number;observed_at:string}[],now=Date.now()){
  const valid=history.filter(x=>x.price>0&&Date.parse(x.observed_at)<now-3600000&&Date.parse(x.observed_at)>now-30*86400000);
  const days=new Set(valid.map(x=>x.observed_at.slice(0,10))).size;

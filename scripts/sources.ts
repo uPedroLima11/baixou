@@ -2,4 +2,12 @@ export const sources=[
  {id:'kabum',name:'KaBuM!',origin:'https://www.kabum.com.br',paths:['/promocao/blackfriday','/hardware/memoria-ram','/hardware/placa-de-video-vga','/hardware/placas-mae','/hardware/processadores','/hardware/ssd-2-5','/computadores','/perifericos','/monitores','/cadeiras','/kits-gamer'],product:/\/produto\/\d+/},
  {id:'terabyte',name:'TerabyteShop',origin:'https://www.terabyteshop.com.br',paths:['/hardware/memorias','/hardware/placas-de-video','/hardware/processadores','/perifericos','/monitores','/cadeira','/pc-gamer','/kit-upgrade'],product:/\/produto\/\d+/},
  {id:'pichau',name:'Pichau',origin:'https://www.pichau.com.br',paths:['/hardware/memorias','/hardware/placa-de-video','/hardware/processadores','/perifericos','/monitores','/cadeiras','/computadores'],product:/^\/[^/]*(memoria-|placa-|processador-|monitor-|mouse-|teclado-|cadeira-|computador-)/}
+ ,{id:'waz',name:'WAZ',origin:'https://www.waz.com.br',paths:['/hardware/placa-de-video--vga-','/hardware/processador','/hardware/placa-mae','/hardware/memoria-ram','/hardware/armazenamento/ssd','/monitor/','/perifericos/mouse','/perifericos/teclado','/computadores','/notebooks'],product:/\/[^?]+\/p$/},
+ {id:'oficinadosbits',name:'Oficina dos Bits',origin:'https://www.oficinadosbits.com.br',paths:['/categoria/hardware-memoria/','/categoria/hardware-placa-de-video/','/categoria/hardware-processador/','/categoria/hardware-placa-mae/','/categoria/hardware/','/categoria/computadores/','/categoria/portateis-notebook/','/categoria/gamer-teclado-gamer/','/categoria/gamer-mouse-gamer/'],product:/^\/produto\/[^/]+\/$/},
+ {id:'guerradigital',name:'Guerra Digital',origin:'https://www.guerradigital.com.br',paths:['/hardware/memoria/ddr4/','/hardware/memoria/ddr5/','/hardware/placa-de-video/','/hardware/processador/','/hardware/placa-mae/','/hardware/ssd/','/monitores/','/cadeiras/','/perifericos/'],product:/^\/produtos\/[^/]+\/$/},
+ {id:'patoloco',name:'Patoloco',origin:'https://patoloco.com.br',paths:['/produtos/placa-de-video','/produtos/hardware','/produtos/periferico','/produtos/cadeira-gamer','/produtos/monitor','/produtos/computadores-1'],product:/^\/(?!produtos|documentos|admin|ajax|includes|integracao)[a-z0-9]+(?:-[a-z0-9]+){3,}\/?$/}
 ] as const;
+export type Source=typeof sources[number];
+// Candidate adapters are not store_registry operational statuses. Promotion requires hosted evidence.
+export const candidateSourceIds=['kabum','waz','oficinadosbits','guerradigital','patoloco'];
+

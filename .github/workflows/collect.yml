@@ -1,7 +1,7 @@
 name: Atualizar ofertas
 on:
   schedule:
-    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
+    - cron: '7,37 * * * *'
   workflow_dispatch:
 concurrency:
   group: baixou-collector
@@ -10,13 +10,18 @@ permissions:
   contents: read
 jobs:
   collect:
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        store: [kabum, waz, oficinadosbits, guerradigital, patoloco]
     runs-on: ubuntu-latest
     timeout-minutes: 6
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      COLLECT_STORES: kabum,terabyte,pichau
-      COLLECT_MAX_PRODUCTS: 24
+      COLLECT_STORES: ${{ matrix.store }}
+      COLLECT_MAX_PRODUCTS: 50
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}

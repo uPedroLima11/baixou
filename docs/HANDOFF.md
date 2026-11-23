@@ -1,3 +1,15 @@
+# Expansão em validação — 23/11/2026
+
+Adaptadores candidatos WAZ, Oficina dos Bits, Guerra Digital e Patoloco implementados, com HTML atual HTTP200 e35testes aprovados. A migration20261123130748_progressive_collection_queue já foi aplicada, com RLS privada e status das novas lojas PARCIAL. Ainda não promover operacional sem execução hospedada e confirmação de offers reais.
+
+Fila persistente separa páginas/candidatos; descoberta diversa e revalidação têm faixas alternadas; lease por loja permite paralelismo. Páginas navegam por links públicos observados e paginação permitida pelo robots, sem APIs internas. Falhas têm backoff. TTL padrão60min; queda histórica>=20% usa15min; estoque confirmado continua obrigatório. Não estender checked_at em falhas. Agendamentos por loja ainda precisam ser ativados após deploy. Actions agora tem matrix por loja a cada30min; Supabase manterá verificações curtas por fonte a cada5min.
+
+Classificação corrigida: kit RAM e módulo de notebook são RAM; GDDR5 de placa de vídeo não é RAM. Testes validam alerta de categoria para Kingston/Corsair/XPG/Husky e modelos/lojas diferentes usando mediana própria, sem marca obrigatória. Produto exato continua identidade canônica separada.
+
+Próximo passo obrigatório desta etapa: publicar/testar host, consultar banco e atualizar este bloco com os resultados reais. O checkpoint-base abaixo descreve o estado anterior.
+
+---
+
 # Baixou! — continuidade em 23/11/2026
 
 Leia também AGENTS.md e README.md. Preserve a implementação; não recomece o projeto.
