@@ -21,7 +21,9 @@ export async function runCollector(options:Options={}){
    const allowed=(url:string)=>safeUrl(url)&&rules.isAllowed(url,agent)===true;
    const cursor=state.data?.cursor??0;
    if(db){const seeded=await db.from('collection_pages').upsert(source.paths.map(path=>({store:source.id,url:source.origin+path})),{onConflict:'store,url',ignoreDuplicates:true});if(seeded.error)throw seeded.error;}
-   const page=db?await db.from('collection_pages').select('url').eq('store',source.id).lte('next_attempt_at',new Date().toISOString()).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('url').limit(1):{data:[{url:source.origin+source.paths[cursor%source.paths.length]}],error:null};if(page.error)throw page.error;
+   let page=db?await db.from('collection_pages').select('url').eq('store',source.id).lte('next_attempt_at',new Date().toISOString()).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('url').limit(1):{data:[{url:source.origin+source.paths[cursor%source.paths.length]}],error:null};if(page.error)throw page.error;
+   if(db&&cursor%2===0){const known=await db.from('collection_pages').select('url').eq('store',source.id).eq('url',source.origin+source.paths[Math.floor(cursor/2)%source.paths.length]).lte('next_attempt_at',new Date().toISOString());if(known.error)throw known.error;if(known.data?.length)page=known;}
+
    const fresh=new Set<string>();
    for(const {url}of page.data??[]){if(!allowed(url)) {if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+86400000).toISOString()}).eq('store',source.id).eq('url',url);continue;}
     try{await pause();const html=await get(url),$=cheerio.load(html);
@@ -31,7 +33,7 @@ export async function runCollector(options:Options={}){
       if(categories.length){const inserted=await db.from('collection_pages').upsert(categories.map(url=>({store:source.id,url})),{onConflict:'store,url',ignoreDuplicates:true});if(inserted.error)throw inserted.error;}
       await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+60*60000).toISOString()}).eq('store',source.id).eq('url',url);
      }
-    }catch(e){console.error(source.id,'categoria:',e instanceof Error?e.message:'erro');if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+6*3600000).toISOString()}).eq('store',source.id).eq('url',url);}
+    }catch(e){errors++;console.error(source.id,'categoria:',e instanceof Error?e.message:'erro');if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+6*3600000).toISOString()}).eq('store',source.id).eq('url',url);}
    }
    if(db&&fresh.size){const inserted=await db.from('product_candidates').upsert([...fresh].slice(0,150).map(url=>({store:source.id,url,category:candidateCategory(url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(inserted.error)throw inserted.error;newURLs=inserted.data?.length??0;}
    const now=new Date().toISOString();

@@ -10,4 +10,3 @@ export const sources=[
 export type Source=typeof sources[number];
 // Candidate adapters are not store_registry operational statuses. Promotion requires hosted evidence.
 export const candidateSourceIds=['kabum','waz','oficinadosbits','guerradigital','patoloco'];
-
