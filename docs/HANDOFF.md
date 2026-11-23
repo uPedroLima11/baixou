@@ -1,3 +1,24 @@
+# Checkpoint incremental — 23/11/2026
+
+Este bloco prevalece sobre o checkpoint-base abaixo. SMTP foi informado como funcionando pelo proprietário: NÃO refazer a configuração. Validação independente de entrega/cadastro/reset ainda precisa ser registrada.
+
+- Diagnóstico: 29 ofertas KaBuM existiam no banco, todas com estoque positivo; catálogo vazio por TTL30min após cerca de9h sem coleta. Workflow ativo, mas só execução manual observada. NÃO eram produtos comprovadamente esgotados.
+- Coleta manual45173238934 confirmou24produtos reais; automático ainda não comprovado neste checkpoint.
+- Migrations005_product_identity e20261123122001_flexible_alerts_persistence aplicadas via CLI no projeto dedicado; não reaplicar. Identidade conservadora marca/MPN/GTIN+variantes; alertas legados recebem identidade por trigger quando oferta é vinculada.
+- Alertas: max_price nullable, min_discount nullable, min_drop_amount independente, brands e spec_filters. Todas condições fornecidas são AND. Mediana exige5pontos/3dias. Máximo isolado não exige histórico. Filtros desconhecidos não casam. Campo de specs extensível emlib/alert-rules.ts; extração ainda conservadora e não cobre todas características de todas categorias.
+- Favoritos: consulta autenticada wishlist joinoffers, sem exigir TTL/estoque/desconto. FKs wishlist/alerts -> offers agora RESTRICT, impedindo exclusão em cascata. Nenhuma rotina elimina favoritos/alertas automaticamente. currentSavedOffer procura oferta atual do mesmo produto sem mudar vínculo salvo.
+- Preço vencido não aparece como atual nos cards/detalhes. available=false é estoque confirmado; available=true vencido é aguardando verificação. verification_status/last_attempt_at preservam falhas sem inventar esgotamento ou atualizar checked_at.
+- Coletor tem deadline4min (antes9, maior que timeoutActions6min). WorkerVercel curto prioriza8ofertas antigas por ciclo. Actions mantém descoberta ampla.
+- Notificações canônicas deduplicam porproduto/preço e dia; filtram verificação bem-sucedida nos últimos5min. Não garante estoque futuro. Falhas de envio ainda ficam bloqueadas pelo claim até dia seguinte: melhorar retry idempotente.
+- SMTPdiagnóstico assinado em/api/jobs/notifications?check=smtp, HMAC smtp:<true|false>:<timestamp>; cabeçalhox-baixou-send-owner=yes envia somente ao SMTP_USER. Nunca expor esse endpoint sem autenticação.
+- Autorizado novo segredo exclusivo de coleta noSupabaseVault eVercel. Migration20261123123751_hosted_collector_schedule cria pg_cron/pg_net ejob DESATIVADO. Vaultbaixou_collector_secret sincronizado paraVercelCRON_SECRET sem imprimir/gravarvalor. Ativar somente apósdeploy ePOSTcoletor testado. Registrar ativação abaixo quando concluída.
+- vercel env run não consegue exportar variáveis Secret: tentativa abortada sem copiar segredos. Scriptscheck-email/backfill podem rodar em ambiente autorizado comenvs; preferir validação hospedada.
+- Testes24passaram,typecheck ebuildpassaram antes dos últimos ajusteswishlist. Reexecutar antes decommit. AuditoriaSupabase apontoucreate_profile SECURITYDEFINER executávelporanon/authenticated; migrationrevogou explicitamente essasroles.
+
+Próximos passos imediatos: deploy, validarcron/SMTP efluxosAuthreais; testarRLSemtransação rollback; confirmar ações agendadas; atualizar este bloco comresultados. Não declarar todaUX/authhomologadas por testesunitários.
+
+---
+
 # Handoff Baixou! — checkpoint 23/11/2026
 Leia AGENTS.md primeiro. Preserve o que funciona. Este documento descreve o estado efetivo, não uma promessa de cobertura.
 ## Identidade e infraestrutura

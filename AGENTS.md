@@ -31,3 +31,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - LinksBR é somente descoberta de links quando houver meio legítimo e autorizado; dados do card sempre vêm da loja. Sem self-bots, conta pessoal, scraping privado ou bypass.
 - SMTP_PASS nunca no chat/Git/docs. Mesmo Gmail para Nodemailer(Vercel) eSupabaseAuth; envio não concluído sem teste real recebido.
 - UX: quando nenhuma queda comprovada existir, iniciar ofertas anunciadas, preservando seleção manual; controles destacados ecomcontagens.
+
+## Confiabilidade e persistência (23/11/2026)
+- SMTP existente foi confirmado pelo usuário: não reconfigurar. Testar hospedado sem exportarSecrets.
+- Alertas aceitam preço máximo, queda absoluta e percentual independentes/opcionais. Quedas exigem mediana confiável; preço riscado nunca comprova queda. Não comparar porcentagem arredondada para decidir disparo.
+- Wishlist e alertas nunca são apagados por TTL/estoque/falha. FKs paraoffersRESTRICT. Catálogo ativo e produtos salvos são consultas diferentes.
+- Falha de verificação não confirma esgotamento. Preservarchecked_at/preçohistórico; marcarlast_attempt_at/verification_status. Não estenderTTLsemconsulta real.
+- Segredo dedicado de coleta aprovado noVault+Vercel. Nunca usarservice_rolecomoBearerdoagendador. Migrationcroncriajobinativo; sincronizarsegredo,deploy,testar,ativar e observarexecuçãoreal.

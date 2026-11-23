@@ -1,5 +1,6 @@
+import {variantsCompatible} from './identity';
 import {normalize,type Offer} from './types';
 function searchable(s:string){return normalize(s).replace(/(\d)\s+(gb|tb|mhz|hz|mb|w)\b/g,'$1$2').replace(/\bddr\s+(\d)\b/g,'ddr$1');}
 export function matchesQuery(o:Pick<Offer,'title'|'brand'|'mpn'|'category'>,query:string){const text=searchable([o.title,o.brand,o.mpn,o.category].filter(Boolean).join(' '));const aliases:Record<string,string>={gpu:'placa video',vga:'placa video',mobo:'placa mae',memorias:'memoria'};const tokens=searchable(query).split(' ').filter(Boolean).flatMap(t=>(aliases[t]??t).split(' '));return tokens.every(t=>text.includes(t));}
-export function sameProduct(a:Offer,b:Offer){return !!a.mpn&&!!b.mpn&&!!a.brand&&!!b.brand&&searchable(a.mpn)===searchable(b.mpn)&&searchable(a.brand)===searchable(b.brand);}
+export function sameProduct(a:Offer,b:Offer){if(a.product_id&&b.product_id)return a.product_id===b.product_id&&variantsCompatible(a.variant,b.variant);return variantsCompatible(a.variant,b.variant)&&!!a.mpn&&!!b.mpn&&!!a.brand&&!!b.brand&&searchable(a.mpn)===searchable(b.mpn)&&searchable(a.brand)===searchable(b.brand);}
 export function consolidateOffers(offers:Offer[]){const groups:Offer[][]=[];for(const offer of offers){const group=groups.find(g=>sameProduct(g[0],offer));if(group)group.push(offer);else groups.push([offer]);}return groups.map(g=>g.reduce((a,b)=>Number(a.price)<=Number(b.price)?a:b));}

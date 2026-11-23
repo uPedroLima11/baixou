@@ -1,0 +1,18 @@
+begin;
+alter table public.alerts alter column max_price drop not null;
+alter table public.alerts alter column min_discount drop not null;
+alter table public.alerts alter column min_discount drop default;
+alter table public.alerts drop constraint alerts_min_discount_check;
+alter table public.alerts add constraint alerts_min_discount_check check(min_discount > 0 and min_discount <= 100);
+alter table public.alerts add column min_drop_amount numeric(12,2) check(min_drop_amount > 0);
+alter table public.alerts add column brands text[] not null default '{}';
+alter table public.alerts add column spec_filters jsonb not null default '{}' check(jsonb_typeof(spec_filters)='object' and octet_length(spec_filters::text)<=2048);
+alter table public.alerts add constraint alert_requires_condition check(max_price is not null or min_discount is not null or min_drop_amount is not null);
+alter table public.wishlist drop constraint wishlist_offer_id_fkey;
+alter table public.wishlist add constraint wishlist_offer_id_fkey foreign key(offer_id) references public.offers(id) on delete restrict;
+alter table public.alerts drop constraint alerts_offer_id_fkey;
+alter table public.alerts add constraint alerts_offer_id_fkey foreign key(offer_id) references public.offers(id) on delete restrict;
+alter table public.offers add column last_attempt_at timestamptz;
+alter table public.offers add column verification_status text not null default 'verified' check(verification_status in ('verified','failed'));
+revoke all on function public.create_profile(), public.attach_alert_product(), public.backfill_alert_identity() from public,anon,authenticated;
+commit;
