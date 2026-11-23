@@ -9,7 +9,12 @@ export function canonicalBrand(value:string){const b=normalize(value).replace(/\
 // ("… - 90MB1HD0-M0EAY0" ou "(911-7E27-006)"), preferido a um nome de modelo; 4) modelo com espaços ("B550M-A PRO").
 const NOT_CODE=/^(?:\d+(?:GB|TB|MHZ|MTS|HZ|W|MM|MS)|DDR\d|GDDR\d\w*|PCIE\d*|USB\d*|RGB|ARGB|WIFI\d*|HDMI|BOX)$/;
 function compactCode(raw:string){const code=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');return code.length>=4&&code.length<=40&&/[A-Z]/.test(code)&&/\d/.test(code)&&!NOT_CODE.test(code)?code:null;}
-function titlePart(title:string){return title.match(/\(([A-Za-z0-9][A-Za-z0-9./-]{4,38})\)\s*$/)?.[1]??title.match(/\s[-–]\s([A-Za-z0-9][A-Za-z0-9./-]{4,38})\s*$/)?.[1];}
+// Atributos de variante que o Mercado Livre acrescenta ao fim do título ("… - Cp-9020279-br Cor Preto") não são parte do código.
+const LISTING_VARIANT_SUFFIX=/\s+(?:cor|voltagem)\s+[\p{L}\d/ -]{1,25}$/iu;
+// Código impresso no fim do título, separado por " - ", ", " ou entre parênteses.
+function titlePart(title:string){const t=title.replace(LISTING_VARIANT_SUFFIX,'').trim();return t.match(/\(([A-Za-z0-9][A-Za-z0-9./-]{4,38})\)\s*$/)?.[1]??t.match(/(?:\s[-–]\s|,\s*)([A-Za-z0-9][A-Za-z0-9./-]{4,38})\s*$/)?.[1];}
+// Código de peça forte: com separador ("90MB1HD0-M0EAY0") ou prefixo de 2-4 letras seguido de >=5 dígitos ("BX8071514700F").
+function strongTail(tail:string){return /[-./]/.test(tail)||/^[A-Z]{2,4}\d{5,}[A-Z0-9]*$/.test(tail);}
 export function manufacturerConflict(mpn:string|null|undefined,title=''){
  const raw=(mpn??'').trim(),explicit=raw.match(/\(([^()]{4,40})\)/)?.[1]??(!/\s/.test(raw)?raw:null),tail=titlePart(title);
  const a=explicit?compactCode(explicit):null,b=tail&&/[-./]/.test(tail)?compactCode(tail):null;
@@ -22,8 +27,8 @@ export function manufacturerCode(mpn:string|null|undefined,title=''){
  const raw=(mpn??'').trim();
  const inner=raw.match(/\(([^()]{4,40})\)/)?.[1];if(inner&&compactCode(inner))return compactCode(inner);
  if(raw&&!/\s/.test(raw)&&compactCode(raw))return compactCode(raw);
- const tail=title.match(/\(([A-Za-z0-9][A-Za-z0-9./-]{4,38})\)\s*$/)?.[1]??title.match(/\s[-–]\s([A-Za-z0-9][A-Za-z0-9./-]{4,38})\s*$/)?.[1];
- if(tail&&/[-./]/.test(tail)&&compactCode(tail))return compactCode(tail);
+ const tail=titlePart(title);
+ if(tail&&strongTail(tail)&&compactCode(tail))return compactCode(tail);
  return raw&&raw.split(/\s+/).length<=5?compactCode(raw):null;
 }
 export function variantsCompatible(a:Variant={},b:Variant={}){for(const key of Object.keys(a)){if(b[key]!==undefined&&String(a[key])!==String(b[key]))return false;}return true;}

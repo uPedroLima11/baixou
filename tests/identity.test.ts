@@ -30,3 +30,14 @@ test('real store title and technical sheet with different AMD codes cannot ident
  assert.equal(manufacturerConflict('9600X','Ryzen 5 9600X - 100-100001405WOF'),false);
  assert.equal(manufacturerConflict('AG15-71P-53D9','Notebook Acer AG15-71P-53D9 - NX.JH6AL.001'),false);
 });
+test('trailing part numbers after a comma or a Mercado Livre variant suffix are store data, not guesses',async()=>{
+ const {manufacturerCode}=await import('../lib/identity');
+ // Títulos reais (23/11/2026).
+ assert.equal(manufacturerCode(null,'Cooler Para Gabinete T-Dagger 120mm Led Vermelho, T-TGF200-R'),'TTGF200R');
+ assert.equal(manufacturerCode(null,'Processador Intel Core i7 14700F, 3.4 GHz (5.4GHz Turbo), 14ª Geração, 20-Cores 28-Threads, LGA 1700, BX8071514700F'),'BX8071514700F');
+ assert.equal(manufacturerCode(null,'Fonte Corsair Cx750 750w 80 Plus Bronze - Cp-9020279-br Cor Preto'),'CP9020279BR');
+ // Especificações no fim nunca viram código.
+ for(const t of ['Mouse Gamer, 16000DPI','Memória Kingston, 3200MHz','Placa-mãe, LGA1700','Monitor, 1920X1080','Teclado Gamer, RGB','Kit, 2X16GB'])assert.equal(manufacturerCode(null,t),null,t);
+ // Sem código no fim, nada é inferido do meio do título.
+ assert.equal(manufacturerCode(null,'interno Adata Ultimate SU650 ASU650SS-480GT-R 480GB preto'),null);
+});
