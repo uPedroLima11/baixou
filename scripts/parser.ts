@@ -26,7 +26,7 @@ export function chipartProduct(html:string,url:string):Omit<Offer,'historical_me
  if(!p?.nome_produto)throw new Error('Produto não encontrado no HTML');
  if($('meta[property="og:site_name"]').attr('content')!=='CHIPART LTDA'||store?.b2c!==true)throw new ExcludedProduct('seller_untrusted');
  // A categoria pode linkar o produto por outro caminho; vale o mesmo ID, e a URL gravada é a do próprio produto.
- const path=new URL(url).pathname,id=path.match(/\/(\d+)$/)?.[1],own='/produto'+String(p.link??'').trim().replace(/\/$/,'');
+ const path=new URL(url).pathname,id=path.match(/\/(\d+)$/)?.[1],own='/produto'+String(p.link??'').replace(/\s+/g,'').replace(/\/$/,'');// alguns links da loja trazem quebra de linha
  if(!id||String(p.codigo_sku)!==id||!/^\/produto\/[^?#\s]+\/\d+$/.test(own)||own.match(/\/(\d+)$/)?.[1]!==id||/\/\.{1,2}(\/|$)/.test(own))throw new Error('Produto da página diverge da URL');
  url='https://www.chipart.com.br'+own;
  const price=Number(p.preco_pix);if(!Number.isFinite(price)||price<=0)throw new Error('Preço inválido');
