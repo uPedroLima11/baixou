@@ -13,6 +13,14 @@ export function removedProductRedirect(url:string,status:number,location:string|
  if(![301,302,303,307,308].includes(status)||!location)return false;
  try{const source=new URL(url),target=new URL(location,source);return source.origin==='https://patoloco.com.br'&&target.origin===source.origin&&!target.username&&!target.password&&target.pathname==='/pagina-nao-encontrada'&&!target.search&&!target.hash;}catch{return false;}
 }
+// Falha da nossa infraestrutura (gateway Supabase/Cloudflare 5xx, rede até o banco, erro PostgREST) não é bloqueio da loja:
+// não aplica backoff na loja nem marca "blocked". Erros da loja chegam como Error('HTTP 403') etc. e mantêm o backoff.
+export function infrastructureError(e:unknown){
+ if(e instanceof RemovedProduct||e instanceof ExcludedProduct)return false;
+ const message=e&&typeof e==='object'&&'message' in e?String((e as {message:unknown}).message):String(e);
+ if(/^HTTP d{3}$/.test(message)||message==='Host não permitido')return false;
+ return /Error code 5dd|<!DOCTYPE|<html|fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|Bad Gateway|Gateway Time-?out|upstream connect|PGRSTd+/i.test(message)||(!!e&&typeof e==='object'&&'details' in e&&'hint' in e);
+}
 export function collectorRetryMinutes(error:unknown,priorFailures:number){return error instanceof RemovedProduct?24*60:retryMinutes(priorFailures);}
 function publicProductPath(url:string){const u=new URL(url);return u.origin+u.pathname;}
 export async function runCollector(options:Options={}){
@@ -84,7 +92,10 @@ export async function runCollector(options:Options={}){
    if(db){const stateUpdate=await db.from('collection_state').upsert({store:source.id,cursor:cursor+(discover?1:0),failures:0,next_allowed_at:new Date().toISOString(),...(count?{last_success_at:new Date().toISOString()}:{})});if(stateUpdate.error)throw stateUpdate.error;
     if(count){const status=await db.from('source_status').upsert({store:source.id,status:'ok',checked_at:new Date().toISOString(),products:count,message:'Produtos confirmados na loja; descoberta progressiva'});if(status.error)throw status.error;}
    }total+=count;discovered+=newURLs;
-  }catch(e){failures++;const message=errorMessage(e);console.error(source.id,message);if(db){await db.from('collection_state').upsert({store:source.id,failures:(state.data?.failures??0)+1,next_allowed_at:new Date(Date.now()+retryMinutes((state.data?.failures??0)+2)*60000).toISOString()});await db.from('source_status').upsert({store:source.id,status:'blocked',checked_at:new Date().toISOString(),products:count,message:message.slice(0,180)});}}
+  }catch(e){failures++;const message=errorMessage(e);const infra=infrastructureError(e);console.error(source.id,infra?'falha temporária de infraestrutura (sem backoff da loja):':'',message.replace(/<[^>]*>/g,' ').replace(/s+/g,' ').slice(0,160));if(db){
+   // Falha de infraestrutura: próxima rodada tenta de novo; ofertas e última confirmação continuam valendo só até o TTL.
+   await db.from('collection_state').upsert(infra?{store:source.id,next_allowed_at:new Date().toISOString()}:{store:source.id,failures:(state.data?.failures??0)+1,next_allowed_at:new Date(Date.now()+retryMinutes((state.data?.failures??0)+2)*60000).toISOString()}).then(()=>{},()=>{});
+   await db.from('source_status').upsert({store:source.id,status:infra?'degraded':'blocked',checked_at:new Date().toISOString(),products:count,message:infra?'Falha temporária de infraestrutura; nova tentativa na próxima rodada':message.slice(0,180)}).then(()=>{},()=>{});}}
   finally{if(db){if(runId)await db.from('collection_runs').update({finished_at:new Date().toISOString(),discovered:newURLs,verified:count,failed:errors+categoryErrors,message:categoryErrors?'Falha de categoria; produtos e última confirmação foram preservados':null}).eq('id',runId);if(claimed)await db.rpc('release_collector_lease',{lease_name:lease});}}
  }
  if(db&&enabled.includes('kabum')&&total){await db.from('price_history').delete().lt('observed_at',new Date(Date.now()-35*86400000).toISOString());await db.from('collection_runs').delete().lt('started_at',new Date(Date.now()-7*86400000).toISOString());}

@@ -88,3 +88,13 @@ test('Patoloco kit page without price or explicit unavailability stays a failure
  const html=readFileSync(new URL('./fixtures/expansion/patoloco-kit-no-price.html',import.meta.url),'utf8'),url=cheerio.load(html)('link[rel=canonical]').attr('href')!;
  assert.throws(()=>parseStoreProduct('patoloco',html,url),e=>!(e instanceof ConfirmedUnavailable));
 });
+
+test('Supabase gateway 522 / network errors are infrastructure, not a store block; store HTTP errors keep backoff',async()=>{
+ const {infrastructureError}=await import('../lib/collector');
+ assert.equal(infrastructureError({message:'<!DOCTYPE html> ... Error code 522 ...',details:'',hint:'',code:''}),true);
+ assert.equal(infrastructureError(new TypeError('fetch failed')),true);
+ assert.equal(infrastructureError({message:'JWT expired',details:null,hint:null,code:'PGRST301'}),true);
+ assert.equal(infrastructureError(new Error('HTTP 403')),false);
+ assert.equal(infrastructureError(new Error('Sem produtos verificáveis nesta fonte; consultar erros de categoria/produto')),false);
+ assert.equal(infrastructureError(new RemovedProduct(302)),false);
+});
