@@ -19,3 +19,8 @@ test('capacity-first admission keeps due rechecks ahead of new candidates',()=>{
  const idle=planBatch([],fresh,2);assert.equal(idle.pending.length,2);
  assert.equal(recheckMinutes(true,60),40);assert.equal(recheckMinutes(true,15),5);assert.equal(recheckMinutes(false,60),180);
 });
+test('WAZ OutOfStock without Pix price is confirmed unavailable, not a failure or a priced offer',()=>{
+ const html=readFileSync(new URL('./fixtures/expansion/waz-out-of-stock.html',import.meta.url),'utf8'),url='https://www.waz.com.br/workstation-lenovo-thinkstation-p3-30gu003cbo-i7-14700-32gb-ddr5-ssd-512gb-rtx-a1000-8gb-wifi-6-w11-sl-1yr-os-133179-html/p';
+ assert.throws(()=>parseStoreProduct('waz',html,url),ConfirmedUnavailable);
+ assert.throws(()=>parseStoreProduct('waz',html.replace('OutOfStock','InStock'),url),/Preço Pix diverge/);
+});
