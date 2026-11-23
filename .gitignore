@@ -6,3 +6,10 @@ node_modules/
 work/
 coverage/
 *.tsbuildinfo
+
+.vercel
+
+supabase/.temp/
+supabase/.branches/
+.env.local
+

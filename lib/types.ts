@@ -6,7 +6,7 @@ export type Catalog={offers:Offer[];sources:SourceStatus[];configured:boolean;er
 export type Alert={id?:string;user_id?:string;category:string;offer_id:string|null;max_price:number;min_discount:number;enabled:boolean};
 export const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-export function classify(title:string):Category {const t=' '+normalize(title)+' ';if(/kit|combo/.test(t))return 'kit';if(/computador|pc gamer|desktop completo/.test(t))return 'pc';if(/memoria|ddr[345]/.test(t))return 'ram';if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';if(/placa mae|motherboard/.test(t))return 'motherboard';if(/processador|ryzen|intel core/.test(t))return 'cpu';if(/ssd|disco rigido| hd /.test(t))return 'ssd';if(/monitor/.test(t))return 'monitor';if(/mouse/.test(t))return 'mouse';if(/teclado/.test(t))return 'keyboard';if(/cadeira/.test(t))return 'chair';if(/headset|fone|webcam|microfone|controle|gabinete|fonte|cooler/.test(t))return 'peripherals';return 'other';}
+export function classify(title:string):Category {const t=' '+normalize(title)+' ';if(/kit|combo/.test(t))return 'kit';if(/computador|pc gamer|desktop completo/.test(t))return 'pc';if(/placa mae|motherboard/.test(t))return 'motherboard';if(/memoria|ddr[345]/.test(t))return 'ram';if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';if(/placa mae|motherboard/.test(t))return 'motherboard';if(/processador|ryzen|intel core/.test(t))return 'cpu';if(/ssd|disco rigido| hd /.test(t))return 'ssd';if(/monitor/.test(t))return 'monitor';if(/mouse/.test(t))return 'mouse';if(/teclado/.test(t))return 'keyboard';if(/cadeira/.test(t))return 'chair';if(/headset|fone|webcam|microfone|controle|gabinete|fonte|cooler/.test(t))return 'peripherals';return 'other';}
 export function calculateEvidence(price:number,reference:number|null,history:{price:number;observed_at:string}[],now=Date.now()){
  const valid=history.filter(x=>x.price>0&&Date.parse(x.observed_at)<now-3600000&&Date.parse(x.observed_at)>now-30*86400000);
  const days=new Set(valid.map(x=>x.observed_at.slice(0,10))).size;
@@ -17,3 +17,4 @@ export function calculateEvidence(price:number,reference:number|null,history:{pr
  const announced=reference&&reference>price?Math.round((1-price/reference)*100):0;
  return {historical_median:enough?median:null,historical_samples:n,historical_days:days,discount:enough&&historicalDiscount>=5?historicalDiscount:announced,evidence:enough&&historicalDiscount>=5?'history' as const:announced>=5?'retailer' as const:'none' as const};
 }
+

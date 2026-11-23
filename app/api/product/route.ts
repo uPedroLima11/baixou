@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {publicDb} from '@/lib/supabase';
+export const dynamic='force-dynamic';export async function GET(req:Request){const id=new URL(req.url).searchParams.get('id');if(!id||id.length>100)return NextResponse.json({offer:null},{status:400});const db=publicDb();if(!db)return NextResponse.json({offer:null},{status:503});const {data,error}=await db.from('offers').select('*').eq('id',id).maybeSingle();return NextResponse.json({offer:data},{status:error?503:data?200:404});}
