@@ -1,3 +1,16 @@
+# CHECKPOINT — grandes lojas, variedade e kits upgrade (Claude Code, 23/11/2026, noite)
+
+Prioridade do proprietário: grandes lojas (Mercado Livre, Amazon, Terabyte, Pichau, Magalu, Shopee, AliExpress) antes de lojas menores. iByte e similares ficam para depois.
+
+- Grandes lojas: nenhuma integrável sem ação do proprietário. Sondagem atual e passos exatos (cadastros, permissões, nomes de secrets) em `docs/MAJOR_STORES.md`. Ordem recomendada: Shopee, AliExpress, Pichau/Terabyte (pedido de feed ou liberação do robô), Mercado Livre (testar token), Awin/Magalu, Amazon. Não implementar adaptadores de API sem credencial real para testar.
+- Kits upgrade: categoria `kit` agora significa CPU + placa-mãe (com/sem RAM), rótulo "Kits upgrade". Exclui PC completo, kit de memória e combos teclado/mouse (vão para periféricos). Componentes do título viram specs "Componente do kit: …". Kits nunca recebem identidade canônica (`identityForOffer` retorna null), então não casam com o processador avulso nem disparam alertas de produto exato da CPU. Títulos iniciados por "Processador" não caem mais em placas-mãe. Ofertas antigas são reclassificadas na próxima verificação; nenhum alerta usava `kit`.
+- Descoberta: o caminho KaBuM `/kits-gamer` retornava 0 produtos. O real é `/hardware/kit-hardware/kit-upgrade` (60 por página). Adicionados notebooks, PCs, cadeiras gamer, headsets e páginas 2/3 (KaBuM `page_number`, aceito pelo robots e agora pelo filtro de URL), WAZ cadeiras, Guerra Digital kit-upgrade/computadores. Patoloco não tem página de kits listável (redireciona para monte-seu-pc).
+- Volume Actions: 90 detalhes, prazo 330 s, 3 páginas de categoria por loja por execução, timeout 9 min, relay aguarda 420 s (cadência ~15 min). Vercel inalterada (prazo próprio, 1 página). A admissão continua capacidade-primeiro: crescimento de anúncios novos fica limitado quando há rechecagens devidas.
+- Barra lateral: `components/useScrollingSidebar.ts` faz a barra acompanhar a rolagem nos dois sentidos (desktop ≥601 px), sem rolagem interna. Algoritmo validado no DOM de produção com 1.163 px de barra e janela de 800 px. Validação visual pós-deploy ainda pendente.
+- Pendências: paginação da listagem pública (página tinha ~105.000 px e limite de 500 anúncios); retirar descrição do payload do catálogo; acompanhar capacidade com o volume maior.
+
+---
+
 # CHECKPOINT — confiabilidade da coleta (Claude Code, 23/11/2026, tarde)
 
 Este bloco prevalece sobre os anteriores no que se refere a agendamento e capacidade.
