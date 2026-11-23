@@ -22,6 +22,16 @@
 - `historical_max` (migration 20261123194500 aplicada: coluna, `price_history_stats` com max, view catalog_offers recriada mantendo grants/security_invoker). Gravado só com ≥5 amostras em ≥3 dias, portanto **nulo até ~26/11** (histórico começou 23/11). Desconto anunciado é limitado também pela diferença para o maior preço observado; card mostra "Preço "de" não praticado nos N dias monitorados"; detalhe explica.
 - G305: no banco só KaBuM (kabum-97092, R$ 169,99, "de" R$ 488,62 = 65% anunciado, mpn G305, título com 910-005281). Sem outra loja nem histórico: aparece só como "Anunciada", sem prioridade. Amazon R$ 161,91 é observação do proprietário, NÃO integrada/validada. Regressão em tests/market.test.ts.
 
+## Homologação real com a conta do proprietário (20:30 UTC)
+
+- Login feito pelo proprietário no navegador do app. Perfil e Notificações separados; deep links ok; Perfil salva; lista de desejos salva/remove (4 favoritos do proprietário intactos); alertas criados pela UI (categoria RAM + DDR3 + 4 GB ≤ R$ 50; produto Redragon Cobra M711 ≤ R$ 70), editados (50→55), pausados/reativados e excluídos — tudo conferido no banco. Modo escuro e 375 px ok. Bug corrigido: galeria do detalhe vazava para 456 px no celular (0aca1b3).
+- **Disparo real:** rechecagens 20:32:57 e 20:33:35 → e-mails enviados 20:33:22 e 20:33:45 (status sent, 1 tentativa, message_id). Condições verdadeiras com preços reais (R$ 49,99 e R$ 69,99), nada fabricado. Assuntos esperados no formato `Baixou! 🔔 … atingiu R$ …`. Rodada continuou chamando o notificador com as mesmas ofertas: continuou com 2 registros (deduplicação ok). **Recebimento na caixa depende de confirmação do proprietário.**
+- **Bug encontrado e corrigido (45350f9):** no Actions o envio só rodava após ~5 min de coleta, e rechecagens (processadas primeiro) já estavam fora da janela de 5 min. Agora o coletor chama o notificador (idempotente) a cada 2 min.
+- Limpeza: alertas de teste excluídos pela UI, e-mail voltou a desligado (estado original), notification_state dos 2 produtos de teste removido para não bloquear alertas futuros; notification_log mantido como auditoria.
+- Não homologado com e-mail real: queda absoluta/percentual (histórico <3 dias até ~26/11), lista de desejos por queda, e-mails Auth com o novo visual. Cobertos por testes automatizados.
+- **Capacidade KaBuM:** 161 rechecagens devidas, fila ~20 min atrasada (a mesma folga entre rechecagem e TTL); ofertas podem vencer brevemente antes da reconfirmação. Rodada verifica ~85/13 min. Não aumentamos volume/frequência; próximo passo é medir e, se necessário, reduzir descoberta da KaBuM enquanto houver atraso (respeitando a faixa mínima de 10%).
+- Pichau/Terabyte/Amazon: ver MAJOR_STORES.md (redes de afiliados) e mensagens prontas em ACCESS_GUIDE.md. Amazon: cl. 6(y) das políticas proíbe rastreamento/alerta de preço sem aprovação escrita.
+
 ## Operação (19:33 UTC)
 
 - Ativas no TTL: KaBuM 366, WAZ 163, Guerra 168, Patoloco 249, ML 433. Vencidas disponíveis: WAZ 2, ML 1. Actions 45246942562 e anteriores verdes. Fila: Patoloco 1.925 candidatos (1.381 devidos, 16 com falha), KaBuM 1.213 (655 devidos) — backlog de descoberta, não falha. Banco 24 MB, 6.301 observações.
