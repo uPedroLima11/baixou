@@ -120,3 +120,14 @@ Mensagem pronta, não enviada:
 > Baixou! é um comparador gratuito de hardware (https://baixouofertas.vercel.app) que publica preço à vista, disponibilidade e link direto para a loja, sem copiar descrições nem avaliações. Para não acessar o site da Pichau com robôs (bloqueados), pedimos um feed XML/CSV ou endpoint de produtos (título, preço Pix, estoque, URL, EAN/código do fabricante) e autorização para exibir esses preços, com atualização ao menos a cada hora.
 
 **Amazon:** não enviar ainda. Pré-requisitos: conta Associados aceita, 10 vendas qualificadas/30 dias (Creators API) **e** aprovação escrita para recurso de rastreamento/alerta de preço (Políticas, cl. 6(y)).
+
+## Procedimento exato para ativar Terabyte/Pichau (preparado em 23/11/2026)
+
+O código já lê feeds no padrão Google Merchant (`lib/connectors/merchant-feed.ts`, conectores `terabyte-feed` e `pichau-feed`, ambos desligados). Lomadee **não documenta oficialmente** API de produtos (só MCP de marcas/comissões; verificado em llms.txt, afiliados.md, whitelabel.md e anunciantes.md). Só o painel confirma.
+
+1. **Terabyte (Lomadee):** criar conta gratuita em https://www.lomadee.com.br/pt-br/login → solicitar a marca TeraByte → no painel, procurar "Credenciais de API", "Feed de produtos" ou "Ferramentas". Anotar (sem me enviar valores): se há feed/endpoint de produtos, formato (XML/CSV/JSON), campos (preço à vista?, estoque, URL, EAN/MPN), frequência de atualização e se o regulamento permite exibir preço em comparador com histórico/alertas. Se não houver feed, usar a mensagem pronta ao suporte (acima).
+2. **Pichau (Creator Network):** candidatar-se em https://afiliados.pichau.com.br/application com o texto pronto (acima) pedindo feed XML/CSV autorizado.
+3. **Quando houver URL de feed autorizada:** gravar você mesmo, sem colar no chat:
+   - `gh secret set TERABYTE_FEED_URL` (ou `PICHAU_FEED_URL`) no repositório uPedroLima11/baixou.
+   - Avisar o agente; ele adiciona a variável ao job `connectors`, faz uma execução de teste hospedada, confere preço/estoque/URL contra a página da loja em amostra e só então troca `implemented` para true. Se o feed não informar base de pagamento, o preço fica fora da referência de mercado (Pix) até confirmação.
+4. Se o formato não for Merchant (ex.: JSON próprio da Lomadee), basta o nome dos campos: o adaptador é pequeno e reaproveita política/persistência existentes.
