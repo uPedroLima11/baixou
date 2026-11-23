@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "collect": "tsx scripts/collect.ts",
+    "collect:report": "tsx scripts/collection-report.ts",
     "collect:check": "tsx scripts/collect.ts --check",
     "notifications": "tsx scripts/notify.ts",
     "discover": "tsx scripts/discover.ts",

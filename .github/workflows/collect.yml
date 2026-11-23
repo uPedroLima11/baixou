@@ -46,3 +46,6 @@ jobs:
       - name: Enviar alertas opt-in
         run: npm run notifications
 
+      - name: Relatório real de cobertura
+        if: always()
+        run: npm run collect:report

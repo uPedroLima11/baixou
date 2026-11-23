@@ -1,7 +1,7 @@
 import robotsParser from 'robots-parser';import * as cheerio from 'cheerio';import {createHash} from 'node:crypto';
 import {adminDb,safeUrl} from './server';import {calculateEvidence,classify,type Offer} from './types';
 import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct} from '../scripts/parser';
-import {parseStoreProduct,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
+import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
 import {productURL,categoryURL,candidateCategory,diverseCandidates,retryMinutes,verificationTTL} from './collection-policy';
 type Options={check?:boolean;max?:number;stores?:string[];deadlineMs?:number};
 const agent='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)';
@@ -12,7 +12,7 @@ export async function runCollector(options:Options={}){
  const pause=()=>new Promise(r=>setTimeout(r,1500));
  async function get(url:string){if(!safeUrl(url))throw Error('Host não permitido');const response=await fetch(url,{headers:{'User-Agent':agent,Accept:'text/html,application/xml'},redirect:'manual',signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('HTTP '+response.status);let text='',bytes=0;const reader=response.body?.getReader(),decoder=new TextDecoder();if(!reader)throw Error('Resposta vazia');for(;;){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>8000000){await reader.cancel();throw Error('Resposta maior que 8MB');}text+=decoder.decode(value,{stream:true});}return text;}
  for(const source of sources){if(!enabled.includes(source.id)||Date.now()-started>deadline-10000)continue;
-  const lease='catalog:'+source.id;let claimed=false,count=0,errors=0,newURLs=0,runId:number|undefined;
+  const lease='catalog:'+source.id;let claimed=false,count=0,errors=0,categoryErrors=0,newURLs=0,runId:number|undefined;
   const state=db?await db.from('collection_state').select('*').eq('store',source.id).maybeSingle():{data:null,error:null};if(state.error)throw state.error;
   if(state.data&&Date.parse(state.data.next_allowed_at)>Date.now())continue;
   if(db){const claim=await db.rpc('claim_collector_lease',{lease_name:lease,ttl_seconds:Math.ceil(deadline/1000)+30});if(claim.error)throw claim.error;if(!claim.data)continue;claimed=true;const run=await db.from('collection_runs').insert({store:source.id}).select('id').single();if(run.error)throw run.error;runId=run.data.id;}ran++;
@@ -27,13 +27,13 @@ export async function runCollector(options:Options={}){
    const fresh=new Set<string>();
    for(const {url}of page.data??[]){if(!allowed(url)) {if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+86400000).toISOString()}).eq('store',source.id).eq('url',url);continue;}
     try{await pause();const html=await get(url),$=cheerio.load(html);
-     const productLinks=source.id==='kabum'?kabumDiscovery(html):$('a[href]').toArray().map(a=>$(a).attr('href')!);
+     const productLinks=source.id==='kabum'?kabumDiscovery(html):[...$('a[href]').toArray().map(a=>$(a).attr('href')!),...structuredProductLinks($)];
      for(const raw of productLinks){const u=productURL(raw,source);if(u&&allowed(u))fresh.add(u);}
      if(db){const categories=[...new Set($('a[href],link[rel="next"]').toArray().map(e=>categoryURL($(e).attr('href')??'',source)).filter((u):u is string=>!!u&&!!allowed(u)))].slice(0,150);
       if(categories.length){const inserted=await db.from('collection_pages').upsert(categories.map(url=>({store:source.id,url})),{onConflict:'store,url',ignoreDuplicates:true});if(inserted.error)throw inserted.error;}
       await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+60*60000).toISOString()}).eq('store',source.id).eq('url',url);
      }
-    }catch(e){errors++;console.error(source.id,'categoria:',e instanceof Error?e.message:'erro');if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+6*3600000).toISOString()}).eq('store',source.id).eq('url',url);}
+    }catch(e){categoryErrors++;console.error(source.id,'categoria:',e instanceof Error?e.message:'erro');if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+6*3600000).toISOString()}).eq('store',source.id).eq('url',url);}
    }
    if(db&&fresh.size){const pool=await db.from('product_candidates').select('url',{count:'exact',head:true}).eq('store',source.id);if(pool.error)throw pool.error;const remaining=Math.max(0,2000-(pool.count??2000));if(remaining){const inserted=await db.from('product_candidates').upsert([...fresh].slice(0,Math.min(150,remaining)).map(url=>({store:source.id,url,category:candidateCategory(url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(inserted.error)throw inserted.error;newURLs=inserted.data?.length??0;}}
    const now=new Date().toISOString();
@@ -61,12 +61,13 @@ export async function runCollector(options:Options={}){
      await db.from('discovery_events').update({status:'validated',offer_id:base.id}).eq('canonical_url',url).eq('status','ready');count++;
     }catch(e){if(e instanceof ConfirmedUnavailable){stockOnly++;if(db){const stock=await db.from('offers').update({available:false,checked_at:new Date().toISOString(),expires_at:new Date().toISOString(),verification_status:'verified',last_attempt_at:new Date().toISOString()}).eq('url',url);if(stock.error)throw stock.error;const queued=await db.from('product_candidates').upsert({store:source.id,url,category:candidateCategory(url),last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+180*60000).toISOString(),failures:0});if(queued.error)throw queued.error;}count++;continue;}errors++;console.error(source.id,'produto:',e instanceof Error?e.message:'erro');if(db){await db.from('offers').update({last_attempt_at:new Date().toISOString(),verification_status:'failed'}).eq('url',url);await db.from('product_candidates').upsert({store:source.id,url,last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+retryMinutes(priorFailures)*60000).toISOString(),failures:priorFailures+1});}}
    }
-   if(!count&&errors)throw Error('Nenhum produto validado nesta tentativa');
+   if(!count&&(errors||categoryErrors)&&!state.data?.last_success_at)throw Error('Sem produtos verificáveis nesta fonte; consultar erros de categoria/produto');
+   if(!count&&(errors||categoryErrors)&&state.data?.last_success_at){failures++;if(db)await db.from('source_status').upsert({store:source.id,status:'degraded',checked_at:new Date().toISOString(),products:0,message:'Tentativa com falha; última confirmação e ofertas preservadas até o TTL'});}
    if(db){const stateUpdate=await db.from('collection_state').upsert({store:source.id,cursor:cursor+1,failures:0,next_allowed_at:new Date().toISOString(),...(count?{last_success_at:new Date().toISOString()}:{})});if(stateUpdate.error)throw stateUpdate.error;
     if(count){const status=await db.from('source_status').upsert({store:source.id,status:'ok',checked_at:new Date().toISOString(),products:count,message:'Produtos confirmados na loja; descoberta progressiva'});if(status.error)throw status.error;}
    }total+=count;discovered+=newURLs;
   }catch(e){failures++;const message=e instanceof Error?e.message:'Falha';console.error(source.id,message);if(db){await db.from('collection_state').upsert({store:source.id,failures:(state.data?.failures??0)+1,next_allowed_at:new Date(Date.now()+retryMinutes((state.data?.failures??0)+2)*60000).toISOString()});await db.from('source_status').upsert({store:source.id,status:'blocked',checked_at:new Date().toISOString(),products:count,message:message.slice(0,180)});}}
-  finally{if(db){if(runId)await db.from('collection_runs').update({finished_at:new Date().toISOString(),discovered:newURLs,verified:count,failed:errors}).eq('id',runId);if(claimed)await db.rpc('release_collector_lease',{lease_name:lease});}}
+  finally{if(db){if(runId)await db.from('collection_runs').update({finished_at:new Date().toISOString(),discovered:newURLs,verified:count,failed:errors+categoryErrors,message:categoryErrors?'Falha de categoria; produtos e última confirmação foram preservados':null}).eq('id',runId);if(claimed)await db.rpc('release_collector_lease',{lease_name:lease});}}
  }
  if(db&&enabled.includes('kabum')&&total){await db.from('price_history').delete().lt('observed_at',new Date(Date.now()-35*86400000).toISOString());await db.from('collection_runs').delete().lt('started_at',new Date(Date.now()-7*86400000).toISOString());}
  return {total,failures,discovered,stock_only_checks:stockOnly,stores:enabled,skipped:ran===0};
