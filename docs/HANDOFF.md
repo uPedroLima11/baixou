@@ -1,3 +1,55 @@
+# CHECKPOINT — lojas sem cadastro, comparação entre lojas (Claude Code, 23/11/2026, ~23h40 UTC)
+
+Diretriz do proprietário: nenhuma conta/campanha/API privada nesta etapa; só fontes públicas gratuitas; cada loja precisa provar preço, estoque, vendedor, URL e coleta hospedada; cuidado com preço parcelado/cartão virando "preço anterior".
+
+## Sondagem das candidatas documentadas (robots, home, sitemap, produto; UA do coletor)
+
+| Loja | Resultado |
+| --- | --- |
+| ChipArt | **Integrada** (Next.js, `__NEXT_DATA__` público; robots só bloqueia checkout) |
+| Shopinfo | **Integrada** (Shopify da própria loja; robots permite /products) |
+| Hardstore | Acessível, mas "Vendido e entregue por CDD SC" (vendedor ≠ loja) → não integrada |
+| Nagem | Acessível; preço "Por R$ X ou 10x" sem rótulo Pix, JSON-LD mínimo, foco em eletroeletrônicos → adiada |
+| FGTEC | Magento; sitemap sem produto encontrado → adiada |
+| Fast Shop, Americanas, Carrefour, Avell, Redragon, Havan | Acessíveis (home 200), não investigadas a fundo nesta etapa; Americanas/Carrefour são marketplaces (exigem vendedor) |
+| Kalunga, Casas Bahia, Magazine Luiza | HTTP 403 no robots/home → não insistir |
+| Terabyte | Sem loja oficial no Mercado Livre (slugs redirecionam/404); direto continua 403 |
+| Pichau, Amazon | Sem mudança: Pichau direto bloqueado (coberta parcialmente pela loja oficial no ML); Amazon proíbe robôs e alertas/rastreamento sem aprovação |
+
+## ChipArt (deecbd5, 16f7ef1, c7c735f, e6ef875, 0e87a20)
+
+- Preço = `preco_pix` do `__NEXT_DATA__`, exigido igual ao "à vista no PIX" impresso no DOM. `quantidade_estoque` explícito. Modelo e EAN da ficha estruturada (`caracteristicas`). `preco_lista` **não** é preço antigo (razão Pix/lista varia 0,69–0,78 e não bate com o parcelado) → `original_price` nulo.
+- Correções de produção: categoria linka o mesmo produto por outro caminho (vale o ID; URL gravada = link do próprio produto) e links da loja com quebra de linha. 1ª rodada 45 ok/21 falhas → 3ª rodada (370) **74 verificados, 0 falhas**. 141 ativos, 81 com identidade.
+
+## Shopinfo (ba0d1db, 8ed335a, 0e87a20)
+
+- JSON-LD traz preço de CARTÃO; o Pix vem do bloco `.shopinfo-pdp-price-block .shopinfo-price__pix-hero` e deve ficar entre 80% e 100% do cartão. Cartão nunca vira preço antigo. Produtos com várias variantes são recusados. GTIN do schema vira EAN. Identidade da loja: host canônico + og:site_name + CNPJ 03.482.370/0001-09 no HTML do servidor.
+- Bug corrigido: o CNPJ não está em `<footer>` (rodapé montado no cliente) → 1ª rodada recusou 51 produtos; backoff indevido removido. Rodada 375: **89 verificados, 0 falhas**; 52 ativos, 68 com identidade.
+- A rodada de 23:06 UTC pegou 522 do Supabase na Shopinfo: o tratamento de infraestrutura funcionou ao vivo (status degraded, sem backoff de loja). Com 3 tentativas todas em 522, o job ficou vermelho (falha real registrada).
+
+## Comparação entre lojas (f318f87)
+
+- `comparisonIndex()` (lib/search.ts): mesmo modelo (sameProduct) em ≥2 vendedores independentes (mesma regra do banco: KaBuM/Pichau no ML = a própria loja). Card: "Em N lojas · menor preço entre elas / a partir de R$ X". Detalhe: tabela loja/preço/diferença/pagamento/link + aviso de cobertura parcial. Filtro "Só modelos em 2+ lojas". Selos, modalidades e critérios de desconto inalterados. Validado em produção: 30 modelos comparáveis na modalidade "Incluir ofertas das lojas"; filtro e tabela (7800X3D em 3 lojas) conferidos no navegador.
+- Referência de mercado (migration 20261123234500): `refresh_market_reference()` só aceitava Pix das 4 lojas originais; agora inclui iByte, ChipArt e Shopinfo (Pix conferido no DOM). Resultado: 18 anúncios com ≥2 outros vendedores e **6 abaixo das lojas comparadas** pelos critérios completos (eram 1): 7800X3D e B550M-Plus e i5-12400 na KaBuM, A400 240GB na WAZ, Ryzen 5 5500 na Patoloco, i5-12400F na Guerra.
+
+## Mercado Livre (16f7ef1)
+
+- `knownCodeInTitle`: termo do título vira MPN só se for IDÊNTICO a código já registrado para a mesma marca em catalog_products; dois códigos conhecidos = ambíguo. Potencial medido: 8 anúncios (ADATA, SanDisk, Redragon, Acer, ASUS). Vitrines continuam sem GTIN/part number.
+
+## Fotografia 23:35 UTC
+
+- 2.056 anúncios ativos (KaBuM 608, ML 464, Patoloco 248, iByte 210, Guerra 182, WAZ 165, ChipArt 141, Shopinfo 38+); 1.076 com identidade; **54 modelos idênticos entre lojas** (auditoria estrita; eram 28), 58 por vendedor independente, 7 em 3+ vendedores; 6 abaixo das lojas comparadas.
+- Filas: todas com 0 vencidas; KaBuM 608 ativas, atraso máx. 8,9 min.
+- CI: c7c735f vermelho (fixture com quebra de linha literal; corrigido em e6ef875, verde). Coleta 23:06 vermelha (Shopinfo 3× 522); seguintes verdes.
+
+## Pendências
+
+- Histórico para quedas (≥3 dias) a partir de 25/11 UTC.
+- Próximas candidatas públicas: Fast Shop (VTEX), Redragon/Havan (Magento), FGTEC; Americanas/Carrefour exigem filtro de vendedor.
+- Payload do catálogo cresce com as lojas (~3,3 MB JSON); acompanhar.
+
+---
+
 # CHECKPOINT — fila KaBuM, iByte, identidade e feeds (Claude Code, 23/11/2026, ~22h50 UTC)
 
 ## Fila de rechecagem — resolvida e validada em rodadas reais

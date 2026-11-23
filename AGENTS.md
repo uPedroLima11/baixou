@@ -119,3 +119,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - iByte operacional (VTEX): só HTML/JSON-LD (robots bloqueia /api/*); vendedor `ibyte` + Pix do DOM igual ao schema; "De" igual ao total parcelado é preço de cartão; mpn/gtin do schema são internos. Fica fora do lote Vercel.
 - Feeds Terabyte/Pichau (padrão Google Merchant) prontos e `implemented=false`. Ativar só com URL autorizada gravada pelo proprietário (`gh secret set`), teste hospedado e conferência amostral contra a página da loja. Preço de feed não entra na referência Pix sem base confirmada.
 - Identidade: código no fim do título após " - ", vírgula, parênteses ou antes de sufixo "Cor/Voltagem" do ML; nunca tokens do meio do título.
+
+## Lojas públicas e comparação (Claude Code, 23/11/2026, fim do dia)
+
+- Sem cadastros nesta etapa. Operacionais diretas: KaBuM, WAZ, Guerra, Patoloco, iByte, ChipArt, Shopinfo. Hardstore (vendedor "CDD SC") e Nagem (sem Pix explícito) não integradas; Kalunga/Casas Bahia/Magalu 403.
+- ChipArt: preco_pix do __NEXT_DATA__ = DOM; preco_lista nunca é preço antigo; URL gravada = link do produto (ID igual). Shopinfo: schema = cartão, Pix do bloco de preço; variantes recusadas; CNPJ no HTML do servidor.
+- Toda loja nova com Pix conferido no DOM precisa entrar na lista de `refresh_market_reference()` (ou gravar payment_basis='cash'); senão fica fora da referência de mercado.
+- Comparação entre lojas é neutra (comparisonIndex): ≥2 vendedores independentes do mesmo modelo, sem selo de promoção; texto sempre informa cobertura parcial.
+- ML: código no meio do título só quando idêntico a código já registrado da mesma marca (knownCodeInTitle).
