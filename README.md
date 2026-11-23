@@ -1,6 +1,6 @@
 # Baixou!
 Catálogo brasileiro de ofertas de tecnologia, com validação na loja, histórico próprio e alertas.
-- Produção: https://baixou-iota.vercel.app
+- Produção: https://baixouofertas.vercel.app
 - Código: https://github.com/uPedroLima11/baixou
 - Diretório de trabalho atual: D:\PROJETOS\baixou
 **Comece por AGENTS.md e docs/HANDOFF.md. Não é necessário reconstruir a arquitetura.**
@@ -30,7 +30,7 @@ npx vercel deploy --yes --prod --scope upedrolima11s-projects
 ~~~
 collect:check consulta lojas reais sem gravar no banco. As demais rotinas de banco exigem segredos nos ambientes autorizados.
 ## Banco e publicação
-Migrations em supabase/migrations; 001–004 aplicadas no projeto dedicado Baixou!. Não reaplicar arquivos aplicados: não são todos idempotentes. Nunca operar no outro projeto da conta.
+Migrations em supabase/migrations; 001–005 e migrations com timestamp de alertas/agendamento aplicadas no projeto dedicado Baixou!. Consulte o HANDOFF antes de executar. Não reaplicar arquivos aplicados: não são todos idempotentes. Nunca operar no outro projeto da conta.
 ~~~sh
 npx supabase db query --remote=slmhkfqqeyptngjubfhn --file supabase/migrations/NOVA.sql --yes
 npx supabase config diff --remote=slmhkfqqeyptngjubfhn
@@ -40,7 +40,7 @@ Usar CLI oficial autenticado; Claude pode precisar que o usuário reautorize. Nu
 ## Documentação
 - docs/HANDOFF.md: estado real, acessos, testes e continuidade.
 - docs/ARCHITECTURE.md: pipeline, evidência, segurança e expansão.
-- docs/EMAIL_SETUP.md: última etapa manual do Gmail, sem senha no chat.
+- docs/EMAIL_SETUP.md: Gmail existente e validações de envio/recuperação, sem credenciais.
 - docs/COLLECTOR_RESEARCH.md e docs/PRIMARY_SOURCES.md: pesquisa já feita.
 - docs/DISCOVERY_RESEARCH.md: LinksBR, Discord e Telegram.
 - docs/EXPANSION.md: dezenas de lojas planejadas e quatro novos candidatos testados por HTTP.

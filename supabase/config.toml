@@ -1,8 +1,8 @@
 project_id = "baixou"
 [auth]
 enabled = true
-site_url = "https://baixou-iota.vercel.app"
-additional_redirect_urls = ["https://baixou-iota.vercel.app/auth/callback", "https://baixou-iota.vercel.app/auth/reset", "http://127.0.0.1:3000/auth/callback", "http://127.0.0.1:3000/auth/reset"]
+site_url = "https://baixouofertas.vercel.app"
+additional_redirect_urls = ["https://baixouofertas.vercel.app/auth/callback", "https://baixouofertas.vercel.app/auth/reset", "https://baixou-iota.vercel.app/auth/callback", "https://baixou-iota.vercel.app/auth/reset", "http://127.0.0.1:3000/auth/callback", "http://127.0.0.1:3000/auth/reset"]
 minimum_password_length = 10
 [auth.email]
 enabled = true

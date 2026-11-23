@@ -38,3 +38,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Wishlist e alertas nunca são apagados por TTL/estoque/falha. FKs paraoffersRESTRICT. Catálogo ativo e produtos salvos são consultas diferentes.
 - Falha de verificação não confirma esgotamento. Preservarchecked_at/preçohistórico; marcarlast_attempt_at/verification_status. Não estenderTTLsemconsulta real.
 - Segredo dedicado de coleta aprovado noVault+Vercel. Nunca usarservice_rolecomoBearerdoagendador. Migrationcroncriajobinativo; sincronizarsegredo,deploy,testar,ativar e observarexecuçãoreal.
+
+- Domínio canônico autorizado: https://baixouofertas.vercel.app (também README, SITE_URL, Auth e cron). Não chamar jobs pelo alias antigo que redireciona: Authorization pode se perder.
+- Email: usuário confirmou recebimento diagnóstico/recuperação e formulário aberto. Não confundir com cadastro novo ou notificação real de meta, ainda pendentes de homologação específica.
+- Agendador Supabase */5 já ativo e HTTP200/8produtos confirmado em23/11/2026. Consultar resultado pg_net além de cronSQLsucceeded. Proteger e não imprimir headers que contêm segredo.

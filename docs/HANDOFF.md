@@ -1,86 +1,125 @@
-# Checkpoint incremental — 23/11/2026
+# Baixou! — continuidade em 23/11/2026
 
-Este bloco prevalece sobre o checkpoint-base abaixo. SMTP foi informado como funcionando pelo proprietário: NÃO refazer a configuração. Validação independente de entrega/cadastro/reset ainda precisa ser registrada.
+Leia também AGENTS.md e README.md. Preserve a implementação; não recomece o projeto.
 
-- Diagnóstico: 29 ofertas KaBuM existiam no banco, todas com estoque positivo; catálogo vazio por TTL30min após cerca de9h sem coleta. Workflow ativo, mas só execução manual observada. NÃO eram produtos comprovadamente esgotados.
-- Coleta manual45173238934 confirmou24produtos reais; automático ainda não comprovado neste checkpoint.
-- Migrations005_product_identity e20261123122001_flexible_alerts_persistence aplicadas via CLI no projeto dedicado; não reaplicar. Identidade conservadora marca/MPN/GTIN+variantes; alertas legados recebem identidade por trigger quando oferta é vinculada.
-- Alertas: max_price nullable, min_discount nullable, min_drop_amount independente, brands e spec_filters. Todas condições fornecidas são AND. Mediana exige5pontos/3dias. Máximo isolado não exige histórico. Filtros desconhecidos não casam. Campo de specs extensível emlib/alert-rules.ts; extração ainda conservadora e não cobre todas características de todas categorias.
-- Favoritos: consulta autenticada wishlist joinoffers, sem exigir TTL/estoque/desconto. FKs wishlist/alerts -> offers agora RESTRICT, impedindo exclusão em cascata. Nenhuma rotina elimina favoritos/alertas automaticamente. currentSavedOffer procura oferta atual do mesmo produto sem mudar vínculo salvo.
-- Preço vencido não aparece como atual nos cards/detalhes. available=false é estoque confirmado; available=true vencido é aguardando verificação. verification_status/last_attempt_at preservam falhas sem inventar esgotamento ou atualizar checked_at.
-- Coletor tem deadline4min (antes9, maior que timeoutActions6min). WorkerVercel curto prioriza8ofertas antigas por ciclo. Actions mantém descoberta ampla.
-- Notificações canônicas deduplicam porproduto/preço e dia; filtram verificação bem-sucedida nos últimos5min. Não garante estoque futuro. Falhas de envio ainda ficam bloqueadas pelo claim até dia seguinte: melhorar retry idempotente.
-- SMTPdiagnóstico assinado em/api/jobs/notifications?check=smtp, HMAC smtp:<true|false>:<timestamp>; cabeçalhox-baixou-send-owner=yes envia somente ao SMTP_USER. Nunca expor esse endpoint sem autenticação.
-- Autorizado novo segredo exclusivo de coleta noSupabaseVault eVercel. Migration20261123123751_hosted_collector_schedule cria pg_cron/pg_net ejob DESATIVADO. Vaultbaixou_collector_secret sincronizado paraVercelCRON_SECRET sem imprimir/gravarvalor. Ativar somente apósdeploy ePOSTcoletor testado. Registrar ativação abaixo quando concluída.
-- vercel env run não consegue exportar variáveis Secret: tentativa abortada sem copiar segredos. Scriptscheck-email/backfill podem rodar em ambiente autorizado comenvs; preferir validação hospedada.
-- Testes24passaram,typecheck ebuildpassaram antes dos últimos ajusteswishlist. Reexecutar antes decommit. AuditoriaSupabase apontoucreate_profile SECURITYDEFINER executávelporanon/authenticated; migrationrevogou explicitamente essasroles.
+## Projeto e acessos
 
-Próximos passos imediatos: deploy, validarcron/SMTP efluxosAuthreais; testarRLSemtransação rollback; confirmar ações agendadas; atualizar este bloco comresultados. Não declarar todaUX/authhomologadas por testesunitários.
+- Pasta autoritativa: D:\PROJETOS\baixou. A cópia antiga em Documents não é o projeto atual.
+- Código público autorizado: https://github.com/uPedroLima11/baixou . Credenciais nunca entram no Git.
+- Domínio padrão autorizado: https://baixouofertas.vercel.app . O alias antigo redireciona; não chamar jobs autenticados através dele, pois o cabeçalho Authorization pode se perder.
+- Vercel: projeto baixou, workspace upedrolima11s-projects, plano Hobby, GitHub main conectado.
+- Supabase dedicado: slmhkfqqeyptngjubfhn, região sa-east-1, plano gratuito. NÃO alterar o outro projeto da conta.
+- CLIs GitHub, Vercel e Supabase foram autorizados pelo proprietário. Claude em outra máquina não herda esses logins; pode precisar de nova autorização oficial.
 
----
+## Arquitetura
 
-# Handoff Baixou! — checkpoint 23/11/2026
-Leia AGENTS.md primeiro. Preserve o que funciona. Este documento descreve o estado efetivo, não uma promessa de cobertura.
-## Identidade e infraestrutura
-- Pasta autoritativa: D:\PROJETOS\baixou (projeto transferido de Documents; não continuar no caminho antigo).
-- GitHub: https://github.com/uPedroLima11/baixou . Visibilidade final PÚBLICA por autorização explícita, para usar runners padrão sem franquia privada. Segredos permanecem nos serviços.
-- Vercel: projeto baixou no workspace pessoal upedrolima11s-projects, plano Hobby. Domínio https://baixou-iota.vercel.app . GitHub conectado.
-- Supabase: projeto dedicado baixou, ref slmhkfqqeyptngjubfhn, organização do proprietário, região sa-east-1. Outro projeto na conta NÃO pertence a esta tarefa; não alterar.
-- Primeiro deploy pronto: dpl_EU5Z1RPGDzKV2TtzBQSLrDzKe8ku. Deploy com banco confirmado READY: dpl_GVeWUuJZdBFxTNUsuoQYkiSfHhYj. Commits posteriores podem gerar novo deploy; conferir Vercel/CLI antes de afirmar qual é atual.
-- Código-base antes deste checkpoint: b430c97. O commit documental será posterior; consultar git log -5 e o relatório da conversa para o hash final.
-## Funciona e foi validado
-- Next/React/TS compilou; 12 testes de motor passaram, também em GitHub CI.
-- Logo Imagegen integrada, temas claro/escuro, responsividade, React Bits AnimatedContent com movimento reduzido.
-- Catálogo real hospedado, filtros de categoria/loja/preço/desconto, busca sem acento, favoritos, detalhes, fotos, especificações e resumo de avaliações, histórico gráfico, link Ir para loja.
-- KaBuM: extração real de HTML __NEXT_DATA__, vendedor próprio (sellerId0, nome KaBuM!, flags marketplacefalse), preço final/estoque/fotos/specs. Não confundir avaliações com vendas.
-- Primeira coleta gravou21 produtos; consultas posteriores confirmaram23–27 ativos e13–16 descontos anunciados. Contagens variam; não cristalizar como cobertura permanente.
-- Actions executou coleta REAL sem computador: https://github.com/uPedroLima11/baixou/actions/runs/45106844145 (sucesso, ~95s). Pipeline CI45106820698 também sucesso.
-- Migrations001–004 aplicadas. RLS declarada para dados privados; falta auditoria end-to-end com dois usuários reais/de teste.
-- Auth: domínio, URLs callback/reset e senha mínima10 configurados no Supabase. E-mail exige SMTP próprio: login/cadastro/reset NÃO estão homologados ponta a ponta.
-## Estado parcial e bloqueios reais
-- SMTP: Nodemailer no servidor, dispatch HMAC via Actions e opt-in implementados; Gmail host465/remetente preparados. Falta senha de aplicativo fornecida diretamente pelo proprietário nos painéis. Nenhum e-mail recebido validado. Ver docs/EMAIL_SETUP.md.
-- Alertas atuais nasceram por oferta/categoria. Usuário pediu identidade global do produto (EAN/GTIN/MPN + variantes), novas lojas futuras e dedup de condição. Comparação visual já usa marca+MPN conservador; NÃO equivale a produto canônico global. Ver commits posteriores: esta é prioridade de desenvolvimento se ainda não concluída.
-- Melhorias de busca por termos/unidades e agrupamento conservador adicionadas após primeiro deploy; precisam testes adicionais de regressão e novo deploy.
-- Usuário pediu UX: selecionar automaticamente ofertas anunciadas se não houver quedas históricas; respeitar seleção manual; destacar controles com contagens e CTA no fim das quedas. Ver commits posteriores; pendente neste checkpoint-base.
-- Terabyte: produto/robots403. Pichau: produto/categorias403. Retentativas limitadas, sem bypass. Não marcar integradas.
-- LinksBR: não habilitado. Bot Telegram exige acesso ao canal; Discord bot REST requer canal autorizado/intent conforme conteúdo. Não usar self-bot, token pessoal, canal privado, Gateway contínuo em Vercel. Prévia pública Telegram200, robots404; motivo de não ativar coleta externa é termo específico documentado, não hipótese de robots. Não há API/RSS LinksBR publicada encontrada. Não contatamos comunidade.
-- Cupons: sinais preservados, nunca subtraídos do preço sem validação. Sem motor checkout de cupons homologado.
-- Outras lojas: 40 no cadastro central, pendentes com domínio nulo até investigação. WAZ/Bits/Guerra/Patoloco têm produto+catálogo200 e fixtures, mas SEM adaptador integrado. Gigantec retorna challenge. Ler docs/EXPANSION.md.
-## Coletor
-- Schedule Actions: a cada5min, best effort. Node22, npm ci, bot oficial quando autorizado, resolver de links, coletor24produtos/fonte/ciclo, notificações no servidor.
-- Pausa1,5s entre requests, timeout12s, resposta máx8MB, lista de hosts, robotsfail-closed, lease de execução emPostgres.
-- Descoberta prioriza eventos recentes e revalida ofertas antigas; cobertura limitada por ciclo e rotação de categorias. Não promete detectar toda promoção de minutos.
-- FalhaHTTP não significa esgotado: TTL30min remove sem confirmação nova. Estoque falso retira após coleta bem-sucedida que detectar.
-- Histórico uma observação/hora, retenção35dias. Mediana30dias requer5observações em3dias, exclui última hora; queda mínima5%. Preço riscado é evidência retailer, não history.
-- Uma oferta porSKUde loja; URLs canônicas deduplicam comunidades. Attribution preservada emdiscoveries, textoeditorial não armazenado.
-## Banco
-001_initial.sql: offers, price_history, source_status, profiles, wishlist, alerts, notification_log, Authtrigger, avatarbucket eRLS.
-002_discovery.sql: discovery_sources (segredo somentehash), discovery_events, cupons eatribuição. Fontes sociais desativadas por padrão.
-003_collector_lease.sql: job_leases eRPCs de claim/release sóservice_role.
-004_registry.sql: store_registry,40lojas, constraintFK ampliaoffers.
-Migrations foram aplicadas via CLI db query remoto; não supor que a tabela de histórico de migrations do CLI já está preenchida. Não reaplicar001 em banco existente.
-## Variáveis — nomes e destinos, sem valores
-| Nome | Destino | Situação |
-| --- | --- | --- |
-| NEXT_PUBLIC_SUPABASE_URL | VercelProduction eGitHubSecrets | configurada |
-| NEXT_PUBLIC_SUPABASE_ANON_KEY | VercelProduction | configurada; pública por design, protegida porRLS |
-| SUPABASE_SERVICE_ROLE_KEY | VercelSecret eGitHubActionsSecret | configurada; autorização explícita para esses destinos |
-| NEXT_PUBLIC_SITE_URL | VercelProduction eGitHubVariable | configurada |
-| CRON_SECRET | VercelSecret | configurada; endpoint de coleta curto não agendado para evitar duplicação |
-| SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM | VercelProduction | preparados comGmail; conferir último deploy |
-| SMTP_PASS | VercelSecret eSupabaseAuthSMTPpassword | FALTA ação do proprietário; jamaischat/Git |
-| COLLECT_STORES, COLLECT_MAX_PRODUCTS | Actionsenv | configuradas no workflow |
-| OFFER_TTL_MINUTES, NOTIFY_MAX_EMAILS | servidor/worker opcionais | defaults delimitados |
-| DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID | ActionsSecret/Variable | ausentes; requer autorização |
-Nada de tokens ou senhas no repo. .env*, .vercel, node_modules, work e supabase/.temp ignorados. Varredura de padrões de credenciais e arquivos de ambiente privados foi feita antes de tornar público; repetir antes do handoff final.
-## Acessos para Claude
-GitHubCLI autenticado no computador do proprietário na sessão desta tarefa. VercelCLI eSupabaseCLI autorizados por login oficial. Credenciais podem expirar; outro agente/máquina não herda essas sessões nem plugins automaticamente.
-Preferir CLIs oficiais e secretsjáexistentes. Não revelar service_role para inspecionar. Não remover proteção, ampliar permissões ou contratar plano pago. App hospedado independe dessas sessões.
-## Próximos passos em ordem
-1. Concluir SMTP_PASS somente nos painéis, verificar envio e recuperação; não considerar pronto antes de receber e-mail real.
-2. Implementar/testar produto canônico + alertas cross-store + variantes e dedup; migraralertaslegados com cautela. Não juntar kits2x16com1x32.
-3. UXmodalidades com fallback automático, escolha manual, contagens e destaque.
-4. Auditoria RLS de dois usuários e teste de favoritos/perfil/alertas/recuperação.
-5. Expandir adaptadores pelas4fontes reais candidatas, especialmente identidade e preçoPix, antes de marcaroperacional.
-6. VerificarCI+Actions+produção apósqualquerpush; manter logssemsegredos e documentarpêndencias.
+Next.js 16 / React 19 / TypeScript. Supabase fornece Postgres, Auth e Storage de avatares. Nodemailer roda somente no servidor. GitHub Actions faz descoberta/coleta ampla; Supabase Cron chama um worker curto na Vercel a cada cinco minutos. Não depende do computador do proprietário ligado.
 
+A interface existente inclui temas claro/escuro, busca sem acentos, filtros, detalhes, imagens, especificações, histórico, favoritos e configurações. React Bits AnimatedContent/GSAP tem licença incluída e respeita movimento reduzido. Não reformular o layout sem necessidade.
+
+## Diagnóstico e correções desta etapa
+
+O catálogo vazio foi causado por ofertas vencidas: 29 registros continuavam no banco com estoque positivo, mas tinham cerca de nove horas sem verificação e TTL de 30 minutos. Não houve evidência de esgotamento nem exclusão desses produtos. O workflow GitHub estava ativo, mas só execuções manuais foram observadas no período.
+
+A lista de desejos também consultava exclusivamente o catálogo ativo. Agora consulta wishlist com suas ofertas pela sessão autenticada, independentemente de estoque, desconto ou TTL. Produtos salvos continuam visíveis sem anunciar preço vencido como atual. Novas ofertas do mesmo produto canônico podem ser mostradas sem substituir o vínculo salvo. Exclusão de offers vinculadas a wishlist/alerts é impedida por FK RESTRICT. Não há expiração automática de favoritos ou alertas.
+
+Estados distintos: available=false significa estoque indisponível confirmado; TTL vencido significa verificação expirada; verification_status=failed registra falha de consulta, sem alterar o último preço, checked_at ou inventar esgotamento. O catálogo público mantém somente ofertas disponíveis dentro do TTL.
+
+## Alertas e identidade
+
+- lib/alert-rules.ts permite max_price, min_drop_amount e min_discount opcionais e independentes. Pelo menos uma condição é obrigatória; condições fornecidas são combinadas com AND.
+- Queda absoluta de R$ 200 funciona sem teto de preço. Queda absoluta/percentual exige mediana com cinco observações em três dias. Não usar preço riscado ou percentual arredondado para decidir a condição.
+- brands e spec_filters permitem geração/capacidade/módulos/frequência de RAM, VRAM, painel/resolução/Hz de monitor, capacidade/interface de SSD, socket/núcleos de CPU e conexão de periféricos. Extração é conservadora e ainda não cobre todas as especificações possíveis. Dados desconhecidos não devem casar por suposição.
+- lib/identity.ts normaliza marca, MPN e GTIN com checksum; variantes distinguem kits e módulos. O banco resolve produto canônico e associa alertas legados quando a oferta recebe identidade. Sem identificador forte, manter alerta na oferta original, evitando correspondências por título aproximado.
+- Notificações procuram todas as ofertas integradas do produto, inclusive futuras, e selecionam a mais barata. notification_state impede repetir preço igual ou maior; notification_log limita por produto/dia. Falhas de envio ainda precisam de retry idempotente: claim falho permanece até o dia seguinte.
+- Só recebe quem habilitou e-mail e confirmou a conta. Respeitar limite global. Favoritos notificam quedas históricas; metas de preço explícitas podem funcionar sem histórico, sem afirmar queda comprovada.
+- Antes de enviar, exige estoque ativo, TTL válido e verificação bem-sucedida nos últimos cinco minutos. Não equivale a reserva ou validação de checkout de cupom.
+
+## Coletor e fontes
+
+lib/collector.ts consulta robots, limita hosts HTTPS, tamanho de resposta, timeout e taxa. Não contornar 403, CAPTCHA ou políticas. Eventos de descoberta são priorizados; revalidação consulta registros antigos; descoberta de categorias rotaciona. Lease Postgres impede execução simultânea.
+
+KaBuM tem coleta real testada: HTML __NEXT_DATA__, preço final, estoque, fotos e specs, vendedor próprio confirmado por flags e identificação. Avaliações não são unidades vendidas. Terabyte e Pichau continuam parciais/bloqueadas; não anunciar como integradas.
+
+Cadastro central prevê 40 lojas. WAZ, Oficina dos Bits, Guerra Digital e Patoloco tiveram páginas HTTP 200 investigadas, mas ainda não possuem adaptadores validados. Marketplaces exigem reputação do vendedor, não somente da plataforma. Ler docs/EXPANSION.md, PRIMARY_SOURCES.md e COLLECTOR_RESEARCH.md antes de repetir pesquisa.
+
+LinksBR não está ativo. Não encontramos API/RSS pública publicada. Discord REST requer bot autorizado e permissões; Telegram requer bot com acesso ao canal. Infraestrutura de webhook/fila existe, fontes desativadas até autorização. Sem self-bots, tokens pessoais ou coleta privada. Ler docs/DISCOVERY_RESEARCH.md. Publicações são apenas descoberta; cards devem usar informações verificadas na loja. Cupons sugeridos não alteram preço sem validação.
+
+TTL padrão 30 minutos. Histórico: uma observação por hora, retenção documentada de 35 dias; mediana de 30 dias exclui a última hora e requer cinco observações em três dias. Retenção de histórico não remove produtos salvos. Infraestrutura gratuita não garante descobrir toda oferta de minutos; acompanhar tamanho do conjunto versus capacidade de revalidação.
+
+## Banco e migrations aplicadas
+
+- 001_initial.sql: ofertas, histórico, perfis, favoritos, alertas, logs, RLS e avatares.
+- 002_discovery.sql: fontes/eventos privados, atribuição e cupons.
+- 003_collector_lease.sql: lease e RPCs só service_role.
+- 004_registry.sql: cadastro central de lojas.
+- 005_product_identity.sql: catalog_products, variantes, identidade de alertas, notification_state e deduplicação por produto.
+- 20261123122001_flexible_alerts_persistence.sql: condições independentes, specs/marcas, FKs RESTRICT, estado de verificação; revoga execução pública explícita dos triggers SECURITY DEFINER.
+- 20261123123751_hosted_collector_schedule.sql: pg_cron/pg_net, segredo dedicado no Vault e job inicialmente desativado.
+- 20261123124649_activate_canonical_collector.sql: domínio canônico e ativação do job.
+
+Foram aplicadas via CLI db query. Não presumir que o histórico de migrations CLI esteja preenchido; não reaplicar arquivos já aplicados. Criar novas migrations pelo CLI. RLS sem políticas em tabelas de serviço é intencional: negar acesso público. catalog_products é leitura pública; dados privados permanecem isolados por usuário.
+
+## Agendamento e publicação
+
+Supabase Cron job baixou-collector está ATIVO em */5. Usa segredo exclusivo do Vault, sincronizado com Vercel CRON_SECRET por autorização expressa, sem armazenar service_role no Vault. Headers/segredos nunca devem ser impressos.
+
+Primeira execução autônoma confirmada em 23/11 às 12:50 UTC (09:50 São Paulo): net._http_response HTTP 200, total=8, failures=0, skipped=false. Confirmar resposta HTTP, não apenas cron.job_run_details=succeeded, pois pg_net é assíncrono.
+
+Worker Vercel tem orçamento de 35 segundos para até oito produtos e, após sucesso, tenta um e-mail com orçamento curto. Actions tem deadline interno de quatro minutos e timeout de seis, mantendo descoberta mais ampla e envio maior. Escala futura exige fila/fairness; não prometer volume ilimitado no plano gratuito.
+
+NEXT_PUBLIC_SITE_URL e URLs Auth foram alinhadas ao domínio canônico. Config push alterou somente site_url e additional_redirect_urls; SMTP e demais propriedades remotas não declaradas foram preservados. URLs antigas de callback continuam autorizadas por compatibilidade.
+
+Deploy READY confirmado: dpl_GbpwQy7sumZaTxDnHnXK5MgqM5XG para código 1bc43b5. Commits posteriores geram novos deploys; conferir status atual antes de afirmar a versão publicada. Consultar git log para o checkpoint mais recente.
+
+## Testes e validação real
+
+- 27 testes unitários passaram; TypeScript e build de produção passaram.
+- CI 45176723213 passou. Coleta Actions 45176953142 passou com 21 produtos reais e zero notificações, sem simular condições de preço.
+- tests/persistence-rls.sql executado no Supabase com dois usuários temporários e uma oferta real, integralmente revertido: isolamento de perfis/favoritos/alertas, rejeição de escrita para outro usuário, alerta apenas de queda absoluta e bloqueio de exclusão de produto salvo.
+- Catálogo público observado no navegador com ofertas reais e seleção automática de ofertas das lojas quando não há quedas históricas.
+- Nodemailer hospedado validou TLS/autenticação e aceitação da mensagem pelo Gmail. Proprietário confirmou recebimento do diagnóstico e recuperação, e abertura do formulário. O agente não alterou senha. Novo cadastro em segunda caixa e notificação gerada por meta real ainda não homologados ponta a ponta.
+- Não confundir testes de motor/banco com homologação completa da nova interface autenticada de filtros/favoritos.
+
+## Variáveis: somente nomes e destinos
+
+| Nomes | Destino |
+| --- | --- |
+| NEXT_PUBLIC_SUPABASE_URL | Vercel e GitHub Secrets |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | Vercel; chave pública protegida por RLS |
+| SUPABASE_SERVICE_ROLE_KEY | Vercel Secret e GitHub Actions Secret |
+| NEXT_PUBLIC_SITE_URL | Vercel e GitHub Variable |
+| CRON_SECRET | Vercel Secret; cópia dedicada em Vault baixou_collector_secret |
+| SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_FROM, SMTP_PASS | Vercel; campos correspondentes no Supabase Auth |
+| COLLECT_STORES, COLLECT_MAX_PRODUCTS | workflow Actions |
+| OFFER_TTL_MINUTES, NOTIFY_MAX_EMAILS | opcionais servidor/worker |
+| DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID | somente quando autorizado; atualmente ausentes |
+
+Não baixar Secrets para inspecionar. vercel env run não exporta esses valores. Diagnóstico SMTP hospedado tem HMAC e timestamp; check=smtp assina smtp:<true|false>:<timestamp>, com x-baixou-send-owner=yes para envio somente ao próprio remetente. Nunca publicar chave, link de recuperação ou destinatário nos logs.
+
+## Comandos
+
+~~~sh
+npm ci
+npm test
+npm run typecheck
+npm run build
+npm run dev
+npm run collect:check
+gh workflow run collect.yml --repo uPedroLima11/baixou
+gh run list --repo uPedroLima11/baixou --limit 5
+npx vercel project inspect baixou --non-interactive
+npx vercel deploy --prod --yes --scope upedrolima11s-projects
+npx supabase migration new nome_da_mudanca
+npx supabase db query --remote=slmhkfqqeyptngjubfhn --file tests/persistence-rls.sql --yes
+~~~
+
+Os comandos de desenvolvimento não são necessários ao funcionamento hospedado. Banco exige CLI autorizado; confirmar sempre o projeto dedicado.
+
+## Próximos passos
+
+1. Validar a nova interface autenticada de filtros, preservação de favoritos e retorno de uma oferta real em outra loja quando houver integração adicional.
+2. Homologar cadastro novo, cancelamento de notificações e disparo de alerta por condição real, respeitando opt-in e sem manipular preço para aparentar sucesso.
+3. Melhorar retries de e-mail com idempotência e distribuição justa entre usuários; observar duração, limites e capacidade do worker versus TTL.
+4. Expandir adaptadores com produtos reais nas fontes já investigadas. Só alterar status para operacional após teste hospedado.
+5. Manter commits, push e este documento atualizados. Nunca declarar integração ou entrega sem evidência.
