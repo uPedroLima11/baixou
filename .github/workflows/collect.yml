@@ -17,7 +17,7 @@ jobs:
       matrix:
         store: [kabum, waz, guerradigital, patoloco]
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 13
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -45,9 +45,10 @@ jobs:
       - name: Resolver links candidatos
         run: npm run discover
       - name: Confirmar preços e estoque nas lojas
-        # Uma nova tentativa para 5xx transitório do gateway Supabase (Cloudflare 522 em 45199413698 e na rodada de e17a6ff).
+        # Até duas novas tentativas (45 s e 90 s): episódios de 522 do gateway Supabase duraram >1 min em 23/11 (rodada 21:31 UTC).
+        # Antes: uma nova tentativa para 5xx transitório do gateway Supabase (Cloudflare 522 em 45199413698 e na rodada de e17a6ff).
         # Idempotente: lease por loja; falha persistente continua vermelha.
-        run: npm run collect || { echo "Nova tentativa em 30 s"; sleep 30; npm run collect; }
+        run: npm run collect || { echo "Nova tentativa em 45 s"; sleep 45; npm run collect; } || { echo "Última tentativa em 90 s"; sleep 90; npm run collect; }
       - name: Enviar alertas opt-in
         run: npm run notifications
 
@@ -69,7 +70,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Conectores (Mercado Livre lojas oficiais)
         # Mesma nova tentativa única da coleta para 5xx transitório do gateway Supabase (Cloudflare 522 em 45255... de 23/11).
-        run: npm run connectors || { echo "Nova tentativa em 30 s"; sleep 30; npm run connectors; }
+        run: npm run connectors || { echo "Nova tentativa em 45 s"; sleep 45; npm run connectors; } || { echo "Última tentativa em 90 s"; sleep 90; npm run connectors; }
 
   # Relatório único depois das quatro lojas (antes rodava 4x por execução). Uma nova tentativa cobre
   # erros transitórios do gateway Supabase (ex.: Cloudflare 522 observado em 45199413698); falha persistente fica vermelha.
