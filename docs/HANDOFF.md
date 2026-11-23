@@ -1,3 +1,45 @@
+# CHECKPOINT FINAL — Codex, 23/11/2026, 15h57 São Paulo
+
+## Entrega e publicação verificadas
+
+- Partiu do checkout limpo 5183ec7, preservando as cinco fontes, filtros, conta, favoritos, alertas e infraestrutura. Commits por etapa: a1fa7c9 (referência), 375e3cd (catálogo/menu), 4d776f7 (códigos divergentes), 9f990f2 (feedback do preço riscado), cd79143 (desempenho). Todos enviados a main. O commit documental deste checkpoint vem depois.
+- Produção para cd79143: READY, dpl_HErXePWTQSC51R7HKZCqeUK8eJZ3; domínio https://baixouofertas.vercel.app. CI 45243024830 verde. CI 45242462992 de 9f990f2 também verde. O conector Vercel não tem acesso ao workspace; inspeção foi feita pelo CLI já autenticado, sem mudar permissões/secrets.
+- 70 testes unitários, typecheck e build passaram. tests/market-reference.sql e tests/persistence-rls.sql passaram no projeto dedicado, com rollback. Ambas as migrations novas foram aplicadas e conferidas. Nada foi deletado de favoritos/alertas/histórico.
+- Navegador de produção: menu abre por clique; seleção RAM/DDR5 mostrou 29 resultados, checkbox DDR5 selecionado e contador Catálogo completo29. Escape fecha/retorna foco; ArrowDown abre/foca a primeira categoria. Temas claro e escuro conferidos com tela móvel390×844, contraste corrigido. Tentativa de viewport desktop pelo controle não foi aplicada pelo navegador (window.innerWidth permaneceu390); não declarar inspeção visual desktop1280. Implementação de hover/desktop está no código, mas falta essa inspeção visual específica.
+- Card e detalhe reais do Ryzen7800X3D mostraram R$1.679,99 e referência correta R$2.164,63 (mediana de duas outras lojas), cobertura parcial visível; preço riscado de R$4.235,28 não fica no destaque. Percentuais meramente anunciados passaram a selo textual. Abaixo das lojas comparadas NÃO significa menor de todo o mercado.
+
+## Fotografia real — 15:56:52 São Paulo
+
+| Fonte | Ativas no TTL |
+| --- | ---: |
+| KaBuM! | 358 |
+| WAZ | 162 |
+| Guerra Digital | 167 |
+| Patoloco | 249 |
+| Mercado Livre (parcial) | 432 |
+| Total | 1.368 |
+
+- API pública: quatro páginas, 2.877.599 bytes JSON não comprimidos; 638 anúncios com product_id, 603 modelos canônicos representados. Auditoria conservadora aceitou22 grupos entre vendedores independentes;3 grupos legados com divergências são excluídos do agrupamento/transferência pela regra, não contados como correspondência confiável. Não equivalem a validação manual individual de todo o catálogo.
+- 1 modelo com referência válida de pelo menos2 outros vendedores;1 anúncio abaixo da amostra comparada (7800X3D). Zero quedas históricas: ainda não há3 dias mínimos. Zero divergências de categoria versus classify() nessa fotografia. Não interpretar observação diária como histórico de35 dias já formado.
+- Banco às15:56:59 confirmou os mesmos1.368 ativos; disponíveis com TTL vencido0 nas quatro lojas diretas,1 no ML (ausência em vitrine não é esgotamento). Sete vínculos isolados continuavam sem product_id após a coleta hospedada;432 anúncios ML já receberam seller_key. Não presumir que esse cenário se mantém entre ciclos.
+
+## Operação e limitações reais
+
+- Coleta 45242650075 (9f990f2): collect×4, connectors e report verdes. Relay ainda in_progress no checkpoint, aguardando sua janela; não declarar execução inteira concluída antes de terminar.
+- Patoloco registrou6 erros de produto apesar do job verde: cinco HTTP302 e um Preço BRL inválido (logs do job conferidos pela API GitHub). Foram mantidos como falhas, sem inventar esgotamento/renovar TTL. Não seguir redirecionamento indiscriminado nem alterar preço para esconder falha. Demais fontes registraram0 falhas no lote consultado.
+- pg_net HTTP200 reais em18:15/18:30/18:45 UTC. Crons lote*/15 e recuperação2/17/32/47 continuam; antigos individuais inativos. Não alteramos frequência, volume, SMTP, Secrets ou plano.
+- Banco mediu~24,2MB e5.076 observações antes da última rodada. Não foi obtido consumo mensal real de Vercel Usage/Supabase Egress; não prometer folga sustentável. Payload~2,88MB e polling de1min justificam mover facetas/contagens/filtros ao servidor como próxima etapa de escala. Otimização de agrupamento já publicada reduziu846,55ms→2,42ms sobre1.305 ofertas reais, com os mesmos ids/ordem/preços.
+- Perfil/Notificações separados existem, RLS/favoritos/alerta absoluto verificados no banco. UI com sessão autenticada, cadastro novo, senha final e e-mail disparado por condição real continuam sem homologação completa nesta sessão. Não há credencial de teste; nenhum e-mail foi enviado nem SMTP reconfigurado.
+
+## Expansão gratuita
+
+- Pesquisa inclui APIs não oficiais e projetos comunitários, conforme nova orientação. Resultados e links primários em MAJOR_STORES.md; pedidos prontos em ACCESS_GUIDE.md. Pichau/Terabyte diretas e Amazon continuam não operacionais.
+- TelePromo usa GraphQL /api/pichau?query= (caminho já bloqueado pelo robots); o scraper Terabyte antigo repete HTML bloqueado; AmzPy usa impersonação/proxies; parser Pangolin só interpreta HTML local. Nenhum foi executado como contorno.
+- Candidata concreta: Falcon Data Hub. Endpoint público de lojas HTTP200, nove redes incluindo Pichau/Terabyte. Free8/h sem cartão, mas FAQ indica coleta diária e política exige autorização escrita para redistribuir em massa. Faltam autorização de publicação/origem e teste com preço, vendedor, estoque e pagamento recentes. Não criar conta nem publicar seus dados por suposição; pedido preparado, não enviado.
+- Amazon Creators API continua dependendo de elegibilidade da conta; nenhuma alternativa comunitária permitida e operacional foi comprovada nesta etapa. Não depender de aprovação incerta para continuar as melhorias independentes.
+
+---
+
 # CHECKPOINT — desempenho de agrupamento (Codex, 23/11/2026)
 
 - Catálogo cresceu para ~1.300 anúncios. A validação no navegador revelou pausas na interação. Benchmark local de 1.305 ofertas reais: agrupamento anterior 846,55 ms; indexado 2,42 ms, com a mesma lista/ordem de ids e mesmos menores preços. Cada filtro/modo fazia sua própria varredura quadrática; agora o índice limita candidatos e sameProduct continua validando todos os critérios. Não altera correspondências nem critérios.

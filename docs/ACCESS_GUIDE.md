@@ -94,9 +94,17 @@ Guarde as respostas: elas são a autorização documentada que o projeto exige.
 
 ## 5. Amazon e Magalu — em espera, sem insistir
 
-- **Amazon:** o único caminho legítimo é a Creators API, que exige conta de Associados aceita e 10 vendas qualificadas nos últimos 30 dias. Páginas são proibidas aos robôs pelos termos. Retomar quando houver vendas por links de Associados.
+- **Amazon:** o caminho oficial verificado é a Creators API, que exige conta de Associados aceita e 10 vendas qualificadas nos últimos 30 dias. Páginas são proibidas aos robôs pelos termos. Retomar quando houver vendas por links de Associados.
 - **Magalu:** a Open API é só para sellers, e o programa Influenciador Magalu oferece links, não catálogo. A rota Awin cita depósito, o que viola a regra de custo zero: **não seguir**. O site bloqueia o robô (403 até no robots.txt). Sem alternativa gratuita verificada.
 
 ## O que já está pronto no código
 
 `lib/connectors/` define o contrato de conector independente e as regras de publicação para marketplaces: preço, moeda, disponibilidade, vendedor, reputação mínima, condição nova e URL do domínio da loja. Os conectores ficam desativados até existirem credenciais e uma consulta real aprovada.
+
+## Alternativa terceira: Falcon Data Hub (ainda não autorizada para publicação)
+
+[Contato do fornecedor](https://datahub.falcon-server.com.br/contato). A documentação anuncia plano gratuito sem cartão, mas a política requer autorização escrita para redistribuir dados em massa. Não criar conta nem depender do serviço antes de resolver isso.
+
+Mensagem pronta, não enviada:
+
+> Olá! Somos o Baixou! (https://baixouofertas.vercel.app), catálogo gratuito de ofertas de tecnologia. Encontramos a API de preços com Pichau/Terabyte. Antes de considerar uma integração, vocês autorizam por escrito exibir preços e comparações em nosso catálogo público no plano gratuito, sem depósito, assinatura, cartão ou cobrança excedente? Precisamos também confirmar a autorização das fontes originais, a cota disponível para preços, horário da última observação, vendedor, MPN/GTIN, condição nova, estoque e base Pix/à vista. A coleta é diária ou há confirmação recente por anúncio? Sem esses dados não podemos anunciar estoque atual nem promoção comprovada. Obrigado!

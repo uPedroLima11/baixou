@@ -16,7 +16,8 @@ while(page!==null){
 }
 const now=Date.now(),live=[...offers.values()].filter(o=>o.available&&Date.parse(o.expires_at)>now);
 const groups=new Map<string,Offer[]>();for(const o of live){if(o.product_id){const rows=groups.get(o.product_id)??[];rows.push(o);groups.set(o.product_id,rows);}}
-const cross=[...groups.values()].filter(g=>new Set(g.map(o=>o.store)).size>1);
+const vendor=(o:Offer)=>o.store!=='mercadolivre'?o.store:o.seller==='KaBuM! (loja oficial no Mercado Livre)'?'kabum':o.seller==='Pichau (loja oficial no Mercado Livre)'?'pichau':o.seller_key??null;
+const cross=[...groups.values()].filter(g=>new Set(g.map(vendor).filter(Boolean)).size>1);
 const conflicts=cross.filter(g=>g.some((o,i)=>g.slice(i+1).some(a=>!sameProduct(o,a))));
 const exact=cross.filter(g=>!conflicts.includes(g));
 const references=live.filter(o=>o.market_stores!>=2&&marketStatus(o)!=='none');

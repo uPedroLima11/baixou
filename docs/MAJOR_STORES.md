@@ -1,3 +1,20 @@
+# Alternativas comunitárias — avaliação concreta (Codex, 23/11/2026)
+
+Pesquisa adicional autorizada: API não oficial e código aberto são elegíveis quando gratuitos e permitidos. Repositório público não concede licença sobre dados da loja. Nenhuma nova tentativa aos produtos bloqueados, nenhum código de terceiros executado.
+
+| Candidata | Caminho verificado | Decisão nesta etapa |
+| --- | --- | --- |
+| [TelePromo/Pichau.py](https://github.com/Sergio-Daniel-Pires/TelePromo/blob/14c29898bc2e415a6d03c45f65f5f3bc1b37d461/project/bots/Pichau.py) | Código MIT, última atualização do repo em 2024. Usa GraphQL em /api/pichau?query=, com campos Pix/estoque. | Caminho /api/ e queries já recusados pelo robots documentado em COLLECTOR_RESEARCH.md. Não consultar como alternativa ao 403. Pode ser útil com autorização explícita da Pichau. |
+| [webscraper-terabyteshop](https://github.com/fernandosutter/webscraper-terabyteshop/blob/master/Web%20Scraping%20Terabyte%20Shop.py) | requests + BeautifulSoup na categoria pública, exporta título/preço a CSV. Último push 2018; sem licença declarada. | Repete a mesma página já bloqueada; não traz feed ou canal independente. Não resolve acesso nem comprova disponibilidade. |
+| [fastAPI-zero](https://github.com/eusouanderson/fastAPI-zero) | Agregador com httpx, sitemap, JSON-LD e HTML. | API é a interface do próprio scraper; não demonstra feed autorizado independente. Não muda o acesso à origem. |
+| [AmzPy](https://github.com/theonlyanil/amzpy) | MIT; descreve impersonação de navegador, retentativas após detecção e proxies. | Descartado para esta tarefa por depender de mecanismos de contorno e do HTML sujeito às restrições Amazon. |
+| [Pangolin parser](https://github.com/Pangolin-spg/amazon-scraper-api) | Código aberto interpreta HTML local já obtido; serviço hospedado separado. | Parser não fornece aquisição permitida dos dados. Cota hospedada não comprova licença de redistribuição nem resolve políticas da origem. Não integrado. |
+| [Falcon Data Hub](https://datahub.falcon-server.com.br/) | Candidata de API terceirizada com Pichau/Terabyte, documentação pública, Free 8 requisições/h (+até 2 bônus), sem cartão. A FAQ descreve coleta diária. | Não descartada por ser terceira: examinada documentação, custo e termos. A [política de uso](https://datahub.falcon-server.com.br/uso-aceitavel) exige autorização escrita para redistribuição em massa/base concorrente; [termos](https://datahub.falcon-server.com.br/termos) também remetem às licenças originais. Precisa confirmação de republicação e dados frescos de vendedor/estoque/pagamento antes de servir ao Baixou!. |
+
+[Docs Falcon](https://datahub.falcon-server.com.br/docs): produtos por EAN, busca e histórico exigem chave; apenas /public/v1/stores é documentado como público. Teste único do endpoint público /public/v1/stores: HTTP200, 2.326 bytes, nove redes incluindo Pichau e Terabyte. Confirma metadados de lojas, não preços/estoque. Nenhum cadastro/chave obtido. Não há comprovação de preço/estoque atual suficiente para nosso TTL/alertas. A autorização de republicação é um bloqueio concreto, não uma preferência por API oficial. Pedido adicional em ACCESS_GUIDE.md.
+
+---
+
 # Atualização Codex — 23/11/2026
 
 Reconsulta das fontes oficiais, sem repetir 403 de produtos nem fazer cadastros:
@@ -79,7 +96,7 @@ Não prosseguir com Awin: depósito viola custo zero. Só retomar com alternativ
 
 ### 6. Amazon — só após vendas qualificadas
 
-Associados: https://associados.amazon.com.br. A Creators API exige conta aceita e 10 vendas qualificadas nos últimos 30 dias, com cota proporcional ao desempenho. Até lá não há caminho legítimo; HTML é proibido pelas Condições de Uso.
+Associados: https://associados.amazon.com.br. A Creators API exige conta aceita e 10 vendas qualificadas nos últimos 30 dias, com cota proporcional ao desempenho. Não foi verificada outra alternativa compatível nesta pesquisa; HTML permanece sujeito às restrições das Condições de Uso.
 
 ## Ordem recomendada
 
