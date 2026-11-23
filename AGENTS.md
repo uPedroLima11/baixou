@@ -111,3 +111,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - SMTP existe só na Vercel (valores sensitive, não baixáveis). Prévia do modelo: workflow manual email-preview.yml, envia só ao remetente com [TESTE]. Não usar para usuários.
 - Templates Auth: `npx supabase config push --remote=slmhkfqqeyptngjubfhn` só depois de conferir que o diff contém apenas template.* (CLI 3.x não reseta propriedades não declaradas). Avisos de segurança não declarados de propósito.
 - `historical_max` (≥5 amostras/≥3 dias) limita o desconto anunciado. Preço "de" acima do maior preço observado não é praticado; nunca usar como evidência.
+
+## Fila, iByte e feeds (Claude Code, 23/11/2026 noite)
+
+- Fila: `due_rechecks()` prioriza acompanhados (alerta/favorito com e-mail ligado) > disponíveis pelo vencimento > demais. Pacing = intervalo mínimo de 1,5 s entre requisições à mesma loja (não somar pausa fixa). Teto 200 detalhes/loja/rodada dentro do prazo de 330 s. `queue_health()` mede devidas, vencidas e atraso por loja. Não aumentar frequência sem medir.
+- Erro de infraestrutura (522/HTML do gateway, rede até o Supabase, PostgREST) NUNCA aplica backoff de loja nem marca `blocked`; só erro real da loja. Coleta e conector ML têm 3 tentativas (45 s, 90 s).
+- iByte operacional (VTEX): só HTML/JSON-LD (robots bloqueia /api/*); vendedor `ibyte` + Pix do DOM igual ao schema; "De" igual ao total parcelado é preço de cartão; mpn/gtin do schema são internos. Fica fora do lote Vercel.
+- Feeds Terabyte/Pichau (padrão Google Merchant) prontos e `implemented=false`. Ativar só com URL autorizada gravada pelo proprietário (`gh secret set`), teste hospedado e conferência amostral contra a página da loja. Preço de feed não entra na referência Pix sem base confirmada.
+- Identidade: código no fim do título após " - ", vírgula, parênteses ou antes de sufixo "Cor/Voltagem" do ML; nunca tokens do meio do título.

@@ -1,3 +1,33 @@
+# CHECKPOINT — fila KaBuM, iByte, identidade e feeds (Claude Code, 23/11/2026, ~22h50 UTC)
+
+## Fila de rechecagem — resolvida e validada em rodadas reais
+
+- Linha de base 20:58 UTC: KaBuM com 48 disponíveis vencidas, atraso médio 15,3 min / máx. 22,9; 3,57 s por produto (pausa fixa de 1,5 s + ~2 s de rede/banco em série).
+- a9307b6 — `due_rechecks()` (migration 20261123210000): prioridade 0 = anúncios acompanhados (alerta de produto/anúncio, alerta de categoria com preço máximo ≥ preço atual/1,2, favorito) de usuários com e-mail ligado; 1 = disponíveis pelo vencimento mais próximo; 2 = demais. Índice em offers(url). Pacing por intervalo: ≥1,5 s entre INÍCIOS de requisição à mesma loja (mesma taxa máxima), trabalho de banco dentro do intervalo; leituras/gravações independentes em paralelo. Faixa de descoberta de 10% preservada; TTL e regras de verificação inalterados.
+- Medido: KaBuM 90 itens em 141 s (antes 284 s); Guerra 1,7 s/item (antes 3,2). Teto por rodada 90 → 150 → 200 (a91941f, d3c15a8): 190 itens em 309 s, dentro do prazo existente de 330 s. Demanda estável KaBuM ≈ 10 rechecagens/min (~400–470 ofertas a cada 40 min); capacidade agora ≈ 15/min.
+- **Bug grave corrigido (fe60cc4):** 522 do gateway Supabase caía no catch geral do coletor, que aplicava backoff de LOJA (60 min) e marcava KaBuM `blocked` com o HTML do Cloudflare. Efeito real: nenhuma coleta KaBuM 21:32–22:15 UTC e 252 ofertas vencidas. Agora erro de infraestrutura (5xx/HTML do gateway, rede até o banco, erro PostgREST) deixa a loja elegível na rodada seguinte e marca `degraded`; erro real da loja (HTTP 403) mantém backoff. O backoff indevido foi removido manualmente (apenas next_allowed_at; nenhum dado de oferta alterado). Workflow: 3 tentativas (45 s, 90 s) na coleta e no conector ML (ae8a31f, c9c33b8); timeouts 13/12 min.
+- Recuperação: 22:21 KaBuM 261 devidas/188 vencidas → 22:34 81/81 → 22:44 0/0 → 22:47 0/0 com 465 ativas. **Fotografia 22:45 UTC: todas as lojas com 0 devidas, 0 vencidas, atraso 0.** 3 h de collection_runs: 99 execuções, 0 sobrepostas por loja (lease), 0 travadas. Nenhum 522 ocorreu depois do deploy da correção: o caminho de infraestrutura está coberto por teste unitário, ainda não observado ao vivo.
+- Itens com alerta/favorito não dependem só do Actions: o lote Vercel (2 por loja a cada 15 min) usa a mesma fila priorizada.
+- Patoloco: falhas restantes são produtos removidos (redirect para /pagina-nao-encontrada → espera de 24 h), não rede.
+
+## Novas fontes
+
+- **iByte operacional** (cf29092, 6648534, 8cfd66e): VTEX; robots permite páginas e bloqueia /api/*. Descoberta pelo `linkText` do estado renderizado no servidor; produto exige vendedor `ibyte` no JSON-LD e "Por: R$ X no PIX" do DOM igual ao schema. mpn/gtin do schema são códigos internos → código do fabricante só do último termo do título quando é part number forte. Bug da 1ª coleta corrigido: "De" igual ao total parcelado é preço de cartão, não preço antigo (27 registros limpos removendo só a alegação). Entidades HTML no nome decodificadas como texto. Roda só no Actions (lista fixa no lote Vercel). Coletas 325 e 327: 84 ativos, 37 com identidade; 1ª correspondência entre lojas: Kingston A400 240GB SA400S37/240G (iByte R$ 617,40 × WAZ R$ 429,99).
+- Terabyte/Pichau: Lomadee **não documenta** API de produtos (só MCP de marcas/comissões; páginas oficiais conferidas). Leitor de feed padrão Google Merchant pronto e desligado (`terabyte-feed`, `pichau-feed`, d31f91e); preço de feed nunca é presumido Pix. Procedimento exato em ACCESS_GUIDE.md. Depende do proprietário.
+
+## Identidade entre lojas
+
+- 900eae1: código após vírgula ("…, T-TGF200-R", "…, BX8071514700F") e antes de sufixo de variante do ML ("Cp-9020279-br Cor Preto"). Sem separador exige prefixo de 2-4 letras + ≥5 dígitos; especificações (16000DPI, LGA1700) nunca viram código. `scripts/identity-coverage.ts` audita pela API pública.
+- Vitrines do ML não trazem GTIN/part number/modelo (HTML real conferido) → ML segue com ~12 identificados de 433. EAN aparece em 4 fichas KaBuM e em nenhuma outra loja: não usado (zero ganho, risco de mudar product_id). Precedência MPN-modelo da KaBuM mantida para não alterar product_id de favoritos/alertas.
+- Fotografia 22:45 UTC: 1.539 ativos (KaBuM 427, ML 433, Patoloco 248, Guerra 182, WAZ 165, iByte 84); 792 com identidade, 747 modelos; **28 modelos idênticos entre lojas** pela auditoria estrita (eram 21 às 20:59) e 31 pela contagem por vendedor independente; 1 modelo com referência válida de ≥2 outros vendedores; **1 anúncio abaixo das lojas comparadas** (7800X3D KaBuM). Critérios não reduzidos.
+
+## Histórico e custos
+
+- price_history: 8.072 observações de 1.432 anúncios, todas em 23/11 UTC. Regras de queda exigem 3 dias distintos e 5 amostras → primeiros casos possíveis a partir de **25/11 (UTC)**. Queda absoluta/percentual e queda de favoritos ainda não homologadas com dados reais.
+- Banco 25 MB (de 500 MB). RPC da fila 22 ms; banco com 1 conexão ativa; os 522 vêm do gateway, não de carga. GitHub Actions: repositório público (gratuito). Vercel Hobby: `vercel billing usage` não expõe dados; conferir no painel. Payload do catálogo 3,29 MB JSON (~0,5 MB com brotli/CDN).
+
+---
+
 # CHECKPOINT — Claude Code retoma após Codex, 23/11/2026 (~19h45 UTC)
 
 ## Trabalho interrompido do Codex (recuperado, nada descartado)
