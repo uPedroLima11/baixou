@@ -1,12 +1,23 @@
-# Expansão em validação — 23/11/2026
+# Etapa atual: expansão do motor — 23/11/2026
 
-Adaptadores candidatos WAZ, Oficina dos Bits, Guerra Digital e Patoloco implementados, com HTML atual HTTP200 e35testes aprovados. A migration20261123130748_progressive_collection_queue já foi aplicada, com RLS privada e status das novas lojas PARCIAL. Ainda não promover operacional sem execução hospedada e confirmação de offers reais.
+Leia docs/EXPANSION_REPORT.md para medições e evidências desta etapa. O domínio continua https://baixouofertas.vercel.app e a interface foi preservada.
 
-Fila persistente separa páginas/candidatos; descoberta diversa e revalidação têm faixas alternadas; lease por loja permite paralelismo. Páginas navegam por links públicos observados e paginação permitida pelo robots, sem APIs internas. Falhas têm backoff. TTL padrão60min; queda histórica>=20% usa15min; estoque confirmado continua obrigatório. Não estender checked_at em falhas. Agendamentos por loja ainda precisam ser ativados após deploy. Actions agora tem matrix por loja a cada30min; Supabase manterá verificações curtas por fonte a cada5min.
+## Estado atual que prevalece sobre o checkpoint-base
 
-Classificação corrigida: kit RAM e módulo de notebook são RAM; GDDR5 de placa de vídeo não é RAM. Testes validam alerta de categoria para Kingston/Corsair/XPG/Husky e modelos/lojas diferentes usando mediana própria, sem marca obrigatória. Produto exato continua identidade canônica separada.
+- Fontes operacionais com produtos reais persistidos pelo runner: KaBuM!, WAZ, Guerra Digital e Patoloco. Cadastro atualizado somente após conferir estoque/preço/imagem e offers no Supabase.
+- Oficina dos Bits: parser e fixtures de HTML atual HTTP200 implementados; duas categorias retornaram403 no GitHub runner, incluindo o caminho conhecido de memória. Status blocked e removida da rotina. Não contornar; requer acesso/feed autorizado. Terabyte/Pichau continuam bloqueados.
+- Filas privadas novas: collection_state, collection_pages, product_candidates, collection_runs. Migration20261123130748_progressive_collection_queue aplicada. RLS e privilégios negam leitura para anon/authenticated; service_role tem acesso, conferido em SQL.
+- Migration20261123131654_per_store_collection_schedule aplicada: substitui o cron global por quatro jobs, um por loja, com offsets de minuto0/1/2/3 e intervalo5min. Confirmar net._http_response e collection_runs; sucesso do SQLcron sozinho não comprova HTTP/coleta.
+- Actions usa matrix das quatro fontes a cada30min, max50detalhes/fonte, deadline interno4min. WorkersVercel por fonte têm35s e até10detalhes/ciclo. Lease é por loja, evitando bloquear outras fontes e evitando duplicar execução da mesma fonte.
+- Uma página por ciclo, cursores persistentes e alternância entre categorias conhecidas e links/paginação públicos observados. JSON-LD ItemList também descobre produtos: fixtureWAZ contém12sem precisar deâncoras. Sem chamar APIs internas como contorno.
+- Novos candidatos e verificações vencidas têm faixas alternadas; categorias são intercaladas. Falhas recebem backoff15minaté6h. Produtos explicitamente indisponíveis sem preço naPatoloco são reagendados180min; só atualizar estoque de registro já existente, nunca criar preçoR$0.
+- Limites gratuitos:2000candidatosporloja, até150novoslinks/página,8MB/resposta, timeout8s e pausa1,5s. TTLregular60min; queda histórica>=20%TTL15min. Nunca estenderTTLsemconsulta. Alertas continuam exigindo verificação recente5min. Monitorar capacidade/idade; não prometer toda promoção de minutos.
+- RAM inclui kit de memória e módulo de notebook; notebookRTX não éGPU. Alertas de categoria semmarca/modelo aceitamqualquerprodutocompatível usando mediana própria. Produto exato continua identidadecanônica separada.
+- 37testes de motor/parsers passaram; tipos/build e CI passaram. Fixtures são reduções de páginas reais, não produtos de produção. RLS privada confirmada. scripts/collection-report.ts gera relatório reproduzível, inclusive resumo noActions: npm run collect:report.
+- A coleta teve falhas reais durante homologação: Bits403; um ciclo ocioso era tratado comoerroCLI e foi corrigido; falhasKaBuM antigas registraram apenasFalha, semcausahistóricarecuperável. Agora preservamos mensagens seguras de erroPostgREST. RevalidaçãoVercel posterior daKaBuM respondeu200,total2,discovered24,failures0. Não atribuir a403ouesgotamento semevidência.
+- Links externos/afiliados resolvidos passam pelos hosts dosnovosadaptadores; origem/compras continuam na loja. Nenhuma chave de afiliado ou credencial nova adicionada.
 
-Próximo passo obrigatório desta etapa: publicar/testar host, consultar banco e atualizar este bloco com os resultados reais. O checkpoint-base abaixo descreve o estado anterior.
+O checkpoint-base abaixo preserva arquitetura e decisões anteriores; substitua referências antigas de KaBuM única, TTL30 ou cron global pelas informações acima.
 
 ---
 

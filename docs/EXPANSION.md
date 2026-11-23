@@ -1,3 +1,11 @@
+# Implementação atual — 23/11/2026
+
+WAZ, Guerra Digital e Patoloco tiveram coleta real executada no GitHub Actions e produtos gravados no Supabase; agora são operacionais junto da KaBuM. Oficina dos Bits tem adaptador testado no HTML público, mas o runner recebeu403 em duas categorias e permanece bloqueada. Ver docs/EXPANSION_REPORT.md para contagens e limitações atuais.
+
+O restante deste documento é a pesquisa inicial, anterior à implementação; as frases “sem adaptador” descrevem aquela fase.
+
+---
+
 # Expansão de lojas — pesquisa e prioridades
 
 23/11/2026. Escopo desta rodada: Gigantec, WAZ, Oficina dos Bits, Guerra Digital e Patoloco. Foram consultados os domínios oficiais, robots e um catálogo por loja; nas quatro lojas com catálogo real acessível, também um detalhe. HTTP 200 com challenge não conta como integração funcional. Nenhum adaptador foi adicionado nesta pesquisa.

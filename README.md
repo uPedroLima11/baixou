@@ -20,6 +20,7 @@ Copie apenas os nomes de .env.example para um arquivo ignorado se precisar testa
 ## Operação
 ~~~sh
 npm run collect:check
+npm run collect:report
 npm run discover:social
 npm run discover
 npm run collect
@@ -37,6 +38,9 @@ npx supabase config diff --remote=slmhkfqqeyptngjubfhn
 npx supabase config push --remote=slmhkfqqeyptngjubfhn --yes
 ~~~
 Usar CLI oficial autenticado; Claude pode precisar que o usuário reautorize. Nunca colocar tokens em argumentos, Git ou documentação.
+## Cobertura
+Quatro fontes com coleta hospedada comprovada: KaBuM!, WAZ, Guerra Digital e Patoloco. Oficina dos Bits está bloqueada no runner. Descoberta progressiva e revalidação por loja; contagens e testes em docs/EXPANSION_REPORT.md.
+
 ## Documentação
 - docs/HANDOFF.md: estado real, acessos, testes e continuidade.
 - docs/ARCHITECTURE.md: pipeline, evidência, segurança e expansão.
