@@ -1,5 +1,5 @@
 import {ExcludedProduct} from '../lib/product-policy';
-import * as cheerio from 'cheerio';import type {Offer} from '../lib/types';import {classify} from '../lib/types';
+import * as cheerio from 'cheerio/slim';import type {Offer} from '../lib/types';import {classify} from '../lib/types';
 export function kabumDiscovery(html:string){const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');const raw=next.props?.pageProps?.data;const data=typeof raw==='string'?JSON.parse(raw):raw;return (data?.catalogServer?.data??[]).filter((p:any)=>p.code&&p.friendlyName).map((p:any)=>'https://www.kabum.com.br/produto/'+p.code+'/'+p.friendlyName);}
 export function kabumProduct(html:string,url:string):Omit<Offer,'historical_median'|'historical_samples'|'historical_days'|'discount'|'evidence'>{
  const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');const p=next.props?.pageProps?.product;
