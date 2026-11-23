@@ -25,7 +25,10 @@ export function chipartProduct(html:string,url:string):Omit<Offer,'historical_me
  const $=cheerio.load(html),next=JSON.parse($('#__NEXT_DATA__').text()||'{}'),data=next.props?.pageProps?.data?.product,p=data?.produto,store=next.props?.store;
  if(!p?.nome_produto)throw new Error('Produto não encontrado no HTML');
  if($('meta[property="og:site_name"]').attr('content')!=='CHIPART LTDA'||store?.b2c!==true)throw new ExcludedProduct('seller_untrusted');
- const path=new URL(url).pathname,id=path.match(/\/(\d+)$/)?.[1];if(!id||String(p.codigo_sku)!==id||'/produto'+String(p.link??'').replace(/\/$/,'')!==path)throw new Error('Produto da página diverge da URL');
+ // A categoria pode linkar o produto por outro caminho; vale o mesmo ID, e a URL gravada é a do próprio produto.
+ const path=new URL(url).pathname,id=path.match(/\/(\d+)$/)?.[1],own='/produto'+String(p.link??'').trim().replace(/\/$/,'');
+ if(!id||String(p.codigo_sku)!==id||!/^\/produto\/[^?#\s]+\/\d+$/.test(own)||own.match(/\/(\d+)$/)?.[1]!==id||/\/\.{1,2}(\/|$)/.test(own))throw new Error('Produto da página diverge da URL');
+ url='https://www.chipart.com.br'+own;
  const price=Number(p.preco_pix);if(!Number.isFinite(price)||price<=0)throw new Error('Preço inválido');
  const pixLabel=$('span').filter((_,e)=>/^à vista no PIX$/i.test($(e).text().trim())).first(),shown=Number((pixLabel.prev('strong').text().match(/R\$\s*([\d.]+,\d{2})/)?.[1]??'').replace(/\./g,'').replace(',','.'));
  if(!shown||Math.abs(shown-price)>.02)throw new Error('Preço Pix diverge do produto');

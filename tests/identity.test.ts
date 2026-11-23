@@ -41,3 +41,14 @@ test('trailing part numbers after a comma or a Mercado Livre variant suffix are 
  // Sem código no fim, nada é inferido do meio do título.
  assert.equal(manufacturerCode(null,'interno Adata Ultimate SU650 ASU650SS-480GT-R 480GB preto'),null);
 });
+test('Mercado Livre title token becomes MPN only when it exactly equals a known code of the same brand',async()=>{
+ const {knownCodeInTitle,manufacturerCode}=await import('../lib/identity');
+ const known=new Map([['adata',new Set(['ASU650SS480GTR','ASU650SS240GTR'])],['sandisk',new Set(['SDSQUNR256GGN6TA'])]]);
+ // Títulos reais de vitrines oficiais (23/11/2026).
+ assert.equal(knownCodeInTitle('interno Adata Ultimate SU650 ASU650SS-480GT-R 480GB preto','ADATA',known),'ASU650SS-480GT-R');
+ assert.equal(manufacturerCode('ASU650SS-480GT-R','x'),'ASU650SS480GTR');
+ assert.equal(knownCodeInTitle('Cartão De Memória MicroSD 256Gb Sandisk Ultra SDSQUNR-256G-GN6TA','SanDisk',known),'SDSQUNR-256G-GN6TA');
+ assert.equal(knownCodeInTitle('interno Adata Ultimate SU650 ASU650SS-480GT-R 480GB preto','Kingston',known),null,'other brand');
+ assert.equal(knownCodeInTitle('Kit Adata ASU650SS-480GT-R + ASU650SS-240GT-R','ADATA',known),null,'two known codes = ambiguous');
+ assert.equal(knownCodeInTitle('SSD Adata SU650 480GB','ADATA',known),null,'no exact code');
+});

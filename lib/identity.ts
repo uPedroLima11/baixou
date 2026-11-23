@@ -41,3 +41,12 @@ return mpn||gtin?{brand,mpn,gtin,variant:variantForOffer(o)}:null;}
 export function matchesProductAlert(a:Alert,o:Offer){if(manufacturerConflict(o.mpn,o.title))return !!a.offer_id&&a.offer_id===o.id;if(a.product_id)return !!o.product_id&&a.product_id===o.product_id&&variantsCompatible(a.product_variant??{},o.variant??{});return !!a.offer_id&&a.offer_id===o.id;}
 export function notificationKey(o:Offer){return o.product_id&&!manufacturerConflict(o.mpn,o.title)?'product:'+o.product_id:'offer:'+o.id;}
 export function cheapestPerProduct(offers:Offer[]){const map=new Map<string,Offer>();for(const o of offers){const key=notificationKey(o),prior=map.get(key);if(!prior||Number(o.price)<Number(prior.price))map.set(key,o);}return [...map.values()];}
+// Mercado Livre: vitrines não informam MPN/GTIN. Um termo do título só vira código do fabricante quando é IDÊNTICO
+// a um código já registrado para a MESMA marca a partir de dados estruturados de outra loja (catalog_products).
+// Nada de semelhança: dois códigos conhecidos diferentes no mesmo título = ambíguo, nenhum é usado.
+export function knownCodeInTitle(title:string,brand:string|null|undefined,known:Map<string,Set<string>>){
+ const codes=known.get(canonicalBrand(brand??''));if(!codes?.size)return null;
+ const found=new Map<string,string>();
+ for(const m of title.matchAll(/[A-Za-z0-9][A-Za-z0-9./-]{4,38}[A-Za-z0-9]/g)){const raw=m[0],code=compactCode(raw);if(code&&code.length>=6&&(code.match(/\d/g)?.length??0)>=3&&codes.has(code))found.set(code,raw);}
+ return found.size===1?[...found.values()][0]:null;
+}

@@ -84,3 +84,8 @@ test('Shopinfo (Shopify): Pix from the price block, schema card price never beco
  assert.throws(()=>parseStoreProduct('shopinfo',html.replace(/"price":"66\.56"/,'"price":"50.00"'),url),/Pix não confirmado/);
  assert.throws(()=>parseStoreProduct('shopinfo',html.replace(/"offers":\{/,'"offers":[{"@type":"Offer","price":"70.00","priceCurrency":"BRL","availability":"http://schema.org/InStock"},{').replace(/("url":"[^"]+variant=\d+"\})/,'$1]'),url),/variantes|ambíguo|Preço/);
 });
+test('ChipArt: same product ID under another category path is accepted and stored with its own canonical URL',async()=>{
+ const {chipartProduct}=await import('../scripts/parser');const html=readFileSync(new URL('./fixtures/expansion/chipart.html',import.meta.url),'utf8');
+ const p=chipartProduct(html,'https://www.chipart.com.br/produto/hardware/memorias/outro-caminho/11101');
+ assert.equal(p.url,'https://www.chipart.com.br/produto/hardware/placamae/para-processadores-amd/b550/placamae-asus-tuf-gaming-b550mplus-chipset-b550-amd-am4-matx-ddr4/11101');assert.equal(p.id,'chipart-11101');
+});
