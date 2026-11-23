@@ -1,10 +1,25 @@
 import {normalize,type Offer,type Alert} from './types';
 export type Variant=Record<string,string|number>;
 export function validGTIN(value:string){if(!/^(?:\d{8}|\d{12,14})$/.test(value)||/^(\d)\1+$/.test(value))return false;let sum=0;const digits=value.split('').map(Number);for(let i=digits.length-2,weight=3;i>=0;i--,weight=weight===3?1:3)sum+=digits[i]*weight;return (10-sum%10)%10===digits.at(-1);}
-export function canonicalBrand(value:string){const b=normalize(value).replace(/\s+/g,'');return ({kingstontechnology:'kingston',advancedmicrodevices:'amd',hewlettpackard:'hp'} as Record<string,string>)[b]??b;}
+// Submarcas e grafias de loja para o fabricante (marca da placa, não do chip gráfico).
+const BRAND_ALIASES:Record<string,string>={kingstontechnology:'kingston',kingstonfury:'kingston',fury:'kingston',advancedmicrodevices:'amd',ryzen:'amd',hewlettpackard:'hp',palitmicrosystem:'palit',palitmicrosystems:'palit',xpg:'adata',adataxpg:'adata',aorus:'gigabyte',gigabytetechnology:'gigabyte',rog:'asus',tuf:'asus',asustek:'asus',asusrog:'asus',westerndigital:'wd',logitechg:'logitech',tforce:'teamgroup',teamgroupinc:'teamgroup'};
+export function canonicalBrand(value:string){const b=normalize(value).replace(/\s+/g,'');return BRAND_ALIASES[b]??b;}
+// Código do fabricante a partir de dados da própria loja, sem inferência por semelhança:
+// 1) código entre parênteses no campo MPN; 2) MPN de um só termo; 3) código de peça impresso no fim do título
+// ("… - 90MB1HD0-M0EAY0" ou "(911-7E27-006)"), preferido a um nome de modelo; 4) modelo com espaços ("B550M-A PRO").
+const NOT_CODE=/^(?:\d+(?:GB|TB|MHZ|MTS|HZ|W|MM|MS)|DDR\d|GDDR\d\w*|PCIE\d*|USB\d*|RGB|ARGB|WIFI\d*|HDMI|BOX)$/;
+function compactCode(raw:string){const code=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');return code.length>=4&&code.length<=40&&/[A-Z]/.test(code)&&/\d/.test(code)&&!NOT_CODE.test(code)?code:null;}
+export function manufacturerCode(mpn:string|null|undefined,title=''){
+ const raw=(mpn??'').trim();
+ const inner=raw.match(/\(([^()]{4,40})\)/)?.[1];if(inner&&compactCode(inner))return compactCode(inner);
+ if(raw&&!/\s/.test(raw)&&compactCode(raw))return compactCode(raw);
+ const tail=title.match(/\(([A-Za-z0-9][A-Za-z0-9./-]{4,38})\)\s*$/)?.[1]??title.match(/\s[-–]\s([A-Za-z0-9][A-Za-z0-9./-]{4,38})\s*$/)?.[1];
+ if(tail&&/[-./]/.test(tail)&&compactCode(tail))return compactCode(tail);
+ return raw&&raw.split(/\s+/).length<=5?compactCode(raw):null;
+}
 export function variantsCompatible(a:Variant={},b:Variant={}){for(const key of Object.keys(a)){if(b[key]!==undefined&&String(a[key])!==String(b[key]))return false;}return true;}
 export function variantForOffer(o:Pick<Offer,'title'|'category'|'specs'>):Variant{const text=normalize(o.title+' '+Object.values(o.specs??{}).join(' '));const v:Variant={};if(o.category==='ram'||/kit.*memoria/.test(text)){const pack=text.match(/\b(\d{1,2})\s*x\s*(\d{1,3})\s*gb\b/);if(pack){v.modules=Number(pack[1]);v.per_module_gb=Number(pack[2]);v.total_gb=Number(pack[1])*Number(pack[2]);}else{const cap=text.match(/\b(\d{1,3})\s*gb\b/);if(cap)v.total_gb=Number(cap[1]);}const ddr=text.match(/\bddr\s*([345])\b/);if(ddr)v.ddr=ddr[1];const speed=text.match(/\b(\d{3,5})\s*(?:mhz|mts)\b/);if(speed)v.frequency=Number(speed[1]);if(/notebook|sodimm|so dimm/.test(text))v.form_factor='sodimm';else if(/desktop|udimm|dimm/.test(text))v.form_factor='dimm';}return v;}
-export function identityForOffer(o:Offer){if(o.category==='kit')return null;/* kits combinam vários fabricantes/MPNs: nunca casar com o componente avulso */const brand=canonicalBrand(o.brand??'');if(!brand)return null;const raw=o.mpn?.trim()??'';const mpn=!/\s/.test(raw)&&!/^(?:\d+(?:GB|TB|MHZ)|DDR\d)$/i.test(raw)&&/[a-z]/i.test(raw)&&/\d/.test(raw)&&raw.length>=4&&raw.length<=100?raw.toUpperCase().replace(/[^A-Z0-9]/g,''):null;
+export function identityForOffer(o:Offer){if(o.category==='kit')return null;/* kits combinam vários fabricantes/MPNs: nunca casar com o componente avulso */const brand=canonicalBrand(o.brand??'');if(!brand)return null;const mpn=manufacturerCode(o.mpn,o.title);
 const rawGTIN=Object.entries(o.specs??{}).find(([k])=>/^(ean|gtin|ean13|ean 13|upc)$/i.test(k))?.[1]?.replace(/\D/g,'')??o.gtin??'';const gtin=validGTIN(rawGTIN)?rawGTIN.padStart(14,'0'):null;
 return mpn||gtin?{brand,mpn,gtin,variant:variantForOffer(o)}:null;}
 export function matchesProductAlert(a:Alert,o:Offer){if(a.product_id)return !!o.product_id&&a.product_id===o.product_id&&variantsCompatible(a.product_variant??{},o.variant??{});return !!a.offer_id&&a.offer_id===o.id;}

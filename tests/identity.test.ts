@@ -8,3 +8,15 @@ test('lowest store retained and dedup key does not use listing id',()=>{const ch
 test('legacy unidentified alerts stay scoped rather than guessing',()=>{assert.equal(matchesProductAlert({offer_id:'a'} as Alert,{...base,id:'b'}),false);assert.equal(identityForOffer({...base,mpn:'32GB',brand:null}),null);});
 test('search handles unordered words, accents and capacity spacing',()=>{assert.ok(matchesQuery({...base,title:'Memória RAM Kingston Fury 32 GB DDR 5 6000 MHz'},'6000 kingston memoria 32gb'));});
 
+test('manufacturer code comes from store data only: parentheses, single-token MPN, part code in title, model name',async()=>{
+ const {manufacturerCode,canonicalBrand}=await import('../lib/identity');
+ assert.equal(manufacturerCode('RTX 5070 INFINITY 3 (NE75070019K9-GB2050S)','Placa de Video Palit RTX 5070'),'NE75070019K9GB2050S');
+ assert.equal(manufacturerCode('KF432C16BB/8','Memória Kingston'),'KF432C16BB8');
+ assert.equal(manufacturerCode('TUF GAMING B760M-PLUS II','Placa Mãe ASUS TUF GAMING B760M-PLUS II, Intel LGA 1700, mATX, DDR5, Preto - 90MB1HD0-M0EAY0'),'90MB1HD0M0EAY0');
+ assert.equal(manufacturerCode('B550M-A PRO','Placa-Mãe MSI B550M-A PRO, AMD, AM4, Micro-ATX, DDR4'),'B550MAPRO');
+ assert.equal(manufacturerCode(null,'MSI PRO B650M-P, Chipset B650, AMD AM5, M-ATX, DDR5 (911-7E27-006)'),'9117E27006');
+ assert.equal(manufacturerCode(null,'Notebook Asus Vivobook Go 15, Tela 15,6" FHD, Black - E1504FA-NJ825W'),'E1504FANJ825W');
+ assert.equal(manufacturerCode(null,'Placa De Vídeo Gigabyte Rtx 5060 Eagle Oc 8gb Gddr7'),null);
+ assert.equal(manufacturerCode('16GB','Memória 16GB'),null);assert.equal(manufacturerCode(null,'Mouse Gamer - 16000DPI'),null);
+ assert.equal(canonicalBrand('RYZEN'),'amd');assert.equal(canonicalBrand('Palit Microsystem'),'palit');assert.equal(canonicalBrand('XPG'),'adata');assert.equal(canonicalBrand('Kingston Fury'),'kingston');
+});
