@@ -14,7 +14,7 @@ export async function POST(req:Request){
  if(!batch&&!candidateSourceIds.includes(store))return NextResponse.json({error:'invalid_store'},{status:400});
  const started=Date.now(),cpu=process.cpuUsage();
  const results=await Promise.all((batch?scheduledStores:[store]).map(async store=>{
-  try{return {store,...await runCollector({max:batch?6:10,stores:[store],deadlineMs:35000})};}
+  try{return {store,...await runCollector({max:batch?2:10,stores:[store],deadlineMs:35000,discoveryIntervalMinutes:batch?30:undefined})};}
   catch{console.error('Falha de worker: '+store);return {store,total:0,failures:1,discovered:0,stock_only_checks:0,skipped:false};}
  }));
  let notifications:unknown=null;

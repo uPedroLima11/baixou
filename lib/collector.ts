@@ -3,7 +3,7 @@ import {adminDb,safeUrl} from './server';import {calculateEvidence,classify,type
 import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct} from '../scripts/parser';
 import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
 import {productURL,categoryURL,candidateCategory,diverseCandidates,retryMinutes,verificationTTL} from './collection-policy';
-type Options={check?:boolean;max?:number;stores?:string[];deadlineMs?:number};
+type Options={check?:boolean;max?:number;stores?:string[];deadlineMs?:number;discoveryIntervalMinutes?:number};
 function errorMessage(e:unknown){return e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,220):'Falha sem mensagem';}
 const agent='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)';
 export async function runCollector(options:Options={}){
@@ -21,6 +21,9 @@ export async function runCollector(options:Options={}){
    const rules=robotsParser(source.origin+'/robots.txt',await get(source.origin+'/robots.txt'));
    const allowed=(url:string)=>safeUrl(url)&&rules.isAllowed(url,agent)===true;
    const cursor=state.data?.cursor??0;
+   let discover=true;
+   if(db&&options.discoveryIntervalMinutes){const recent=await db.from('collection_pages').select('url').eq('store',source.id).gte('last_attempt_at',new Date(Date.now()-options.discoveryIntervalMinutes*60000).toISOString()).limit(1);if(recent.error)throw recent.error;discover=!recent.data?.length;}
+   if(discover){
    if(db){const seeded=await db.from('collection_pages').upsert(source.paths.map(path=>({store:source.id,url:source.origin+path})),{onConflict:'store,url',ignoreDuplicates:true});if(seeded.error)throw seeded.error;}
    let page=db?await db.from('collection_pages').select('url').eq('store',source.id).lte('next_attempt_at',new Date().toISOString()).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('url').limit(1):{data:[{url:source.origin+source.paths[cursor%source.paths.length]}],error:null};if(page.error)throw page.error;
    if(db&&cursor%2===0){const known=await db.from('collection_pages').select('url').eq('store',source.id).eq('url',source.origin+source.paths[Math.floor(cursor/2)%source.paths.length]).lte('next_attempt_at',new Date().toISOString());if(known.error)throw known.error;if(known.data?.length)page=known;}
@@ -37,6 +40,7 @@ export async function runCollector(options:Options={}){
     }catch(e){categoryErrors++;console.error(source.id,'categoria:',errorMessage(e));if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+6*3600000).toISOString()}).eq('store',source.id).eq('url',url);}
    }
    if(db&&fresh.size){const pool=await db.from('product_candidates').select('url',{count:'exact',head:true}).eq('store',source.id);if(pool.error)throw pool.error;const remaining=Math.max(0,2000-(pool.count??2000));if(remaining){const inserted=await db.from('product_candidates').upsert([...fresh].slice(0,Math.min(150,remaining)).map(url=>({store:source.id,url,category:candidateCategory(url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(inserted.error)throw inserted.error;newURLs=inserted.data?.length??0;}}
+   }
    const now=new Date().toISOString();
    const newRows=db?await db.from('product_candidates').select('url,category,failures').eq('store',source.id).is('last_attempt_at',null).lte('next_attempt_at',now).order('discovered_at').limit(300):{data:[...fresh].map(url=>({url,category:candidateCategory(url),failures:0})),error:null};
    const due=db?await db.from('product_candidates').select('url,category,failures').eq('store',source.id).not('last_attempt_at','is',null).lte('next_attempt_at',now).order('next_attempt_at').limit(max):{data:[],error:null};if(newRows.error||due.error)throw newRows.error??due.error;
@@ -64,7 +68,7 @@ export async function runCollector(options:Options={}){
    }
    if(!count&&(errors||categoryErrors)&&!state.data?.last_success_at)throw Error('Sem produtos verificáveis nesta fonte; consultar erros de categoria/produto');
    if(!count&&(errors||categoryErrors)&&state.data?.last_success_at){failures++;if(db)await db.from('source_status').upsert({store:source.id,status:'degraded',checked_at:new Date().toISOString(),products:0,message:'Tentativa com falha; última confirmação e ofertas preservadas até o TTL'});}
-   if(db){const stateUpdate=await db.from('collection_state').upsert({store:source.id,cursor:cursor+1,failures:0,next_allowed_at:new Date().toISOString(),...(count?{last_success_at:new Date().toISOString()}:{})});if(stateUpdate.error)throw stateUpdate.error;
+   if(db){const stateUpdate=await db.from('collection_state').upsert({store:source.id,cursor:cursor+(discover?1:0),failures:0,next_allowed_at:new Date().toISOString(),...(count?{last_success_at:new Date().toISOString()}:{})});if(stateUpdate.error)throw stateUpdate.error;
     if(count){const status=await db.from('source_status').upsert({store:source.id,status:'ok',checked_at:new Date().toISOString(),products:count,message:'Produtos confirmados na loja; descoberta progressiva'});if(status.error)throw status.error;}
    }total+=count;discovered+=newURLs;
   }catch(e){failures++;const message=errorMessage(e);console.error(source.id,message);if(db){await db.from('collection_state').upsert({store:source.id,failures:(state.data?.failures??0)+1,next_allowed_at:new Date(Date.now()+retryMinutes((state.data?.failures??0)+2)*60000).toISOString()});await db.from('source_status').upsert({store:source.id,status:'blocked',checked_at:new Date().toISOString(),products:count,message:message.slice(0,180)});}}
