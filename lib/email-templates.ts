@@ -32,6 +32,8 @@ export function reasonForAlert(a:Alert,o:Offer):NotificationReason{
 export function wishlistReason():NotificationReason{return {kind:'wishlist',summary:'Um produto da sua lista de desejos caiu em relação ao histórico.',conditions:[]};}
 export function offerEmailUrl(value:string){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['www.kabum.com.br','www.terabyteshop.com.br','www.pichau.com.br','www.waz.com.br','www.oficinadosbits.com.br','www.guerradigital.com.br','patoloco.com.br','www.mercadolivre.com.br','produto.mercadolivre.com.br'].includes(u.hostname)?u.href:null;}catch{return null;}}
 function imageUrl(value:string|null){try{if(!value)return null;const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&/\.(?:avif|webp|jpe?g|png)$/i.test(u.pathname)&&['kabum.com.br','waz.com.br','guerradigital.com.br','patoloco.com.br','mlstatic.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h))?u.href:null;}catch{return null;}}
+// Preposição com o nome da loja: "no Mercado Livre", "na KaBuM!".
+export const atStore=(store:string,name:string)=>(['mercadolivre'].includes(store)?'no ':'na ')+name;
 const hasHistory=(o:Offer)=>Number(o.historical_median)>Number(o.price)&&o.historical_samples>=5&&o.historical_days>=3;
 
 export function notificationSubject(o:Offer,reason:NotificationReason){
@@ -56,7 +58,7 @@ export function buildNotificationEmail({offer:o,reason,siteUrl,unsubscribeToken}
  if(marketStatus(o)==='below')evidence.push(Math.floor(marketDiscount(o)!)+'% abaixo da mediana de '+o.market_stores+' outros vendedores monitorados ('+money(Number(o.market_median))+'). Cobertura parcial: pode haver preços menores fora da amostra.');
  if(!evidence.length)evidence.push('Meta de preço atingida. Isso não indica queda histórica nem menor preço de todo o mercado.');
  const checked=new Date(o.checked_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}),image=imageUrl(o.image);
- const preheader=cut(money(o.price)+' na '+store+' · '+reason.summary+' '+payment,150);
+ const preheader=cut(money(o.price)+' '+atStore(o.store,store)+' · '+reason.summary+' '+payment,150);
  const text=[subject,'',reason.summary,'',clean(o.title),money(o.price)+' — '+payment,store+' · vendido por '+seller,'',...reason.conditions,...evidence,'Verificado em '+checked+'. Preço e estoque podem mudar; frete e condições na loja.','','Ver oferta no Baixou!: '+product,'Comprar na loja: '+storeUrl,'','Gerenciar alertas: '+settings,'Desativar e-mails de alerta: '+unsubscribe].join('\n');
  const h=escapeEmailHTML;
  const button=(href:string,label:string,bg:string,fg:string,border:string)=>'<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto"><tr><td bgcolor="'+bg+'" style="border-radius:8px;border:1px solid '+border+';mso-padding-alt:14px 26px"><a href="'+h(href)+'" style="display:inline-block;padding:14px 26px;color:'+fg+';font-size:16px;font-weight:700;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif">'+h(label)+'</a></td></tr></table>';
@@ -76,7 +78,7 @@ export function buildNotificationEmail({offer:o,reason,siteUrl,unsubscribeToken}
  +reason.conditions.map(c=>'<p style="margin:0 0 4px">'+h(c)+'</p>').join('')+evidence.map(c=>'<p style="margin:8px 0 0">'+h(c)+'</p>').join('')+'</td></tr></table>'
  +'</td></tr>'
  +'<tr><td style="padding:24px 28px 6px">'+button(product,'Ver oferta no Baixou!','#f45b22','#ffffff','#f45b22')+'</td></tr>'
- +'<tr><td align="center" style="padding:10px 28px 4px"><a href="'+h(storeUrl)+'" style="color:#b73810;font-size:14px;font-weight:700;text-decoration:underline">Ir direto para a '+h(store)+'</a></td></tr>'
+ +'<tr><td align="center" style="padding:10px 28px 4px"><a href="'+h(storeUrl)+'" style="color:#b73810;font-size:14px;font-weight:700;text-decoration:underline">Ir direto para '+h(atStore(o.store,store).slice(1))+'</a></td></tr>'
  +'<tr><td style="padding:16px 28px 26px"><p style="margin:0;color:#606773;font-size:12px;line-height:1.7;text-align:center">Verificado em '+h(checked)+' (horário de Brasília). Preço e estoque podem mudar a qualquer momento; frete e condições na loja.</p></td></tr>'
  +'<tr><td style="padding:20px 28px;border-top:1px solid #e1e5eb;background:#fafbfc;color:#606773;font-size:12px;line-height:1.8">Você recebeu este e-mail porque ativou alertas de preço no Baixou!.<br><a href="'+h(settings)+'" style="color:#b73810">Gerenciar ou editar alertas</a> &nbsp;·&nbsp; <a href="'+h(unsubscribe)+'" style="color:#606773">Desativar e-mails de alerta</a></td></tr>'
  +'</table></td></tr></table></body></html>';

@@ -43,7 +43,7 @@ test('alert e-mail escapes store data and rejects foreign links/images/sites',()
  assert.throws(()=>buildNotificationEmail({offer:base,reason:reasonForAlert(priceAlert,base),siteUrl:'https://other.example',unsubscribeToken:token}));
  assert.throws(()=>buildNotificationEmail({offer:base,reason:reasonForAlert(priceAlert,base),siteUrl:site,unsubscribeToken:'x'}));
  const ml={...base,store:'mercadolivre',url:'https://www.mercadolivre.com.br/produto/MLB1',payment_basis:null} as Offer;
- assert.match(buildNotificationEmail({offer:ml,reason:reasonForAlert(priceAlert,ml),siteUrl:site,unsubscribeToken:token}).text,/Confira as condições de pagamento na loja/);
+ const mlMail=buildNotificationEmail({offer:ml,reason:reasonForAlert(priceAlert,ml),siteUrl:site,unsubscribeToken:token});assert.match(mlMail.text,/Confira as condições de pagamento na loja/);assert.match(mlMail.preheader,/ no Mercado Livre ·/);assert.match(mlMail.html,/Ir direto para o Mercado Livre/);assert.match(buildNotificationEmail({offer:base,reason:reasonForAlert(priceAlert,base),siteUrl:site,unsubscribeToken:token}).html,/Ir direto para a KaBuM!/);
 });
 
 test('history e-mail requires real history; wishlist only on proven history drop',()=>{
