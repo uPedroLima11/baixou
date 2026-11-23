@@ -1,7 +1,8 @@
 name: Atualizar ofertas
 on:
   schedule:
-    - cron: '7,37 * * * *'
+    # A cada 15 min, fora do minuto 0 e dos lotes Vercel (:00/:15/:30/:45). Alterar a linha re-registra o agendamento no GitHub.
+    - cron: '4,19,34,49 * * * *'
   workflow_dispatch:
 concurrency:
   group: baixou-collector
@@ -21,7 +22,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       COLLECT_STORES: ${{ matrix.store }}
-      COLLECT_MAX_PRODUCTS: 50
+      COLLECT_MAX_PRODUCTS: 60
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}

@@ -7,3 +7,8 @@ export function candidateCategory(url:string){return classify(new URL(url).pathn
 export function diverseCandidates<T extends {category:string}>(rows:T[],limit:number){const buckets=new Map<string,T[]>();for(const row of rows){const list=buckets.get(row.category)??[];list.push(row);buckets.set(row.category,list);}const result:T[]=[];while(result.length<limit){let added=false;for(const list of buckets.values()){if(list.length&&result.length<limit){result.push(list.shift()!);added=true;}}if(!added)break;}return result;}
 export function retryMinutes(failures:number){return Math.min(360,15*2**Math.min(failures,5));}
 export function verificationTTL(evidence:string,discount:number){return evidence==='history'&&discount>=20?15:60;}
+// Revalidation is scheduled 20 minutes before the TTL so a 15-minute collector cadence reaches it before expiry.
+export function recheckMinutes(available:boolean,ttl:number){return available?Math.max(5,ttl-20):180;}
+// Capacity-first admission: due rechecks keep the live catalog fresh; new candidates only use leftover slots,
+// plus a small discovery lane (10%) in larger batches so expansion never stops completely.
+export function planBatch<R,P extends {category:string}>(rechecks:R[],pending:P[],max:number){const lane=max>=10?Math.ceil(max/10):0;const due=rechecks.slice(0,Math.max(0,max-Math.min(lane,pending.length)));const fresh=diverseCandidates(pending,max-due.length);return {rechecks:due,pending:fresh};}
