@@ -68,7 +68,8 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Conectores (Mercado Livre lojas oficiais)
-        run: npm run connectors
+        # Mesma nova tentativa única da coleta para 5xx transitório do gateway Supabase (Cloudflare 522 em 45255... de 23/11).
+        run: npm run connectors || { echo "Nova tentativa em 30 s"; sleep 30; npm run connectors; }
 
   # Relatório único depois das quatro lojas (antes rodava 4x por execução). Uma nova tentativa cobre
   # erros transitórios do gateway Supabase (ex.: Cloudflare 522 observado em 45199413698); falha persistente fica vermelha.
