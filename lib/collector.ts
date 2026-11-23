@@ -1,6 +1,6 @@
 import {ExcludedProduct} from './product-policy';
 import robotsParser from 'robots-parser';import * as cheerio from 'cheerio/slim';import {createHash} from 'node:crypto';
-import {adminDb,safeUrl} from './server';import {evidenceFromStats,classify,type Offer} from './types';
+import {adminDb,safeUrl} from './server';import {evidenceFromStats,classify,kitComponents,type Offer} from './types';
 import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct} from '../scripts/parser';
 import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
 import {productURL,categoryURL,candidateCategory,retryMinutes,verificationTTL,recheckMinutes,planBatch} from './collection-policy';
@@ -10,7 +10,7 @@ const agent='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)';
 export async function runCollector(options:Options={}){
  const check=options.check??false,max=Math.min(100,Math.max(1,options.max??(Number(process.env.COLLECT_MAX_PRODUCTS)||40)));
  const enabled=options.stores??(process.env.COLLECT_STORES??candidateSourceIds.join(',')).split(',');
- const db=check?null:adminDb(),started=Date.now(),deadline=options.deadlineMs??240000;let total=0,failures=0,discovered=0,ran=0,stockOnly=0,excluded=0;
+ const db=check?null:adminDb(),started=Date.now(),deadline=options.deadlineMs??(Math.min(420000,Number(process.env.COLLECT_DEADLINE_MS)||240000)),discoveryPages=options.deadlineMs?1:Math.min(4,Math.max(1,Number(process.env.COLLECT_DISCOVERY_PAGES)||1));let total=0,failures=0,discovered=0,ran=0,stockOnly=0,excluded=0;
  const pause=()=>new Promise(r=>setTimeout(r,1500));
  async function get(url:string){if(!safeUrl(url))throw Error('Host não permitido');const response=await fetch(url,{headers:{'User-Agent':agent,Accept:'text/html,application/xml'},redirect:'manual',signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('HTTP '+response.status);let text='',bytes=0;const reader=response.body?.getReader(),decoder=new TextDecoder();if(!reader)throw Error('Resposta vazia');for(;;){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>8000000){await reader.cancel();throw Error('Resposta maior que 8MB');}text+=decoder.decode(value,{stream:true});}return text;}
  for(const source of sources){if(!enabled.includes(source.id)||Date.now()-started>deadline-10000)continue;
@@ -27,7 +27,7 @@ export async function runCollector(options:Options={}){
    const fresh=new Set<string>();
    if(discover){
    if(db){const seeded=await db.from('collection_pages').upsert(source.paths.map(path=>({store:source.id,url:source.origin+path})),{onConflict:'store,url',ignoreDuplicates:true});if(seeded.error)throw seeded.error;}
-   let page=db?await db.from('collection_pages').select('url').eq('store',source.id).lte('next_attempt_at',new Date().toISOString()).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('url').limit(1):{data:[{url:source.origin+source.paths[cursor%source.paths.length]}],error:null};if(page.error)throw page.error;
+   let page=db?await db.from('collection_pages').select('url').eq('store',source.id).lte('next_attempt_at',new Date().toISOString()).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('url').limit(discoveryPages):{data:[{url:source.origin+source.paths[cursor%source.paths.length]}],error:null};if(page.error)throw page.error;
    if(db&&cursor%2===0){const known=await db.from('collection_pages').select('url').eq('store',source.id).eq('url',source.origin+source.paths[Math.floor(cursor/2)%source.paths.length]).lte('next_attempt_at',new Date().toISOString());if(known.error)throw known.error;if(known.data?.length)page=known;}
 
    for(const {url}of page.data??[]){if(!allowed(url)) {if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+86400000).toISOString()}).eq('store',source.id).eq('url',url);continue;}
@@ -54,6 +54,7 @@ export async function runCollector(options:Options={}){
    for(const {url,failures:priorFailures}of urls.values()){
     if(Date.now()-started>deadline-10000)break;if(!allowed(url))continue;await pause();
     try{const html=await get(url);const base:ParsedProduct=source.id==='kabum'?kabumProduct(html,url):['terabyte','pichau'].includes(source.id)?generic(html,url,source):parseStoreProduct(source.id,html,url);
+     if(base.category==='kit')for(const [k,v] of Object.entries(kitComponents(base.title)))base.specs['Componente do kit: '+k]??=v;
      if(!db){console.log(JSON.stringify({store:source.id,title:base.title,price:base.price,available:base.available,mpn:base.mpn,category:base.category}));count++;continue;}
      const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number}>();if(stats.error)throw stats.error;
      const evidence=evidenceFromStats(base.price,base.original_price,stats.data??{median:null,samples:0,days:0}),ttl=verificationTTL(evidence.evidence,evidence.discount);

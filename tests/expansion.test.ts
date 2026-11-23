@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import * as cheerio from 'cheerio';
-import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable} from '../scripts/store-adapters';import {classify,type Alert,type Offer} from '../lib/types';import {matchesAlert} from '../lib/alert-rules';import {diverseCandidates,categoryURL,productURL,retryMinutes,verificationTTL,planBatch,recheckMinutes} from '../lib/collection-policy';import {sources} from '../scripts/sources';
+import {parseStoreProduct,structuredProductLinks,ConfirmedUnavailable} from '../scripts/store-adapters';import {classify,kitComponents,type Alert,type Offer} from '../lib/types';import {identityForOffer} from '../lib/identity';import {matchesAlert} from '../lib/alert-rules';import {diverseCandidates,categoryURL,productURL,retryMinutes,verificationTTL,planBatch,recheckMinutes} from '../lib/collection-policy';import {sources} from '../scripts/sources';
 function fixture(file:string){const html=readFileSync(new URL('./fixtures/expansion/'+file+'.html',import.meta.url),'utf8');return {html,url:cheerio.load(html)('link[rel=canonical]').attr('href')!};}
 test('real WAZ ItemList exposes products even without visible anchor links',()=>{const html=readFileSync(new URL('./fixtures/expansion/waz-category.html',import.meta.url),'utf8'),source=sources.find(s=>s.id==='waz')!;const links=structuredProductLinks(cheerio.load(html)).map(u=>productURL(u,source)).filter(Boolean);assert.equal(new Set(links).size,12);});
 test('Patoloco explicit unavailability without price cannot become a fake free offer or transient failure',()=>{const {html,url}=fixture('patoloco-unavailable');assert.throws(()=>parseStoreProduct('patoloco',html,url),ConfirmedUnavailable);});
@@ -23,4 +23,16 @@ test('WAZ OutOfStock without Pix price is confirmed unavailable, not a failure o
  const html=readFileSync(new URL('./fixtures/expansion/waz-out-of-stock.html',import.meta.url),'utf8'),url='https://www.waz.com.br/workstation-lenovo-thinkstation-p3-30gu003cbo-i7-14700-32gb-ddr5-ssd-512gb-rtx-a1000-8gb-wifi-6-w11-sl-1yr-os-133179-html/p';
  assert.throws(()=>parseStoreProduct('waz',html,url),ConfirmedUnavailable);
  assert.throws(()=>parseStoreProduct('waz',html.replace('OutOfStock','InStock'),url),/Preço Pix diverge/);
+});
+test('upgrade kits are CPU + motherboard bundles, never PCs, RAM kits or peripheral combos',()=>{
+ const kit=['Kit Upgrade AMD Ryzen 5 5600 + Placa Mãe Gigabyte B550M Aorus Elite + Memória 16GB DDR4 3200MHz','Processador AMD Ryzen 3 3200G + Placa Mãe MSI A520M-A PRO','Kit Processador Intel Core i5-12400F + Placa-Mãe ASUS Prime H610M-E D4'];
+ for(const t of kit)assert.equal(classify(t),'kit',t);
+ assert.equal(classify('PC Gamer Ryzen 5 5600 Placa Mãe B550 16GB RTX 4060'),'pc');
+ assert.equal(classify('Memória Kingston Fury Kit 2x16GB DDR4 3200MHz'),'ram');
+ assert.equal(classify('Kit Teclado e Mouse Logitech MK270'),'peripherals');
+ assert.equal(classify('Processador AMD Ryzen 5 5600, AM4, compatível com placa mãe B550'),'cpu');
+ assert.equal(classify('Placa Mãe ASUS TUF B550M-Plus, AMD AM4, Ryzen 5000'),'motherboard');
+ assert.deepEqual(kitComponents(kit[0]),{'Processador':'AMD Ryzen 5 5600','Placa-mãe':'Gigabyte B550M Aorus Elite','Memória':'16GB DDR4 3200MHz'});
+ const offer={category:'kit',brand:'AMD',mpn:'100-100000927BOX',title:kit[1],specs:{}} as unknown as Offer;assert.equal(identityForOffer(offer),null);
+ const kabum=sources.find(s=>s.id==='kabum')!;assert.ok(categoryURL('/hardware/kit-hardware/kit-upgrade?page_number=2',kabum));assert.ok(categoryURL('/espaco-gamer/cadeiras-gamer',kabum));assert.equal(categoryURL('/hardware/placas-mae?page_number=99',kabum),null);
 });

@@ -1,4 +1,4 @@
-export const categories = [['all','Todas as ofertas'],['ram','Memória RAM'],['gpu','Placas de vídeo'],['motherboard','Placas-mãe'],['cpu','Processadores'],['ssd','SSDs e HDs'],['monitor','Monitores'],['mouse','Mouses'],['keyboard','Teclados'],['chair','Cadeiras'],['pc','PCs completos'],['kit','Kits gamer'],['peripherals','Periféricos'],['notebook','Notebooks'],['other','Outros eletrônicos']] as const;
+export const categories = [['all','Todas as ofertas'],['ram','Memória RAM'],['gpu','Placas de vídeo'],['motherboard','Placas-mãe'],['cpu','Processadores'],['ssd','SSDs e HDs'],['monitor','Monitores'],['mouse','Mouses'],['keyboard','Teclados'],['chair','Cadeiras'],['pc','PCs completos'],['kit','Kits upgrade'],['peripherals','Periféricos'],['notebook','Notebooks'],['other','Outros eletrônicos']] as const;
 export type Category=typeof categories[number][0];
 export type Offer={product_id?:string|null;gtin?:string|null;variant?:import("./identity").Variant;id:string;store:string;url:string;title:string;category:Category;brand:string|null;mpn:string|null;image:string|null;images:string[];price:number;original_price:number|null;available:boolean;seller:string;sold:number|null;rating:number|null;review_count:number|null;specs:Record<string,string>;discoveries?:{source:string;name:string;url:string}[];coupon_hint?:string|null;coupon_validated?:boolean;payment_note?:string;checked_at:string;expires_at:string;historical_median:number|null;historical_samples:number;historical_days:number;discount:number;evidence:'history'|'retailer'|'none'};
 export type SourceStatus={store:string;status:string;checked_at:string;message:string;products:number};
@@ -9,10 +9,11 @@ export const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',c
 export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 export function classify(title:string):Category {
  const t=' '+normalize(title)+' ';
- if(/(?:kit|combo).*(?:upgrade|gamer|teclado|mouse|processador|placa)|\+.*placa/.test(t))return 'kit';
+ if(isUpgradeKit(t))return 'kit';
  if(/^\s*(notebook|laptop)\b/.test(t))return 'notebook';
  if(/^\s*(computador|pc gamer|desktop completo)\b/.test(t))return 'pc';
- if(/placa mae|motherboard/.test(t))return 'motherboard';
+ if(/^\s*(kit|combo)\b.*\b(teclado|mouse|headset|fone)\b/.test(t))return 'peripherals';
+ if(/placa mae|motherboard/.test(t)&&!/^\s*processador\b/.test(t))return 'motherboard';
  if(/placa de video|geforce|radeon|rtx|gtx/.test(t))return 'gpu';
  if(/processador|ryzen|intel core/.test(t)&&!/notebook|computador|pc gamer/.test(t))return 'cpu';
  if(/memoria|\bram\b|\bddr\s*[345]\b/.test(t)&&!/notebook.*ssd|computador|pc gamer/.test(t))return 'ram';
@@ -38,3 +39,19 @@ export function evidenceFromStats(price:number,reference:number|null,stats:{medi
  return {historical_median:enough?median:null,historical_samples:n,historical_days:days,discount:enough&&historicalDiscount>=5?historicalDiscount:announced,evidence:enough&&historicalDiscount>=5?'history' as const:announced>=5?'retailer' as const:'none' as const};
 }
 
+const CPU_RE=/\b(processador|ryzen\s*[3579]|core\s*(?:ultra\s*)?i?[3579]|athlon|pentium|celeron)\b/;
+const MB_RE=/\b(placa\s*mae|motherboard|[abhxzq]\d{3}[a-z]?m?)\b/;
+// Kit upgrade = processador + placa-mãe (com ou sem memória) vendidos juntos. Não é PC completo nem kit de memória RAM.
+export function isUpgradeKit(normalized:string){const t=' '+normalized.trim()+' ';
+ if(/^\s*(computador|pc gamer|pc|desktop|notebook|laptop|memoria)\b/.test(t))return false;
+ if(/\bkit\s*upgrade\b|\bupgrade\s*kit\b/.test(t))return true;
+ if(/\b(kit|combo)\b/.test(t)&&CPU_RE.test(t)&&MB_RE.test(t))return true;
+ // Sem a palavra kit (ex.: KaBuM "Processador Ryzen 3 3200G + Placa Mãe A520M"): exige modelo concreto de CPU E placa-mãe nomeada.
+ return CPU_MODEL_RE.test(t)&&/\b(placa\s*mae|motherboard)\b/.test(t)&&!/\bcompativel\b|\bsuporta\b|\bsuporte\s+a\b/.test(t);}
+const CPU_MODEL_RE=/\b(ryzen\s*[3579]\s*(?:pro\s*)?\d{4}[a-z0-9]*|core\s*(?:ultra\s*)?i?[3579]\s*\d{3,5}[a-z0-9]*|athlon\s*\d{3,4}[a-z]*)\b/;
+// Componentes declarados no título do kit (dado da loja; não é verificação técnica de compatibilidade).
+export function kitComponents(title:string){const parts:Record<string,string>={},plain=title.replace(/\s+/g,' ');
+ const cpu=plain.match(/((?:AMD\s+)?Ryzen\s*[3579]\s+(?:PRO\s+)?\d{4}\w*(?:\s*X3D)?|(?:Intel\s+)?Core\s*(?:Ultra\s*)?i?[3579][-\s]?\d{3,5}\w*)/i);if(cpu)parts['Processador']=cpu[1].trim();
+ const mb=plain.match(/Placa[-\s]?M[ãa]e\s+([^+,]{3,60}?)(?=\s*(?:\+|,|$|\bMem[óo]ria\b|\bSSD\b))/i)??plain.match(/\b((?:ASUS|Gigabyte|MSI|ASRock|Biostar|Afox|Pcyes|Mancer|Machinist)\s+[^+,]{0,40}?[ABHXZQ]\d{3}[A-Z]?M?[^+,]{0,25}?)(?=\s*(?:\+|,|$))/i);if(mb)parts['Placa-mãe']=mb[1].trim();
+ const ram=plain.match(/(\d{1,3}\s*GB(?:\s*\(\s*\d\s*x\s*\d{1,3}\s*GB\s*\))?\s*DDR[345](?:\s*\d{4}\s*MHz)?)/i);if(ram)parts['Memória']=ram[1].trim();
+ return parts;}
