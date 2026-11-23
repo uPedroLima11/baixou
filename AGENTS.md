@@ -22,23 +22,31 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Continuidade e diretrizes adicionais
-- Pasta autoritativa D:\PROJETOS\baixou. Começar por docs/HANDOFF.md; detalhes de SMTP em docs/EMAIL_SETUP.md. Nunca reconstruir investigações já documentadas.
-- Repositório público foi autorizado pelo usuário para Actions gratuitos; nunca publicar .env, .vercel, supabase/.temp, credenciais ou endereço SMTP do proprietário na documentação.
-- Cadastro central prevê dezenas de lojas e marketplaces. Estado pending/parcial não é integração. Só marcar operational após teste com produtos reais no ambiente hospedado.
-- Marketplaces exigem verificação do vendedor e anúncio, não apenas reputação da plataforma.
-- Identidade global e alertas devem distinguir fabricante/MPN/GTIN e variantes; kit2x16 não equivale a módulo1x32. Alertas devem alcançar lojas futuras e evitar mensagens duplicadas.
-- LinksBR é somente descoberta de links quando houver meio legítimo e autorizado; dados do card sempre vêm da loja. Sem self-bots, conta pessoal, scraping privado ou bypass.
-- SMTP_PASS nunca no chat/Git/docs. Mesmo Gmail para Nodemailer(Vercel) eSupabaseAuth; envio não concluído sem teste real recebido.
-- UX: quando nenhuma queda comprovada existir, iniciar ofertas anunciadas, preservando seleção manual; controles destacados ecomcontagens.
+## Continuidade e infraestrutura
 
-## Confiabilidade e persistência (23/11/2026)
-- SMTP existente foi confirmado pelo usuário: não reconfigurar. Testar hospedado sem exportarSecrets.
-- Alertas aceitam preço máximo, queda absoluta e percentual independentes/opcionais. Quedas exigem mediana confiável; preço riscado nunca comprova queda. Não comparar porcentagem arredondada para decidir disparo.
-- Wishlist e alertas nunca são apagados por TTL/estoque/falha. FKs paraoffersRESTRICT. Catálogo ativo e produtos salvos são consultas diferentes.
-- Falha de verificação não confirma esgotamento. Preservarchecked_at/preçohistórico; marcarlast_attempt_at/verification_status. Não estenderTTLsemconsulta real.
-- Segredo dedicado de coleta aprovado noVault+Vercel. Nunca usarservice_rolecomoBearerdoagendador. Migrationcroncriajobinativo; sincronizarsegredo,deploy,testar,ativar e observarexecuçãoreal.
+- Pasta autoritativa: D:\PROJETOS\baixou. Ler docs/HANDOFF.md e docs/EMAIL_SETUP.md; não repetir investigações já documentadas.
+- Domínio padrão autorizado: https://baixouofertas.vercel.app . Usar em README, SITE_URL, Auth e cron. Não chamar jobs pelo alias antigo: o redirecionamento pode remover Authorization.
+- Repositório público autorizado. Nunca publicar .env, .vercel, supabase/.temp, credenciais ou dados do remetente na documentação.
+- Supabase dedicado: slmhkfqqeyptngjubfhn. Não alterar outro projeto da conta. Verificar migrations efetivamente aplicadas; histórico CLI pode estar incompleto, pois foram executadas via db query.
+- Cadastro central prevê dezenas de lojas/marketplaces. pending/partial não significa integrado. operational somente após teste hospedado com produtos reais. Marketplaces exigem verificar também vendedor e anúncio.
+- LinksBR é descoberta de links por meio legítimo/autorizado. Cards vêm da loja. Não usar self-bots, conta pessoal, scraping privado ou bypass; fontes sem autorização permanecem desativadas.
 
-- Domínio canônico autorizado: https://baixouofertas.vercel.app (também README, SITE_URL, Auth e cron). Não chamar jobs pelo alias antigo que redireciona: Authorization pode se perder.
-- Email: usuário confirmou recebimento diagnóstico/recuperação e formulário aberto. Não confundir com cadastro novo ou notificação real de meta, ainda pendentes de homologação específica.
-- Agendador Supabase */5 já ativo e HTTP200/8produtos confirmado em23/11/2026. Consultar resultado pg_net além de cronSQLsucceeded. Proteger e não imprimir headers que contêm segredo.
+## Alertas, identidade e dados salvos
+
+- Identidade entre lojas exige fabricante/MPN/GTIN e variantes. Kit 2x16 não equivale a módulo 1x32. Sem identificador forte, não adivinhar correspondência por título.
+- Alertas acompanham produto canônico e ofertas futuras. Preço máximo, queda absoluta e percentual são condições independentes/opcionais; combinar condições fornecidas com AND. Pelo menos uma condição é obrigatória.
+- Quedas exigem mediana confiável. Preço riscado nunca comprova queda. Comparar porcentagem real, sem arredondar para decidir disparo. Specs desconhecidas não casam por suposição.
+- Wishlist e alertas nunca são apagados por TTL, estoque ou falha. FKs para offers são RESTRICT. Catálogo ativo e produtos salvos são consultas diferentes.
+- Falha de consulta não confirma esgotamento. Preservar checked_at/preço; atualizar last_attempt_at/verification_status. Nunca estender TTL sem consulta real. Ordenar revalidação por tentativa para não repetir eternamente URLs que falham.
+- Histórico tem retenção documentada de 35 dias; favoritos/alertas não possuem expiração automática. Mudanças de retenção precisam ser explícitas e documentadas.
+
+## E-mail, operação e validação
+
+- SMTP existente foi confirmado pelo proprietário: não reconfigurar. Nodemailer e Supabase Auth usam Gmail porta 465; credenciais somente nos serviços autorizados. Não exportar Secrets para inspecionar.
+- Usuário confirmou recebimento de diagnóstico/recuperação e abertura do formulário. Isso não homologa cadastro novo, troca de senha final ou alerta de meta real. Não afirmar além da evidência.
+- Respeitar opt-in e e-mail confirmado. Deduplicar notificações por produto/condição; não disparar a cada nova observação igual. Não inventar condições para aparentar teste de promoção funcional.
+- Agendador Supabase */5 está ativo; duas respostas HTTP 200 reais confirmadas em 23/11/2026. Verificar pg_net além do status SQL do cron. Nunca imprimir headers que contêm segredo.
+- Segredo exclusivo de coleta foi autorizado no Vault e na Vercel. Não guardar service_role no Vault nem usá-la como Bearer do coletor.
+- Infraestrutura gratuita impõe limites. Não prometer busca infinita ou cobertura de toda promoção de minutos. Monitorar capacidade de revalidação versus TTL.
+- UX de modalidades: sem queda comprovada, iniciar ofertas anunciadas; preservar escolha manual e mostrar controles destacados com contagens.
+- Antes de encerrar: testes apropriados, tipos/build, commit e push, status real de CI/deploy e checkpoint atualizado. Não deixar mudanças necessárias só locais.
