@@ -1,0 +1,25 @@
+name: Sondar acesso de fontes
+# Manual: verifica se páginas públicas respondem ao coletor a partir do runner hospedado (IP de datacenter).
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: 'URLs https separadas por espaço (até 20)'
+        required: true
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Sondar
+        env:
+          PROBE_URLS: ${{ inputs.urls }}
+        run: npx tsx scripts/probe-urls.ts
