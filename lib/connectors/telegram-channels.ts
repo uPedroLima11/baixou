@@ -7,7 +7,10 @@
 // Canal só entra aqui depois de confirmado como da própria loja (link no site oficial). Ver docs/MAJOR_STORES.md.
 import * as cheerio from 'cheerio/slim';
 import type {Connector,ConnectorContext,MarketplaceListing} from './types';
-export const ANNOUNCED_TTL_MINUTES=360,ANNOUNCED_LOOKBACK_HOURS=24;
+export const ANNOUNCED_TTL_MINUTES=360,ANNOUNCED_LOOKBACK_HOURS=8;
+// 8 h na coleta regular: cada post é lido enquanto vale (6 h) com 2 h de folga; posts mais antigos já foram gravados
+// quando eram novos (ou pela importação telegram-backfill.yml). Ler 24 h a cada rodada custava ~75 chamadas extras e
+// tirava tempo das vitrines do Mercado Livre (prazo compartilhado de 300 s).
 const agent='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)';
 export type ChannelPost={id:number;date:string;text:string;links:string[];photo?:string|null};
 export type ChannelConfig={channel:string;source:string;storeName:string;productHost:string;productPath:RegExp;shortHosts?:string[];minSlugParts?:number;channelLabel:string};
@@ -80,7 +83,7 @@ async function resolveShort(ctx:ConnectorContext,link:string,cfg:ChannelConfig){
 export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:string;implemented:boolean}):Connector{
  return {id:cfg.id,name:cfg.name,marketplace:false,requiredEnv:[],hosts:[cfg.productHost],implemented:cfg.implemented,
   async *listings(ctx){
-   // Lê 24 h de posts: o mais recente de cada produto vira oferta (vale 6 h a partir do post; mais antigo já nasce
+   // Lê a janela de posts: o mais recente de cada produto vira oferta (vale 6 h a partir do post; mais antigo já nasce
    // vencido e fica fora do catálogo); todos alimentam o histórico de preços anunciados.
    // A importação de publicações antigas (scripts/telegram-backfill.ts) amplia janela e páginas por variáveis.
    const lookback=Math.min(24*120,Number(ctx.env.TELEGRAM_LOOKBACK_HOURS)||ANNOUNCED_LOOKBACK_HOURS),maxPages=Math.min(600,Number(ctx.env.TELEGRAM_MAX_PAGES)||12);
