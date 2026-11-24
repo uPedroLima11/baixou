@@ -12,7 +12,8 @@ import {loadKnownCodes,enrichListing,announcedProduct,recordAnnouncement} from '
 const skipDays=Math.max(0,Math.min(119,Number(process.env.BACKFILL_SKIP_DAYS)||0));let skipped=0;
 const db=adminDb(),days=Math.min(120,Math.max(1,Number(process.env.BACKFILL_DAYS)||30)),deadline=Date.now()+Math.min(45,Number(process.env.BACKFILL_MINUTES)||30)*60000;
 const {known,brands}=await loadKnownCodes(db);
-for(const c of connectors.filter(c=>c.id.endsWith('-telegram')&&c.implemented)){
+const onlyChannels=(process.env.BACKFILL_CHANNELS??'').split(',').map(s=>s.trim()).filter(Boolean);
+for(const c of connectors.filter(c=>c.id.endsWith('-telegram')&&c.implemented&&(!onlyChannels.length||onlyChannels.includes(c.id)))){
  const existing=new Set<string>();const store=c.id.replace('-telegram','');
  for(let from=0;from<50000;from+=1000){const r=await db.from('offers').select('id').eq('store',store).range(from,from+999);if(r.error)throw r.error;for(const x of r.data??[])existing.add(x.id);if((r.data?.length??0)<1000)break;}
  let posts=0,created=0,recorded=0,rejected=0,errors=0,oldest='';const started=Date.now();

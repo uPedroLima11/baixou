@@ -12,6 +12,10 @@ on:
         description: 'Pular os N dias mais recentes (já importados)'
         required: false
         default: '0'
+      channels:
+        description: 'Conectores (ex.: terabyte-telegram); vazio = todos'
+        required: false
+        default: ''
 concurrency:
   group: telegram-backfill
   cancel-in-progress: false
@@ -26,6 +30,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       BACKFILL_DAYS: ${{ inputs.days }}
       BACKFILL_SKIP_DAYS: ${{ inputs.skip_days }}
+      BACKFILL_CHANNELS: ${{ inputs.channels }}
       BACKFILL_MINUTES: '42'
     steps:
       - uses: actions/checkout@v4
