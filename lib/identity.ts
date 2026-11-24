@@ -7,7 +7,7 @@ export function canonicalBrand(value:string){const b=normalize(value).replace(/\
 // Código do fabricante a partir de dados da própria loja, sem inferência por semelhança:
 // 1) código entre parênteses no campo MPN; 2) MPN de um só termo; 3) código de peça impresso no fim do título
 // ("… - 90MB1HD0-M0EAY0" ou "(911-7E27-006)"), preferido a um nome de modelo; 4) modelo com espaços ("B550M-A PRO").
-const NOT_CODE=/^(?:\d+(?:GB|TB|MHZ|MTS|HZ|W|MM|MS)|DDR\d|GDDR\d\w*|PCIE\d*|USB\d*|RGB|ARGB|WIFI\d*|HDMI|BOX)$/;
+const NOT_CODE=/^(?:\d+(?:GB|TB|MHZ|MTS|HZ|W|MM|MS|BITS?)|DDR\d|GDDR\d\w*|PCIE\d*|USB\d*|RGB|ARGB|WIFI\d*|HDMI|BOX)$/;
 function compactCode(raw:string){const code=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');return code.length>=4&&code.length<=40&&/[A-Z]/.test(code)&&/\d/.test(code)&&!NOT_CODE.test(code)?code:null;}
 // Atributos de variante que o Mercado Livre acrescenta ao fim do título ("… - Cp-9020279-br Cor Preto") não são parte do código.
 const LISTING_VARIANT_SUFFIX=/\s+(?:cor|voltagem)\s+[\p{L}\d/ -]{1,25}$/iu;

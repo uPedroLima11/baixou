@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {identityForOffer,validGTIN,variantForOffer,variantsCompatible,matchesProductAlert,cheapestPerProduct,notificationKey} from '../lib/identity';import {matchesQuery,sameProduct} from '../lib/search';import type {Offer,Alert} from '../lib/types';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {identityForOffer,manufacturerCode,validGTIN,variantForOffer,variantsCompatible,matchesProductAlert,cheapestPerProduct,notificationKey} from '../lib/identity';import {matchesQuery,sameProduct} from '../lib/search';import type {Offer,Alert} from '../lib/types';
 const base={id:'a',title:'Kingston Fury Beast 1x32GB DDR5 6000MHz',brand:'Kingston',mpn:'KF560C36BBE-32',category:'ram',specs:{},price:499,product_id:'p1',variant:{modules:1,per_module_gb:32,total_gb:32,ddr:'5'}} as unknown as Offer;
 test('same manufacturer part and brand tolerate listing format differences',()=>{const a=identityForOffer(base),b=identityForOffer({...base,title:'Memória Kingston 32 GB 6000 MHz',mpn:'KF560C36BBE/32',brand:'Kingston Technology'});assert.equal(a?.brand,b?.brand);assert.equal(a?.mpn,b?.mpn);});
 test('GTIN checksum rejects invalid/store codes and accepts standard code',()=>{assert.ok(validGTIN('4006381333931'));assert.equal(validGTIN('4006381333932'),false);assert.equal(validGTIN('131176'),false);});
@@ -51,4 +51,9 @@ test('Mercado Livre title token becomes MPN only when it exactly equals a known 
  assert.equal(knownCodeInTitle('interno Adata Ultimate SU650 ASU650SS-480GT-R 480GB preto','Kingston',known),null,'other brand');
  assert.equal(knownCodeInTitle('Kit Adata ASU650SS-480GT-R + ASU650SS-240GT-R','ADATA',known),null,'two known codes = ambiguous');
  assert.equal(knownCodeInTitle('SSD Adata SU650 480GB','ADATA',known),null,'no exact code');
+});
+test('memory bus width in the title tail is never a manufacturer code (128-bit, 192 bits)',()=>{
+ assert.equal(manufacturerCode(null,'Placa de Video Gigabyte GeForce RTX 5060 Eagle OC Ice, 8GB, GDDR7, 128-bit'),null);
+ assert.equal(manufacturerCode('128-BIT','Placa de Vídeo AFOX RTX 3050 - 128-BIT'),null);
+ assert.equal(manufacturerCode(null,'Placa de Vídeo X, 12GB, 192-bits'),null);
 });
