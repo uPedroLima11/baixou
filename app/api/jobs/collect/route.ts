@@ -6,15 +6,19 @@ import {runCollector} from '@/lib/collector';
 export const runtime='nodejs';
 export const maxDuration=60;
 const scheduledStores=['kabum','waz','guerradigital','patoloco'];
+// Lojas HTML operacionais (Oficina dos Bits fora: bloqueada no runner).
+const recoveryStores=['kabum','waz','guerradigital','patoloco','ibyte','chipart','shopinfo'];
 export async function POST(req:Request){
  const expected=process.env.CRON_SECRET?.trim();if(!expected)return NextResponse.json({error:'unavailable'},{status:503});
  const incoming=(req.headers.get('authorization')??'').replace(/^Bearer /,'').trim();
  if(!timingSafeEqual(createHash('sha256').update(incoming).digest(),createHash('sha256').update(expected).digest()))return NextResponse.json({error:'unauthorized'},{status:401});
- const url=new URL(req.url),batch=url.searchParams.get('batch')==='1',store=url.searchParams.get('store')??'kabum';
+ const url=new URL(req.url),recovery=url.searchParams.get('recovery')==='1',batch=recovery||url.searchParams.get('batch')==='1',store=url.searchParams.get('store')??'kabum';
  if(!batch&&!candidateSourceIds.includes(store))return NextResponse.json({error:'invalid_store'},{status:400});
  const started=Date.now(),cpu=process.cpuUsage();
- const results=await Promise.all((batch?scheduledStores:[store]).map(async store=>{
-  try{return {store,...await runCollector({max:batch?2:10,stores:[store],deadlineMs:35000,discoveryIntervalMinutes:batch?30:undefined})};}
+ // recovery=1: acionado pelo Supabase quando a coleta do Actions parou; rechecagens prioritárias de todas as lojas HTML.
+ const stores=recovery?recoveryStores:batch?scheduledStores:[store];
+ const results=await Promise.all(stores.map(async store=>{
+  try{return {store,...await runCollector({max:recovery?6:batch?2:10,stores:[store],deadlineMs:recovery?42000:35000,discoveryIntervalMinutes:batch?30:undefined})};}
   catch{console.error('Falha de worker: '+store);return {store,total:0,failures:1,discovered:0,stock_only_checks:0,skipped:false};}
  }));
  let notifications:unknown=null;
