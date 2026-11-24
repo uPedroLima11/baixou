@@ -24,7 +24,10 @@
 - Banco 52 MB (offers cresce com a importação).
 
 ## Histórico anunciado (importação controlada)
-- Janela 30–75 dias (run 45324077050, 0 erros): Terabyte até 10/09 (+4.533 posts, 683 anúncios criados vencidos); Pichau até 27/09 (+691 posts; prazo compartilhado esgotou). Janela final em execução: Terabyte 75–120 dias, Pichau 57–120 dias (um job por loja).
+- Janela 30–75 dias (run 45324077050, 0 erros): Terabyte até 10/09 (+4.533 posts, 683 anúncios criados vencidos); Pichau até 27/09 (+691 posts; prazo compartilhado esgotou).
+- Janela final, um job por loja: Terabyte (45329074550) até 11/08 — parou no teto de 600 páginas (~105 dias), 0 erros; Pichau (45329085125) até 27/07 (120 dias), 8 posts não gravados por páginas HTML de erro do gateway Supabase (reexecutar a mesma janela completa sem duplicar).
+- Total: announced_daily 12.867 linhas (Terabyte 9.862 / 2.122 produtos; Pichau 3.005 / 1.512 produtos), 3,1 MB. Banco 57 MB. Histórico anunciado continua separado: não entra no Score, estatísticas, referência de mercado nem alertas.
+- Vigia: até 06h UTC o schedule do watchdog.yml ainda não disparou sozinho (só o teste manual); coletas seguem pelo revezamento a cada ~13 min.
 
 ## Alertas de queda
 - 0 anúncios elegíveis (referência com no máximo 1 dia). Homologação real só a partir de ~26/11; regras e testes já cobrem absoluto, percentual, favoritos, combinação e deduplicação.
