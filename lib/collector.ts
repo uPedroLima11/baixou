@@ -2,7 +2,7 @@ import {ExcludedProduct} from './product-policy';
 import robotsParser from 'robots-parser';import * as cheerio from 'cheerio/slim';import {createHash} from 'node:crypto';
 import {adminDb,safeUrl} from './server';import {evidenceFromStats,classify,kitComponents,type Offer} from './types';
 import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct,chipartLinks,chipartProduct} from '../scripts/parser';
-import {parseStoreProduct,structuredProductLinks,vtexLinkTexts,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer} from './identity';
+import {parseStoreProduct,structuredProductLinks,vtexLinkTexts,ConfirmedUnavailable,type ParsedProduct} from '../scripts/store-adapters';import {identityForOffer,variantForOffer,knownCodeInTitle} from './identity';import {loadKnownCodes} from './connectors/announce';
 import {productURL,categoryURL,candidateCategory,retryMinutes,verificationTTL,recheckMinutes,planBatch,pickDiscoveryPages} from './collection-policy';
 type Options={check?:boolean;max?:number;stores?:string[];deadlineMs?:number;discoveryIntervalMinutes?:number;onProgress?:()=>Promise<void>};
 function errorMessage(e:unknown){return e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,220):'Falha sem mensagem';}
@@ -26,6 +26,7 @@ function publicProductPath(url:string){const u=new URL(url);return u.origin+u.pa
 export async function runCollector(options:Options={}){
  const check=options.check??false,max=Math.min(200,Math.max(1,options.max??(Number(process.env.COLLECT_MAX_PRODUCTS)||40)));
  const enabled=options.stores??(process.env.COLLECT_STORES??candidateSourceIds.join(',')).split(',');
+ let knownCodes:Map<string,Set<string>>|undefined;
  const db=check?null:adminDb(),started=Date.now(),deadline=options.deadlineMs??(Math.min(420000,Number(process.env.COLLECT_DEADLINE_MS)||240000)),discoveryPages=options.deadlineMs?1:Math.min(4,Math.max(1,Number(process.env.COLLECT_DISCOVERY_PAGES)||1));let total=0,failures=0,discovered=0,ran=0,stockOnly=0,excluded=0;
  // Cortesia por domínio: pelo menos 1,5 s entre o início de duas requisições à mesma loja. O trabalho no banco
  // acontece durante esse intervalo, em vez de somar uma pausa fixa depois dele (mesma taxa máxima de requisições).
@@ -79,7 +80,9 @@ export async function runCollector(options:Options={}){
      if(!db){console.log(JSON.stringify({store:source.id,title:base.title,price:base.price,available:base.available,mpn:base.mpn,category:base.category}));count++;continue;}
      const [stats,provenance]=await Promise.all([db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null;ref_median:number|null;ref_samples:number|null;ref_days:number|null;ref_min:number|null;ref_max:number|null}>(),db.from('discovery_events').select('source_id,coupon_hint,discovery_sources!inner(name,attribution_url,enabled)').eq('canonical_url',url).eq('discovery_sources.enabled',true)]);if(stats.error)throw stats.error;if(provenance.error)throw provenance.error;
      const evidence=evidenceFromStats(base.price,base.original_price,stats.data??{median:null,samples:0,days:0}),ttl=verificationTTL(evidence.evidence,evidence.discount);
-     const identity=identityForOffer({...base,...evidence} as Offer);let productId:string|null=null;
+     let identity=identityForOffer({...base,...evidence} as Offer);let productId:string|null=null;
+     // Sem código aceito: tenta um código JÁ registrado para a mesma marca impresso no título (igualdade exata, um só).
+     if(!identity&&base.brand&&base.category!=='kit'){knownCodes??=(await loadKnownCodes(db)).known;const code=knownCodeInTitle(base.title,base.brand,knownCodes);if(code){base.mpn=code;identity=identityForOffer({...base,...evidence} as Offer);}}
      if(identity){const resolved=await db.rpc('resolve_catalog_product',{p_brand:identity.brand,p_mpn:identity.mpn,p_gtin:identity.gtin,p_variant:identity.variant});if(resolved.error)throw resolved.error;productId=resolved.data;}
      const discoveries=[...new Map((provenance.data??[]).map((p:any)=>[p.source_id,{source:p.source_id,name:p.discovery_sources.name,url:p.discovery_sources.attribution_url}])).values()];
      const updated=await db.from('offers').upsert({...base,...evidence,product_id:productId,gtin:identity?.gtin??null,variant:identity?.variant??variantForOffer(base),discoveries,coupon_hint:provenance.data?.find(p=>p.coupon_hint)?.coupon_hint??null,coupon_validated:false,payment_note:base.payment_note??'À vista informado pela loja; frete e condições na origem.',last_attempt_at:new Date().toISOString(),verification_status:'verified',expires_at:new Date(Date.now()+ttl*60000).toISOString()});if(updated.error)throw updated.error;

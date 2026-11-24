@@ -57,3 +57,14 @@ test('memory bus width in the title tail is never a manufacturer code (128-bit, 
  assert.equal(manufacturerCode('128-BIT','Placa de Vídeo AFOX RTX 3050 - 128-BIT'),null);
  assert.equal(manufacturerCode(null,'Placa de Vídeo X, 12GB, 192-bits'),null);
 });
+test('truncated title code (prefix of the MPN) is not a conflict; real same-family conflicts still are',()=>{
+ assert.equal(manufacturerCode('RZ04-03240100-R3U1','Headset Gamer Razer BlackShark V2 X, Preto - RZ04-03240100'),'RZ0403240100R3U1');
+ assert.equal(manufacturerCode('90MB1HD0-M0EAY0','Placa Mãe ASUS - 90MB1HD0-M0EAY1'),null);
+});
+test('numeric-only manufacturer codes only from the MPN field, with separator and >=7 digits',()=>{
+ assert.equal(manufacturerCode('920-007821','Kit Teclado e Mouse Logitech MK345'),'920007821');
+ assert.equal(manufacturerCode('018-2222','Cabo HDMI PIX'),'0182222');
+ assert.equal(manufacturerCode('5815','Cabo de Energia MD9'),null);
+ assert.equal(manufacturerCode('1000056823','Controle Sony'),null);
+ assert.equal(manufacturerCode(null,'Cabo de Energia, 1.5 Metros - 3.200-16'),null);
+});

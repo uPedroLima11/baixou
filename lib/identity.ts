@@ -2,7 +2,7 @@ import {normalize,type Offer,type Alert} from './types';
 export type Variant=Record<string,string|number>;
 export function validGTIN(value:string){if(!/^(?:\d{8}|\d{12,14})$/.test(value)||/^(\d)\1+$/.test(value))return false;let sum=0;const digits=value.split('').map(Number);for(let i=digits.length-2,weight=3;i>=0;i--,weight=weight===3?1:3)sum+=digits[i]*weight;return (10-sum%10)%10===digits.at(-1);}
 // Submarcas e grafias de loja para o fabricante (marca da placa, não do chip gráfico).
-const BRAND_ALIASES:Record<string,string>={kingstontechnology:'kingston',kingstonfury:'kingston',fury:'kingston',advancedmicrodevices:'amd',ryzen:'amd',hewlettpackard:'hp',palitmicrosystem:'palit',palitmicrosystems:'palit',xpg:'adata',adataxpg:'adata',aorus:'gigabyte',gigabytetechnology:'gigabyte',rog:'asus',tuf:'asus',asustek:'asus',asusrog:'asus',westerndigital:'wd',logitechg:'logitech',tforce:'teamgroup',teamgroupinc:'teamgroup'};
+const BRAND_ALIASES:Record<string,string>={kingstontechnology:'kingston',kingstonfury:'kingston',fury:'kingston',advancedmicrodevices:'amd',ryzen:'amd',hewlettpackard:'hp',palitmicrosystem:'palit',palitmicrosystems:'palit',xpg:'adata',adataxpg:'adata',aorus:'gigabyte',gigabytetechnology:'gigabyte',rog:'asus',tuf:'asus',asustek:'asus',asusrog:'asus',westerndigital:'wd',logitechg:'logitech',tforce:'teamgroup',teamgroupinc:'teamgroup',rise:'risemode'};
 export function canonicalBrand(value:string){const b=normalize(value).replace(/\s+/g,'');return BRAND_ALIASES[b]??b;}
 // Código do fabricante a partir de dados da própria loja, sem inferência por semelhança:
 // 1) código entre parênteses no campo MPN; 2) MPN de um só termo; 3) código de peça impresso no fim do título
@@ -20,13 +20,16 @@ export function manufacturerConflict(mpn:string|null|undefined,title=''){
  const a=explicit?compactCode(explicit):null,b=tail&&/[-./]/.test(tail)?compactCode(tail):null;
  // Modelo e part number podem ser códigos diferentes legítimos (ex.: Acer AG15 e NX.*).
  // Só declara conflito dentro da mesma família explícita de códigos, sem inferir equivalência.
- return !!a&&!!b&&a!==b&&!!explicit&&!!tail&&/[-/]/.test(explicit)&&explicit.toUpperCase().split(/[-/]/)[0]===tail.toUpperCase().split(/[-/]/)[0];
+ // Um código prefixo do outro (título truncado ou sufixo de região/embalagem) não é conflito: vale o MPN informado.
+ return !!a&&!!b&&a!==b&&!a.startsWith(b)&&!b.startsWith(a)&&!!explicit&&!!tail&&/[-/]/.test(explicit)&&explicit.toUpperCase().split(/[-/]/)[0]===tail.toUpperCase().split(/[-/]/)[0];
 }
 export function manufacturerCode(mpn:string|null|undefined,title=''){
  if(manufacturerConflict(mpn,title))return null;
  const raw=(mpn??'').trim();
  const inner=raw.match(/\(([^()]{4,40})\)/)?.[1];if(inner&&compactCode(inner))return compactCode(inner);
  if(raw&&!/\s/.test(raw)&&compactCode(raw))return compactCode(raw);
+ // Código só numérico do fabricante, com separador e >=7 dígitos (ex.: Logitech 920-007821), só do campo MPN da loja.
+ if(raw&&/^\d{2,}(?:[-.]\d{2,})+$/.test(raw)&&raw.replace(/\D/g,'').length>=7)return raw.replace(/\D/g,'');
  const tail=titlePart(title);
  if(tail&&strongTail(tail)&&compactCode(tail))return compactCode(tail);
  return raw&&raw.split(/\s+/).length<=5?compactCode(raw):null;

@@ -1,0 +1,31 @@
+name: Recalcular identidades
+# Manual: recalcula product_id de todos os anúncios com as regras atuais de identidade (scripts/backfill-identities.ts).
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '1 = só contar, sem gravar'
+        required: false
+        default: '0'
+concurrency:
+  group: identity-backfill
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Recalcular
+        run: npx tsx scripts/backfill-identities.ts
