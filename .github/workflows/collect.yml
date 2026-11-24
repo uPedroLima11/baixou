@@ -43,7 +43,8 @@ jobs:
       - name: Descoberta autorizada
         run: npm run discover:social
       - name: Resolver links candidatos
-        run: npm run discover
+        # Mesma nova tentativa para 5xx transitório do gateway Supabase (Cloudflare 5xx em 45307793055, Guerra).
+        run: npm run discover || { echo "Nova tentativa em 45 s"; sleep 45; npm run discover; }
       - name: Confirmar preços e estoque nas lojas
         # Até duas novas tentativas (45 s e 90 s): episódios de 522 do gateway Supabase duraram >1 min em 23/11 (rodada 21:31 UTC).
         # Antes: uma nova tentativa para 5xx transitório do gateway Supabase (Cloudflare 522 em 45199413698 e na rodada de e17a6ff).
