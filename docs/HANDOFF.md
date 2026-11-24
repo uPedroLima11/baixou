@@ -1,3 +1,38 @@
+# CHECKPOINT — identidade, coerência do Score, recuperação independente, histórico e custo (Claude Code, 24/11/2026, ~14h30 UTC)
+
+## Identidade entre lojas (auditoria → correções)
+- Causa principal do baixo número de referências: sobreposição real pequena entre catálogos (cada loja vende SKUs diferentes). Produtos identificados com 1 vendedor: 1.668; 2: 52; 3+: 5 — a referência de mercado exige 2 OUTROS vendedores.
+- GTIN não ajuda no cruzamento: KaBuM/Guerra/Patoloco não expõem; WAZ/iByte só códigos internos; Shopinfo tem 406 sozinha.
+- Correções (testes em identity.test.ts): código do título prefixo do MPN da loja não é conflito (126 KaBuM sem identidade por título truncado, ex.: RZ04-03240100 × RZ04-03240100-R3U1); código só numérico do campo MPN com separador e ≥7 dígitos (Logitech 920-007821); alias Rise → Rise Mode; `knownCodeInTitle` em todas as lojas (coletor).
+- `identity-backfill.yml` (dry run + real, com novas tentativas contra 522): ~96 vínculos novos e 12 corrigidos (marcas antigas ryzen/xpg/kingstonfury), 0 desfeitos, 8.040 anúncios.
+- Antes → agora (ativos verificados): 1.496/2.642 (56,6%) → 2.017/3.366 (59,9%) identificados; modelos em 2 vendedores 52 → 65–68; em 3+ 5 → 6–8; anúncios com ≥2 lojas comparadas 18 → 17–24 (oscila com a coleta). Ganho modesto e preciso; o limite é o sortimento das lojas.
+
+## Baixou Score
+- Faixa de nota por classe (excepcional 88–100, boa 70–87, competitivo 58–69, normal 38–57, acima 0–37); rebaixamentos limitam a nota (não existe mais "100 · Boa"). Faixas contínuas, sem lacunas (teste varre preços).
+- Detalhe mostra barras: preço atual × preço habitual (dias, verificações) × mediana das lojas.
+- Contadores das modalidades aplicam o mesmo filtro "Só modelos em 2+ lojas" da lista.
+- Produção 14h: 1 excepcional (Ryzen 5 5500 KaBuM R$ 499,99, 23% abaixo de 4 lojas, confiança alta), 5 boas (nota máx. 87), 4 competitivos, 2 normais, 9 acima, demais sem dados. Referência própria válida (≥5/≥3 dias): ainda 0 — esperado ~26/11.
+
+## Recuperação da coleta independente do GitHub
+- `infra_heartbeat('actions-collect')` gravado por cada coleta do Actions; pg_cron `baixou-collect-recovery` (*/5) chama `/api/jobs/collect?recovery=1` se o batimento passar de 25 min (Vault já existente, sem nova credencial).
+- Teste real 13:40 UTC: batimento envelhecido → Supabase acionou a Vercel → 40 rechecagens, 0 falhas, HTTP 200. Batimento restaurado; Actions atualiza a cada rodada.
+- O schedule do `watchdog.yml` não disparou nenhuma vez em ~10 h (só execução manual): confirma a instabilidade do agendador do GitHub; a camada real é a do Supabase.
+
+## Histórico anunciado
+- Terabyte completo em 120 dias (desde 27/07; run 45406127504, teto de páginas elevado para 1.000): 11.728 linhas, 2.354 produtos. Pichau desde 27/07: 3.019 linhas, 1.516 produtos; reexecução da janela 57–120 dias recuperou as publicações que falharam (+9). announced_daily 3,5 MB.
+
+## Pichau / Amazon
+- Pichau: sem confirmação direta nova (loja no ML sem menção; pruuu.me/telegram etc. caem na home). Evidência continua indireta.
+- Amazon: nenhuma alternativa concreta nova além das já documentadas; nada repetido.
+
+## Desempenho e custo
+- Catálogo completo medido: 8 páginas, ~6,6 MB sem compressão / ~1 MB gzip, recarregado a cada 60 s por aba aberta; `images` = 23% do JSON. Agora: listagem sem galeria (detalhe busca), cache de borda 300 s (SWR 900), atualização do cliente a cada 5 min → ~5× menos requisições por aba e ~¼ menos bytes por carga. Filtros no servidor: não compensam ainda (~3,3 mil anúncios); reavaliar perto de 10 mil.
+- Histórico bruto: ~2.900 verificações/h (~69 mil/dia, ~260 B/linha) → 35 dias ≈ 630 MB (> 500 MB). Removido índice redundante `history_lookup` (planos conferidos: consultas usam o índice único), BRIN em observed_at (24 kB) para a limpeza, retenção do bruto 35 → 21 dias (resumo diário mantém 400 dias). Projeção ≈ 280 MB de bruto no volume atual; banco 70 MB agora.
+- Incidente: 07c3124 quebrou a compilação do coletor (comentário inline); corrigido em 4de8216 em ~1 min; nenhuma coleta rodou com ele; CI de 07c3124 vermelho.
+
+## Alertas
+- Nenhum anúncio elegível ainda (referência ≤ 1 dia). Homologação real a partir de ~26/11.
+
 # CHECKPOINT — Baixou Score, preço de referência e catálogo guiado por oportunidades (Claude Code, 24/11/2026, ~05h UTC)
 
 ## Auditoria do catálogo (produção, 24/11 ~04h UTC)
