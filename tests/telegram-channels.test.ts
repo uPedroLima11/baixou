@@ -1,8 +1,8 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import {parseChannelPage,postToListing,postPrice,postTitle,type ChannelConfig} from '../lib/connectors/telegram-channels';
 import {brandInTitle,manufacturerCode} from '../lib/identity';
-const tera:ChannelConfig={channel:'terabyteshopoficial',source:'terabyte',storeName:'Terabyte',productHost:'www.terabyteshop.com.br',productPath:/^\/produto\/(\d+)\/[\w-]+\/?$/};
-const pich:ChannelConfig={channel:'pichauofertas',source:'pichau',storeName:'Pichau',productHost:'www.pichau.com.br',productPath:/^\/([a-z0-9][a-z0-9-]{8,200})\/?$/,shortHosts:['pruuu.me']};
+const tera:ChannelConfig={channel:'terabyteshopoficial',source:'terabyte',storeName:'Terabyte',productHost:'www.terabyteshop.com.br',productPath:/^\/produto\/(\d+)\/[\w-]+\/?$/,channelLabel:'canal oficial da Terabyte no Telegram'};
+const pich:ChannelConfig={channel:'pichauofertas',source:'pichau',storeName:'Pichau',productHost:'www.pichau.com.br',productPath:/^\/([a-z0-9][a-z0-9-]{8,200})\/?$/,shortHosts:['pruuu.me'],minSlugParts:4,channelLabel:'canal da Pichau no Telegram'};
 
 test('parses real Terabyte channel posts into product listings (Pix price, canonical URL, post time)',()=>{
  const posts=parseChannelPage(readFileSync('tests/fixtures/telegram-terabyte.html','utf8'),'terabyteshopoficial');
@@ -49,4 +49,19 @@ test('brand from title only among catalog brands; first occurrence (board maker)
  assert.equal(brandInTitle('Placa de Vídeo Gainward NVIDIA GeForce RTX 5060',brands),'Gainward');
  assert.equal(brandInTitle('Memória Kingston Fury 16GB',brands),'Kingston');
  assert.equal(brandInTitle('Cadeira Gamer Acegeek Lorien',brands),null);
+});
+import {knownCodeInSlug} from '../lib/identity';
+test('post photo comes from the same post (Telegram CDN, https); Pichau category links rejected',()=>{
+ const posts=parseChannelPage(readFileSync('tests/fixtures/telegram-terabyte.html','utf8'),'terabyteshopoficial');
+ const withPhoto=posts.filter(p=>p.photo);assert.ok(withPhoto.length>=5);
+ for(const p of withPhoto)assert.match(p.photo!,/^https:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_-]+\.jpg$/);
+ const d=postToListing(withPhoto.find(p=>/terabyteshop\.com\.br\/produto/.test(p.links.join(' ')))!,tera);assert.ok(d.ok&&d.listing.images.length===1);
+ const cat={id:9,date:'2026-11-24T00:00:00Z',links:['https://pruuu.me/x'],text:'Placas de vídeo em oferta\n🛒 Oferta a partir de R$999,99'};
+ assert.deepEqual(postToListing(cat,pich,'https://www.pichau.com.br/placas-de-video'),{ok:false,reason:'link não parece página de produto'});
+});
+test('manufacturer code from the store URL slug only when identical to a known code of the same brand',()=>{
+ const known=new Map([['amd',new Set(['100100000591WOF','100100000926WOF'])],['acegeek',new Set(['AGLORIENBK'])]]);
+ assert.equal(knownCodeInSlug('https://www.pichau.com.br/processador-amd-ryzen-7-7700x-8-core-am5-100-100000591wof','AMD',known),'100100000591WOF');
+ assert.equal(knownCodeInSlug('https://www.pichau.com.br/processador-amd-ryzen-7-7700x-8-core-am5-100-100000591wof','Intel',known),null);
+ assert.equal(knownCodeInSlug('https://www.pichau.com.br/processador-amd-ryzen-7-7700x-8-core-am5','AMD',known),null);
 });

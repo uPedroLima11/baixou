@@ -6,7 +6,8 @@ import {availablePeriods,closeDaysAgo,dailyLowest,dailySeries,dayStart,describeT
 // Ponto do gráfico: valor observado, rótulo de loja opcional, linhas extras para o tooltip e dia parcial (hoje).
 export type ChartPoint=RawPoint&{label?:string;detail?:string[];partial?:boolean;hi?:number;seg?:number};
 export type Series={id:string;label:string;color:number;points:ChartPoint[];maxGap:number};
-type Data={raw:RawPoint[];daily:DailyPoint[]};
+type Announced={day:string;min:number;postedAt:string;post:string;last:number;posts:number};
+type Data={raw:RawPoint[];daily:DailyPoint[];announced:Announced[]};
 const RAW_GAP=6*3600000,DAILY_GAP=1.6*DAY;
 const short=(v:number)=>'R$ '+Math.round(v).toLocaleString('pt-BR');
 const pctText=(x:number)=>(x>0?'+':x<0?'−':'')+(Math.floor(Math.abs(x)*1000)/10).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
@@ -21,7 +22,7 @@ export default function PriceHistory({offer:o,comparison}:{offer:Offer;compariso
  const [days,setDays]=useState(7),[view,setView]=useState<'offer'|'stores'|'lowest'>('offer'),[intraday,setIntraday]=useState(false),[data,setData]=useState<Record<string,Data>|null>(null),[failed,setFailed]=useState(false);
  const ids=peers.map(p=>p.id).join(',');
  // Uma única consulta: resumo diário (até 400 dias) + verificações brutas das últimas 48 h para a visão de detalhe.
- useEffect(()=>{let live=true;setFailed(false);fetch('/api/history?ids='+encodeURIComponent(ids)+'&days=2').then(r=>{if(!r.ok)throw Error();return r.json();}).then((j:{series:{id:string;raw:[number,number][];daily:[string,number,number,number,number][]}[]})=>{if(!live)return;const out:Record<string,Data>={};for(const s of j.series)out[s.id]={raw:s.raw.map(([t,p])=>({t,p})),daily:s.daily.map(([day,min,max,close,samples])=>({day,min,max,close,samples}))};setData(out);}).catch(()=>{if(live)setFailed(true);});return ()=>{live=false;};},[ids]);
+ useEffect(()=>{let live=true;setFailed(false);fetch('/api/history?ids='+encodeURIComponent(ids)+'&days=2').then(r=>{if(!r.ok)throw Error();return r.json();}).then((j:{series:{id:string;raw:[number,number][];daily:[string,number,number,number,number][];announced?:[string,number,string,string,number,number][]}[]})=>{if(!live)return;const out:Record<string,Data>={};for(const s of j.series)out[s.id]={raw:s.raw.map(([t,p])=>({t,p})),daily:s.daily.map(([day,min,max,close,samples])=>({day,min,max,close,samples})),announced:(s.announced??[]).map(([day,min,postedAt,post,last,posts])=>({day,min,postedAt,post,last,posts}))};setData(out);}).catch(()=>{if(live)setFailed(true);});return ()=>{live=false;};},[ids]);
  const now=Date.now(),mine=data?.[o.id];
  const valid=(x:Offer)=>x.available&&Date.parse(x.expires_at)>now;
  const current=(x:Offer)=>valid(x)?Number(x.price):null;
@@ -43,6 +44,8 @@ export default function PriceHistory({offer:o,comparison}:{offer:Offer;compariso
  const totalObs=mine?mine.daily.reduce((s,d)=>s+(d.samples??1),0):0;
  const multi=peers.length>=2,primary=series[0]?.points??[];
  const empty=!series.some(s=>s.points.length>0);
+ // Oferta anunciada pela loja (Telegram): só existe a série de preços ANUNCIADOS, mostrada à parte.
+ if(o.verification_status==='announced')return failed?<p className="muted">Não foi possível carregar o histórico agora.</p>:!data?<div className="chart-skeleton" aria-busy="true"/>:<AnnouncedHistory rows={mine?.announced??[]}/>;
  return <div className="history-panel">
   <div className="history-toolbar">
    {!intraday&&<div className="segmented" role="group" aria-label="Período">{periods.map(p=><button key={p.days} type="button" disabled={!p.enabled} aria-pressed={days===p.days} className={days===p.days?'active':''} title={p.enabled?undefined:'Em construção: o histórico ainda não cobre este período'} onClick={()=>setDays(p.days)}>{p.label}</button>)}</div>}
@@ -100,5 +103,17 @@ export function Chart({series,showExtremes,daily,axis=short,value=money}:{series
    {hover!=null&&focus&&<><line x1={x(focus.t)} x2={x(focus.t)} y1={pad.t} y2={H-pad.b} className="crosshair"/>{near.map(({s,p})=><circle key={s.id} cx={x(p.t)} cy={y(p.p)} r={5} className="mark" style={{fill:color(s)}}/>)}</>}
   </svg>
   {hover!=null&&focus&&<div className="chart-tip" style={{left:Math.min(width-200,Math.max(0,x(focus.t)-100))}}><strong>{daily?dateBR(focus.t,true):timeBR(focus.t)}{focus.partial&&<em> · parcial</em>}</strong>{near.map(({s,p})=><div key={s.id} className="tip-row"><span><i style={{background:color(s)}}/>{p.label??s.label}<b>{value(p.p)}</b></span>{p.detail?.map(d=><small key={d}>{d}</small>)}</div>)}{daily&&series.length===1&&<small className="tip-note">Ponto = menor preço observado no dia{primary.some(p=>p.hi!=null&&p.hi>p.p)?'; traço vertical = variação do dia':''}</small>}</div>}
+ </div>;
+}
+
+// "Histórico de preços anunciados": um ponto por dia = menor preço que a própria loja publicou no dia (Telegram).
+// Separado das verificações; não entra em estatísticas, referência de mercado nem alertas.
+function AnnouncedHistory({rows}:{rows:Announced[]}){
+ const today=spDay(Date.now()),recent=rows.filter(r=>r.day>=spDay(Date.now()-89*DAY));
+ const points:ChartPoint[]=recent.map(r=>({t:dayStart(r.day)+12*3600000,p:r.min,partial:r.day===today,detail:['Publicado às '+new Date(r.postedAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'})+' (t.me/'+r.post+')',...(r.last!==r.min?['Último anunciado no dia: '+money(r.last)]:[]),r.posts+(r.posts===1?' publicação':' publicações')+(r.day===today?' · dia em andamento':'')]}));
+ return <div className="history-panel">
+  <h3 className="announced-title">Histórico de preços anunciados</h3>
+  {points.length?<Chart series={[{id:'announced',label:'Preço anunciado pela loja',color:0,points,maxGap:DAILY_GAP}]} showExtremes daily/>:<p className="muted">Ainda não há anúncios registrados para este produto.</p>}
+  <p className="muted history-note">Cada ponto é o menor preço que a própria loja publicou no dia no Telegram (horário de Brasília), com o horário e o link da publicação. Esses preços não foram conferidos na página do produto e ficam separados do histórico de preços verificados: não entram em estatísticas, comparações de mercado nem alertas. Publicações repetidas contam uma vez.</p>
  </div>;
 }

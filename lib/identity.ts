@@ -50,6 +50,15 @@ export function knownCodeInTitle(title:string,brand:string|null|undefined,known:
  for(const m of title.matchAll(/[A-Za-z0-9][A-Za-z0-9./-]{4,38}[A-Za-z0-9]/g)){const raw=m[0],code=compactCode(raw);if(code&&code.length>=6&&(code.match(/\d/g)?.length??0)>=3&&codes.has(code))found.set(code,raw);}
  return found.size===1?[...found.values()][0]:null;
 }
+// Código do fabricante no fim do slug da URL da loja ("…-am5-100-100000591wof"): testa os últimos 1–4 segmentos e
+// só aceita se for IDÊNTICO a um código já registrado para a mesma marca; mais de um candidato = ambíguo (null).
+export function knownCodeInSlug(url:string,brand:string|null|undefined,known:Map<string,Set<string>>){
+ const codes=known.get(canonicalBrand(brand??''));if(!codes?.size)return null;
+ let parts:string[];try{parts=decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).at(-1)??'').split('-').filter(Boolean);}catch{return null;}
+ const found=new Set<string>();
+ for(let n=1;n<=4&&n<=parts.length;n++){const raw=parts.slice(-n).join('-'),code=compactCode(raw);if(code&&code.length>=6&&(code.match(/\d/g)?.length??0)>=3&&codes.has(code))found.add(code);}
+ return found.size===1?[...found][0]:null;
+}
 // Fabricante citado no título, apenas entre marcas já registradas no catálogo (forma canônica). Primeira ocorrência
 // vence (o fabricante da placa costuma vir antes do chip). Sem correspondência = null; nunca adivinha.
 export function brandInTitle(title:string,brands:Set<string>){

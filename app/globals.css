@@ -127,3 +127,4 @@
 .row-key{display:inline-flex;align-items:center;gap:7px}
 .stats-table td.reading{white-space:normal;min-width:200px;font-size:13px}
 .stats-table td.reading span{display:block}.stats-table td.reading .good{color:var(--down)}.stats-table td.reading .bad{color:var(--up)}
+.announced-title{font-size:15px;margin:0}
