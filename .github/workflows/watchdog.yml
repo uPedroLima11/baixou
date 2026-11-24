@@ -1,0 +1,33 @@
+name: Vigia da coleta
+# Segunda linha de defesa (além do revezamento do collect.yml): se nenhuma coleta estiver em andamento/na fila e a
+# última tiver começado há mais de 25 min, dispara uma. Não duplica: a coleta tem grupo de concorrência e leases.
+# Em 24/11/2026 um evento isolado do agendamento encerrou o revezamento e o Baixou! ficou ~1 h sem coleta hospedada.
+on:
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+  workflow_dispatch:
+permissions:
+  actions: write
+  contents: read
+concurrency:
+  group: collect-watchdog
+  cancel-in-progress: true
+jobs:
+  watch:
+    if: vars.COLLECT_RELAY != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Conferir última coleta
+        run: |
+          active=$(gh run list --workflow collect.yml --limit 10 --json status --jq '[.[]|select(.status=="in_progress" or .status=="queued" or .status=="pending" or .status=="waiting")]|length')
+          last=$(gh run list --workflow collect.yml --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+          age=$(( $(date +%s) - $(date -d "${last:-1970-01-01T00:00:00Z}" +%s) ))
+          echo "Coletas ativas: $active; última iniciada há $((age/60)) min."
+          if [ "$active" -eq 0 ] && [ "$age" -gt 1500 ]; then
+            gh workflow run collect.yml --ref main
+            echo "Coleta parada: nova execução disparada às $(date -u +%H:%M:%S) UTC."
+          fi
