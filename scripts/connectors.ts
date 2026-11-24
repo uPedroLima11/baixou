@@ -36,7 +36,7 @@ for(const c of connectors){
     const evidence=await persistVerifiedProduct(db,product,listing.announcement?{at:listing.announcement.postedAt,ttlMinutes:ANNOUNCED_TTL_MINUTES}:undefined);accepted++;if(evidence.evidence!=='none')discounts++;}
    catch(e){errors++;console.error(c.id,'gravação:',e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,200):'erro');}
   }
-  if(store){const status=await db.from('source_status').upsert({store,status:accepted?'ok':'degraded',checked_at:new Date().toISOString(),products:accepted,message:accepted?c.name+': anúncios confirmados nas vitrines públicas':'Nenhum anúncio aprovado nesta execução; ofertas anteriores vencem pelo TTL'});if(status.error)throw status.error;}
+  if(store){const status=await db.from('source_status').upsert({store,status:accepted?'ok':'degraded',checked_at:new Date().toISOString(),products:accepted,message:accepted?(c.id.endsWith('-telegram')?c.name+': '+accepted+' preços anunciados pela loja nas últimas 6 h (página do produto não conferida)':c.name+': anúncios confirmados nas vitrines públicas'):'Nenhum anúncio aprovado nesta execução; ofertas anteriores vencem pelo TTL'});if(status.error)throw status.error;}
  }catch(e){failedConnectors++;errors++;console.error(c.id,e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,200):'erro');}
  finally{if(runId)await db.from('collection_runs').update({finished_at:new Date().toISOString(),verified:accepted,failed:errors,discovered:0,message:rejected?('Rejeitados pela política: '+JSON.stringify(reasons)).slice(0,300):null}).eq('id',runId);await db.rpc('release_collector_lease',{lease_name:lease});}
  console.log(JSON.stringify({connector:c.id,store,accepted,announced_or_proven_discounts:discounts,rejected,reasons,errors}));
