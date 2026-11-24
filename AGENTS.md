@@ -127,3 +127,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Toda loja nova com Pix conferido no DOM precisa entrar na lista de `refresh_market_reference()` (ou gravar payment_basis='cash'); senão fica fora da referência de mercado.
 - Comparação entre lojas é neutra (comparisonIndex): ≥2 vendedores independentes do mesmo modelo, sem selo de promoção; texto sempre informa cobertura parcial.
 - ML: código no meio do título só quando idêntico a código já registrado da mesma marca (knownCodeInTitle).
+
+## Histórico, gráficos e estatísticas (Claude Code, 24/11/2026)
+
+- Pichau/Terabyte/Amazon investigadas a fundo sem cadastro (MAJOR_STORES.md, topo): nenhuma integrável sem autorização. Não usar o host de origem `media.pichau.com.br` para páginas bloqueadas no site, nem agregadores (Buscapé/Zoom vedam robôs e redistribuição). Não substituir por outras lojas sem pedido do proprietário.
+- `price_daily` (centavos, dia de São Paulo) é mantido por gatilho a partir de `price_history`; não gravar nele diretamente. Retenção 400 dias; bruto 35 dias. Medir tamanho antes de mudar retenções.
+- Gráficos: nunca interpolar lacunas; períodos só com cobertura real; preço riscado nunca entra. Visão por loja/menor entre lojas usa o mesmo modelo exato (comparisonIndex).
+- Estatísticas: grupos equivalentes estritos (lib/stats.ts); variação só em painel consistente; sem probabilidade de queda até haver histórico longo e validação retrospectiva documentada.

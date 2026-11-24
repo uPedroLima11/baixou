@@ -1,3 +1,26 @@
+# Pichau, Terabyte e Amazon — investigação sem cadastro (Claude Code, 24/11/2026 ~00h UTC)
+
+Diretriz: nenhuma conta, campanha, credencial ou e-mail comercial; nenhum contorno de Cloudflare/CAPTCHA, proxy ou cookie de terceiros; não substituir por outras lojas. Sondagens com o UA identificado do coletor (`BaixouBot/1.0`), uma requisição por URL, local e no runner (probe.yml, execução 45294199182).
+
+| Método | Pichau | Terabyte | Amazon |
+| --- | --- | --- | --- |
+| robots.txt | 200: `Allow: /`, bloqueia `/api/`, `/checkout`, toda URL com `?` | 403 Cloudflare ("Just a moment") local e no runner | 200: permite `/*/dp/`, `/s?`, `/gp/product/` para `*` |
+| llms.txt | 200, institucional (categorias, pagamentos: Pix com desconto, 12x). Sem feed | Existe (lido por ferramenta de terceiros, não pelo nosso UA): aponta sitemap e páginas de produto para preço/estoque; para nós é 403 Cloudflare | 404 |
+| Sitemap | **200**, `/media/sitemap.xml` (4,2 MB, 19.064 URLs com lastmod; slugs trazem MPN). Sem preço/estoque | 403 Cloudflare | não testado (robots permite `/sitemaps`, mas não há preço) |
+| Categoria/produto (HTML) | 403: local = desafio Cloudflare; runner = página "Site em Manutenção - Pru Pru" (121 KB) | 403 Cloudflare em todas as rotas | Não coletado: Condições de Uso proíbem robôs/mineração de dados (independe do robots) |
+| JSON/GraphQL | `/api/pichau` (GraphQL usado pelo site e pelo TelePromo) bloqueado pelo robots | — | — |
+| Origem Magento `media.pichau.com.br` | robots próprio (bloqueia `/api/`, `/graphql/`). **Não consultada**: usar o host de mídia/origem para obter páginas que o site principal bloqueia seria contornar o bloqueio | — | — |
+| Feeds públicos | Nenhum publicado. Feed Merchant só sob autorização (conector pronto, desligado) | idem | RSS de mais vendidos foi descontinuado (404) |
+| OSS/comunitário | hardware-price-scraper-api (2021, Heroku, mesmo HTML bloqueado), Selenium/monitor (navegador automatizado = desafio anti-bot) | webscraper 2018 (mesmo HTML 403); artigo TabNews usa busca do site (bloqueada) | AmzPy (impersonação/proxies), Pangolin (parser), Apify (pago) |
+| Agregadores | Buscapé/Zoom: categoria 200, mas Termos de Uso cl. (v) proíbem "mineração de dados", "robôs" e (vi) reprodução/distribuição do conteúdo. Pelando/Promobit: ofertas postadas por usuários, sem como confirmar preço na loja (página bloqueada) | idem | idem; Buscapé lista Amazon, mas mesmo veto |
+| Marketplace | Loja oficial no Mercado Livre (já coletada, `partial`; **não** é integração direta) | Sem loja oficial no ML | — |
+
+Conclusão (classificação pedida pelo proprietário):
+- **Pichau: parcialmente acessível.** Catálogo de URLs/MPN público via sitemap, mas nenhum preço, estoque ou condição de pagamento acessível sem passar por bloqueio. Dados diretos dependem de autorização (feed ou liberação do UA). O sitemap pode servir no futuro para casar identidade, nunca como oferta.
+- **Terabyte: tecnicamente bloqueada após investigação.** Cloudflare responde 403 até ao robots.txt e ao próprio llms.txt que convida agentes. Depende de liberação/feed.
+- **Amazon: dependente de autorização.** Robots permite páginas de produto, mas as Condições de Uso vedam robôs, e a política de Associados (cl. 6(y)) veda rastreamento/alerta de preço sem aprovação escrita; Creators API exige conta aceita e 10 vendas/30 dias.
+- Nenhuma das três foi integrada. Nenhum dado de terceiros foi publicado como oferta verificada.
+
 # Alternativas comunitárias — avaliação concreta (Codex, 23/11/2026)
 
 Pesquisa adicional autorizada: API não oficial e código aberto são elegíveis quando gratuitos e permitidos. Repositório público não concede licença sobre dados da loja. Nenhuma nova tentativa aos produtos bloqueados, nenhum código de terceiros executado.

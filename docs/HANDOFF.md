@@ -1,3 +1,47 @@
+# CHECKPOINT — Pichau/Terabyte/Amazon, histórico de longo prazo, gráficos e estatísticas (Claude Code, 24/11/2026, ~00h30 UTC)
+
+Diretriz do proprietário: prioridade absoluta Pichau, Terabyte e Amazon sem cadastro nem contorno; não substituir por outras lojas; depois transformar o histórico em gráficos, estatísticas de RAM/GPU e indicadores de tendência sem previsões inventadas.
+
+## Etapas 1–2: Pichau, Terabyte, Amazon (detalhes em MAJOR_STORES.md, seção do topo)
+
+- Pichau: robots permite; **sitemap público 200** (19.064 URLs com MPN no slug, sem preço); llms.txt institucional; produto/categoria 403 (Cloudflare local; "Site em Manutenção" no runner). GraphQL `/api/` bloqueado pelo robots. Host de origem `media.pichau.com.br` NÃO usado (seria contorno). → parcialmente acessível; preço/estoque dependem de autorização.
+- Terabyte: 403 Cloudflare em tudo, inclusive robots.txt e o llms.txt que a própria loja publica para agentes. → tecnicamente bloqueada; depende de liberação/feed.
+- Amazon: robots permite `/dp/`, mas Condições de Uso vedam robôs; Associados cl. 6(y) veda alerta/rastreamento sem aprovação; Creators API exige conta + 10 vendas. → dependente de autorização.
+- Agregadores: Buscapé/Zoom acessíveis, mas Termos de Uso (v)/(vi) proíbem robôs e redistribuição. Pelando/Promobit: ofertas de usuários, impossível confirmar na loja bloqueada. OSS revisados repetem o HTML bloqueado ou usam impersonação.
+- **Nenhuma das três integrada.** Nenhum dado de terceiro publicado como oferta verificada.
+
+## Etapa 3: auditoria do histórico
+
+- `price_history`: 1 observação por anúncio/hora (bucket; a primeira da hora vence), só de anúncio disponível, retenção 35 dias. Começou 23/11 03:33 UTC. Em ~21 h: 13.140 linhas, 2.302 anúncios, 101 com mudança de preço, 3,7 MB (≈13 mil linhas/dia; estado estável ≈130 MB com 35 dias).
+- Novo `price_daily` (migration 20261124001000, ensaiada com rollback e aplicada): mín/máx/fechamento em centavos + amostras por anúncio e dia de São Paulo, mantido por gatilho `price_history_daily`; backfill 2.316 linhas = 368 kB (~160 B/linha) → ~135 MB/ano no volume atual. Retenção 400 dias (limpeza no coletor). Projeção 1 ano: ~265 MB de 500 MB do plano gratuito; reavaliar se o número de anúncios crescer muito (opção: reduzir bruto para 14 dias, pois a mediana usa 30 dias).
+- RPCs públicas (security invoker, RLS de leitura): `price_changes(ids, dias)` (painel consistente: base até 3 dias antes da âncora) e `price_index(ids, dias)` (mediana diária das razões dia/dia anterior do mesmo anúncio).
+
+## Etapa 4: gráfico de histórico do produto (components/PriceHistory.tsx, lib/history.ts)
+
+- SVG próprio, sem dependência. Períodos 7/30/90 dias/6 meses/1 ano liberados só quando o histórico cobre o período anterior. Até 30 dias: observações horárias reais + preço atual verificado; acima: fechamento diário.
+- Lacuna > 6 h (bruto) ou > 1,6 dia (diário) interrompe a linha; ponto isolado vira marcador. Marcadores de mín/máx reais e preço atual. Tooltip com data, hora, preço e loja. Visões: "Este anúncio", "Por loja" e "Menor entre lojas" (mesmo modelo exato via comparisonIndex). Tabela de dados. Cores validadas (dataviz) em claro e escuro.
+- Quadro: atual, há 2/7/30 dias (fechamento do dia ou do anterior; senão "sem dados"), menor, maior, mediana e variação do período.
+- Tendência descritiva (≥3 dias e ≥5 observações): menor preço observado, posição vs mediana, queda/alta em 7 dias, estabilidade. Sem probabilidade.
+- Verificado localmente com dados reais (kabum-1029658: R$ 1.299,99 → 1.194,99, lacuna noturna interrompida), desktop/celular, claro/escuro.
+
+## Etapas 5–6: estatísticas /estatisticas (lib/stats.ts, app/api/stats)
+
+- RAM: grupos por geração + uso (notebook só com SODIMM/S-DIMM/notebook; ECC/servidor à parte; resto desktop) + capacidade + módulo × kit com divisão (2×16 ≠ 4×8 ≠ módulo). Kit sem divisão e atributo desconhecido ficam fora. Menor/mediana, R$/GB, lojas.
+- GPU: modelo exato + VRAM (5070 ≠ 5070 Ti; 5060 Ti 8 GB ≠ 16 GB), fabricantes de placa, menor/mediana/maior, filtro por VRAM.
+- Retrato só com ofertas vivas e preço à vista/Pix comparável. Variações em painel consistente (mesmo anúncio no início e no fim; ±2% = queda/alta). Índice encadeado base 100 por segmento; dias com <5 pares ficam em branco. Maiores quedas/altas do período e quedas comprovadas (evidence=history).
+- Situação real: histórico de 1 dia de São Paulo → variações "em formação" (primeira comparação a partir de 24/11); tendências de produto a partir de 25/11; 7/30/90 dias conforme o tempo. Previsão probabilística NÃO implementada (sem amostra para validar retrospectivamente).
+- Spot-check: S-DIMM e "ECC Server" estavam em grupos desktop → corrigido (identity.ts e stats.ts) com testes.
+
+## Consumo
+
+- Banco 30 MB. /api/stats com cache de borda 15 min; /api/history 2 min. Gráfico só carrega ao abrir a aba de histórico (catálogo inalterado).
+
+## Pendências
+
+- Validar quedas por histórico (alertas/favoritos) com ≥3 dias (25/11).
+- Pichau/Terabyte/Amazon: só com autorização (ACCESS_GUIDE.md), quando o proprietário decidir.
+- Gráfico de menor preço diário por grupo nas estatísticas; avaliar previsão só com meses de histórico e backtest.
+
 # CHECKPOINT — lojas sem cadastro, comparação entre lojas (Claude Code, 23/11/2026, ~23h40 UTC)
 
 Diretriz do proprietário: nenhuma conta/campanha/API privada nesta etapa; só fontes públicas gratuitas; cada loja precisa provar preço, estoque, vendedor, URL e coleta hospedada; cuidado com preço parcelado/cartão virando "preço anterior".
