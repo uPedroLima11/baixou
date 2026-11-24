@@ -1,3 +1,9 @@
+# CHECKPOINT — evolução histórica de RAM/GPU e gráfico diário (Claude Code, 24/11/2026, início ~00h35 UTC) — EM ANDAMENTO
+
+Pedido: gráficos de evolução por grupos equivalentes (RAM por geração/uso/capacidade/kit; GPU por modelo exato + VRAM), sem viés de composição; histórico do produto com UM ponto por dia (menor preço observado no dia, dia atual parcial; verificações intradiárias só como visão secundária); validar alertas de queda histórica quando houver dados (≥3 dias, ≥5 observações); medir custo do histórico. Sem novas lojas; Pichau/Terabyte/Amazon só se surgir caminho novo, gratuito e sem cadastro.
+
+Estado inicial verificado: main limpo em bf59277, CI verde; banco 31 MB; price_history 14.561 linhas (4,3 MB); price_daily 2.380 linhas (416 kB), 1 dia de São Paulo.
+
 # CHECKPOINT — Pichau/Terabyte/Amazon, histórico de longo prazo, gráficos e estatísticas (Claude Code, 24/11/2026, ~00h30 UTC)
 
 Diretriz do proprietário: prioridade absoluta Pichau, Terabyte e Amazon sem cadastro nem contorno; não substituir por outras lojas; depois transformar o histórico em gráficos, estatísticas de RAM/GPU e indicadores de tendência sem previsões inventadas.
