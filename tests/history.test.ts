@@ -51,3 +51,13 @@ test('lowest across stores keeps the store of each daily minimum',()=>{
  const low=dailyLowest([{label:'KaBuM!',daily:[d(1,100),d(0,95)]},{label:'WAZ',daily:[d(1,98,97,99),d(0,96)]}]);
  assert.deepEqual(low.map(x=>[x.price,x.label]),[[97,'WAZ'],[95,'KaBuM!']]);
 });
+import {dailySeries} from '../lib/history';
+test('daily series: one point per observed day (the day low), today partial with the verified current price',()=>{
+ const daily=[d(3,110,105,120,4),d(1,100,98,101,5),d(0,97,96,97,2)];
+ const s=dailySeries(daily,7,95,now);
+ assert.deepEqual(s.map(x=>[x.day,x.p,x.partial]),[[day(3),105,false],[day(1),98,false],[day(0),95,true]]);// dia 2 sem coleta: sem ponto
+ assert.equal(s[2].close,95);assert.equal(s[0].max,120);
+ assert.equal(new Set(s.map(x=>x.day)).size,s.length);
+ assert.deepEqual(dailySeries(daily,2,null,now).map(x=>x.day),[day(1),day(0)]);// janela de 2 dias
+ assert.deepEqual(dailySeries([],7,90,now).map(x=>[x.p,x.partial,x.samples]),[[90,true,1]]);// só o preço verificado de hoje
+});
