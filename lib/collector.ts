@@ -98,7 +98,7 @@ export async function runCollector(options:Options={}){
    await db.from('source_status').upsert({store:source.id,status:infra?'degraded':'blocked',checked_at:new Date().toISOString(),products:count,message:infra?'Falha temporária de infraestrutura; nova tentativa na próxima rodada':message.slice(0,180)}).then(()=>{},()=>{});}}
   finally{if(db){if(runId)await db.from('collection_runs').update({finished_at:new Date().toISOString(),discovered:newURLs,verified:count,failed:errors+categoryErrors,message:categoryErrors?'Falha de categoria; produtos e última confirmação foram preservados':null}).eq('id',runId);if(claimed)await db.rpc('release_collector_lease',{lease_name:lease});}}
  }
- if(db&&enabled.includes('kabum')&&total){await db.from('price_history').delete().lt('observed_at',new Date(Date.now()-35*86400000).toISOString());await db.from('collection_runs').delete().lt('started_at',new Date(Date.now()-7*86400000).toISOString());}
+ if(db&&enabled.includes('kabum')&&total){await db.from('price_history').delete().lt('observed_at',new Date(Date.now()-35*86400000).toISOString());await db.from('price_daily').delete().lt('day',new Date(Date.now()-400*86400000).toISOString().slice(0,10));await db.from('collection_runs').delete().lt('started_at',new Date(Date.now()-7*86400000).toISOString());}
  return {total,failures,discovered,stock_only_checks:stockOnly,excluded,stores:enabled,skipped:ran===0};
 }
 
