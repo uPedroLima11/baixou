@@ -1,0 +1,33 @@
+name: Importar publicações antigas (Telegram)
+# Manual e pontual: lê publicações antigas dos canais da Terabyte e da Pichau (prévia pública t.me/s, 1,5 s entre
+# páginas) e grava SÓ o "Histórico de preços anunciados" (announced_daily). Não muda ofertas existentes.
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Dias para trás (1-120)'
+        required: true
+        default: '30'
+concurrency:
+  group: telegram-backfill
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BACKFILL_DAYS: ${{ inputs.days }}
+      BACKFILL_MINUTES: '35'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Importar
+        run: npx tsx scripts/telegram-backfill.ts

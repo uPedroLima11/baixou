@@ -33,7 +33,8 @@ const AMOUNT=/R\$\s*([\d.]+,\d{2})/g;
 // Preço à vista do post: linha com 💰/"a partir de"/"oferta"; exige um único valor (ou "De X por Y"). Parcelado é separado.
 export function postPrice(text:string):{price:number;original:number|null;installmentTotal:number|null}|null{
  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
- const priceLine=lines.find(l=>/💰|a partir de|^oferta|por:?\s*R\$/i.test(l)&&/R\$/.test(l)&&!/parcelad|\d+\s*x\s/i.test(l));if(!priceLine)return null;
+ const priceLine=lines.find(l=>/💰|a partir de|^oferta|pre[çc]o\s+[àa]\s+vista|por:?\s*R\$/i.test(l)&&/R\$/.test(l)&&!/parcelad|\d+\s*x\s/i.test(l));if(!priceLine)return null;
+ if(/cupom/i.test(priceLine))return null;// preço que depende de cupom não é o preço do anúncio
  const values=[...priceLine.matchAll(AMOUNT)].map(m=>money(m[1]));let price:number,original:number|null=null;
  if(values.length===1)price=values[0];
  else if(values.length===2&&/\bde\b[^R]*R\$[^R]*\bpor\b/i.test(priceLine)){original=values[0];price=values[1];if(!(original>price))original=null;}
@@ -49,11 +50,16 @@ export function postTitle(text:string,url:string){
  for(const raw of text.split('\n')){const line=raw.replace(/^[^\p{L}\p{N}]+/u,'').split(/\s[—–]\s/)[0].trim();if(line.length<10||/R\$|https?:/.test(line))continue;const words=norm(line).split(/[^a-z0-9]+/).filter(Boolean),hit=slug.filter(w=>words.includes(w)).length/Math.max(1,slug.length);if(hit>score){score=hit;best=line;}}
  return score>=0.5?best.slice(0,300):null;
 }
-const EXCLUDED=/\b(open\s*box|usad[oa]|recondicionad[oa]|seminov[oa]|vitrine|mostru[aá]rio|pr[eé]-?venda)\b/i;
+// Condição: open box/recondicionado/seminovo/pré-venda em qualquer parte do post; "usado", "vitrine" e "mostruário"
+// só no título do produto (as chamadas de marketing usam "visual de vitrine").
+const EXCLUDED=/\b(open\s*box|recondicionad[oa]|seminov[oa]|pr[eé]-?venda)\b/i,EXCLUDED_TITLE=/\b(usad[oa]|vitrine|mostru[aá]rio)\b/i;
+// Cupom que condiciona o preço ("com o cupom", "usando cupom") recusa o post; cupom em linha à parte vira dica não validada.
+const COUPON_CONDITION=/\b(com|usando|aplicando|utilizando)\s+(o\s+)?cupom\b/i;
 export type PostDecision={ok:true;listing:MarketplaceListing}|{ok:false;reason:string};
 export function postToListing(p:ChannelPost,cfg:ChannelConfig,resolvedUrl?:string):PostDecision{
- if(/cupom/i.test(p.text))return {ok:false,reason:'preço condicionado a cupom'};
+ if(COUPON_CONDITION.test(p.text))return {ok:false,reason:'preço condicionado a cupom'};
  if(EXCLUDED.test(p.text))return {ok:false,reason:'condição diferente de novo'};
+ const couponHint=p.text.split('\n').map(l=>l.trim()).find(l=>/cupom/i.test(l)&&!/R\$/.test(l))?.replace(/^[^\p{L}\p{N}]+/u,'').slice(0,120)??null;
  const raw=resolvedUrl??p.links.find(l=>{try{return new URL(l).hostname===cfg.productHost;}catch{return false;}});
  if(!raw)return {ok:false,reason:'sem link de produto da loja'};
  let url:URL;try{url=new URL(raw);}catch{return {ok:false,reason:'URL inválida'};}
@@ -62,9 +68,10 @@ export function postToListing(p:ChannelPost,cfg:ChannelConfig,resolvedUrl?:strin
  if(cfg.minSlugParts&&(url.pathname.split('/').filter(Boolean).at(-1)??'').split('-').length<cfg.minSlugParts)return {ok:false,reason:'link não parece página de produto'};
  const price=postPrice(p.text);if(!price)return {ok:false,reason:'preço ausente ou ambíguo'};
  const title=postTitle(p.text,canonical);if(!title)return {ok:false,reason:'título não confere com o link'};
+ if(EXCLUDED_TITLE.test(title))return {ok:false,reason:'condição diferente de novo'};
  const externalId=cfg.productPath.exec(url.pathname)?.[1]??url.pathname;
  return {ok:true,listing:{source:cfg.source,externalId,url:canonical,title,price:price.price,originalPrice:price.original,currency:'BRL',available:true,condition:'new',paymentBasis:'cash',
-  seller:{id:null,name:cfg.storeName,official:true,reputationLevel:null,positiveRate:null,completedSales:null},images:p.photo?[p.photo]:[],brand:null,mpn:null,gtin:null,couponHint:null,fetchedAt:new Date(p.date).toISOString(),
+  seller:{id:null,name:cfg.storeName,official:true,reputationLevel:null,positiveRate:null,completedSales:null},images:p.photo?[p.photo]:[],brand:null,mpn:null,gtin:null,couponHint,fetchedAt:new Date(p.date).toISOString(),
   announcement:{channel:cfg.channel,postId:p.id,postedAt:new Date(p.date).toISOString(),installmentTotal:price.installmentTotal,label:cfg.channelLabel}}};
 }
 async function resolveShort(ctx:ConnectorContext,link:string,cfg:ChannelConfig){
@@ -75,8 +82,10 @@ export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:strin
   async *listings(ctx){
    // Lê 24 h de posts: o mais recente de cada produto vira oferta (vale 6 h a partir do post; mais antigo já nasce
    // vencido e fica fora do catálogo); todos alimentam o histórico de preços anunciados.
-   const since=Date.now()-ANNOUNCED_LOOKBACK_HOURS*3600000,seen=new Set<string>();let before:number|undefined,emitted=0,last=0;
-   for(let page=0;page<12&&Date.now()<ctx.deadline;page++){
+   // A importação de publicações antigas (scripts/telegram-backfill.ts) amplia janela e páginas por variáveis.
+   const lookback=Math.min(24*120,Number(ctx.env.TELEGRAM_LOOKBACK_HOURS)||ANNOUNCED_LOOKBACK_HOURS),maxPages=Math.min(600,Number(ctx.env.TELEGRAM_MAX_PAGES)||12);
+   const since=Date.now()-lookback*3600000,seen=new Set<string>();let before:number|undefined,emitted=0,last=0;
+   for(let page=0;page<maxPages&&Date.now()<ctx.deadline;page++){
     const wait=last+1500-Date.now();if(wait>0)await sleep(wait);last=Date.now();
     const r=await ctx.fetch('https://t.me/s/'+cfg.channel+(before?'?before='+before:''),{headers:{'User-Agent':agent,Accept:'text/html'},redirect:'manual',signal:AbortSignal.timeout(10000)});
     if(!r.ok)throw new Error('Telegram HTTP '+r.status);

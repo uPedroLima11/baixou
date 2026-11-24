@@ -28,8 +28,13 @@ test('price parsing: single cash value, "De X por Y", installment kept apart, am
 test('rejects coupon-conditioned, non-new, off-store and title/link mismatch posts',()=>{
  const base={id:1,date:'2026-11-24T00:00:00Z',links:['https://www.terabyteshop.com.br/produto/1/memoria-kingston-fury-beast-16gb-ddr5'],text:'Memória Kingston Fury Beast 16GB DDR5\n💰 R$ 500,00'};
  assert.ok(postToListing(base,tera).ok);
- assert.deepEqual(postToListing({...base,text:base.text+'\nUse o cupom TERA10'},tera),{ok:false,reason:'preço condicionado a cupom'});
+ assert.deepEqual(postToListing({...base,text:base.text+'\nPreço final com o cupom TERA10'},tera),{ok:false,reason:'preço condicionado a cupom'});
+ assert.deepEqual(postToListing({...base,text:'Memória Kingston Fury Beast 16GB DDR5\n💰 R$ 500,00 com cupom'},tera),{ok:false,reason:'preço condicionado a cupom'});
+ const hint=postToListing({...base,text:base.text+'\nCUPOM 5% OFF'},tera);assert.ok(hint.ok&&hint.listing.price===500&&hint.listing.couponHint==='CUPOM 5% OFF','separate coupon line = unvalidated hint, price unchanged');
  assert.deepEqual(postToListing({...base,text:'Open Box '+base.text},tera),{ok:false,reason:'condição diferente de novo'});
+ assert.ok(postToListing({...base,text:'Memória Kingston Fury Beast 16GB DDR5 — visual de vitrine\n💰 R$ 500,00'},tera).ok,'marketing "vitrine" is not a condition');
+ assert.deepEqual(postToListing({...base,text:'Memória Kingston Fury Beast 16GB DDR5 Usada\n💰 R$ 500,00'},tera),{ok:false,reason:'condição diferente de novo'});
+ assert.deepEqual(postPrice('🌙 PRUUMO DA MADRUGADA!\nPreço à vista R$54,99\nControle X\nParcelado R$64,69'),{price:54.99,original:null,installmentTotal:64.69});
  assert.deepEqual(postToListing({...base,links:['https://evil.example/produto/1/x']},tera),{ok:false,reason:'sem link de produto da loja'});
  assert.deepEqual(postToListing({...base,text:'Cadeira Gamer Azul Confortável\n💰 R$ 500,00'},tera),{ok:false,reason:'título não confere com o link'});
  assert.equal(postTitle('🔥 Chamada\nMemória Kingston Fury Beast 16GB DDR5 — envio rápido\n💰 R$ 1,00','https://www.terabyteshop.com.br/produto/1/memoria-kingston-fury-beast-16gb-ddr5'),'Memória Kingston Fury Beast 16GB DDR5');

@@ -9,7 +9,7 @@ import type {ParsedProduct} from '../../scripts/store-adapters';
 // TODO: unificar com lib/collector.ts quando os demais conectores oficiais forem implementados.
 // announced: anúncio da própria loja ainda não conferido na página. checked_at = horário do anúncio, validade curta,
 // sem histórico (que só guarda verificações), status 'announced' (fora dos alertas e da referência de mercado).
-export async function persistVerifiedProduct(db:SupabaseClient,base:ParsedProduct,announced?:{at:string;ttlMinutes:number;post:string}){
+export async function persistVerifiedProduct(db:SupabaseClient,base:ParsedProduct,announced?:{at:string;ttlMinutes:number;post:string;insertOnly?:boolean}){
  const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null}>();if(stats.error)throw stats.error;
  const evidence=evidenceFromStats(base.price,base.original_price,stats.data??{median:null,samples:0,days:0}),ttl=verificationTTL(evidence.evidence,evidence.discount);
  const identity=identityForOffer({...base,...evidence} as Offer);let productId:string|null=null;
@@ -24,7 +24,7 @@ export async function persistVerifiedProduct(db:SupabaseClient,base:ParsedProduc
   if(source)base.specs={...base.specs,'Fonte da imagem':source};
  }
  const now=announced?new Date(announced.at):new Date();
- const updated=await db.from('offers').upsert({...base,...evidence,product_id:productId,gtin:identity?.gtin??base.gtin??null,variant:identity?.variant??variantForOffer(base),discoveries:[],coupon_validated:false,last_attempt_at:now.toISOString(),checked_at:now.toISOString(),verification_status:announced?'announced':'verified',expires_at:new Date(now.getTime()+(announced?announced.ttlMinutes:ttl)*60000).toISOString()});
+ const updated=await db.from('offers').upsert({...base,...evidence,product_id:productId,gtin:identity?.gtin??base.gtin??null,variant:identity?.variant??variantForOffer(base),discoveries:[],coupon_validated:false,last_attempt_at:now.toISOString(),checked_at:now.toISOString(),verification_status:announced?'announced':'verified',expires_at:new Date(now.getTime()+(announced?announced.ttlMinutes:ttl)*60000).toISOString()},announced?.insertOnly?{onConflict:'id',ignoreDuplicates:true}:undefined);
  if(updated.error)throw updated.error;
  // Histórico de preços ANUNCIADOS, separado do verificado (deduplicado por post).
  if(announced){const rec=await db.rpc('record_announcement',{p_offer:base.id,p_price:base.price,p_posted_at:announced.at,p_post:announced.post});if(rec.error)throw rec.error;}
