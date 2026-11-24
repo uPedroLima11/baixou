@@ -143,3 +143,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Pichau entra pelo canal `t.me/pichauofertas` (evidência: encurtador de marca pruuu.me, usado no YouTube oficial, e links personalizados para as lives oficiais). UI: "canal da Pichau no Telegram". Se a Pichau publicar o link do canal no site, atualizar o rótulo para oficial.
 - Histórico de preços anunciados (`announced_daily`) é separado de `price_daily`: nunca somar, comparar ou usar em estatísticas, referência de mercado, evidência ou alertas.
 - Largura de barramento ("128-bit") nunca é código de fabricante; conferir outros atributos de ficha antes de aceitar código de fim de título.
+- `/divulgadas` mostra publicações das lojas até 48 h com "disponibilidade não confirmada"; o catálogo continua só com posts ≤ 6 h. Não aumentar o TTL de 'announced' para inflar o catálogo.
+- Coleta regular do Telegram lê 8 h e tem teto de 60 s por canal; publicações antigas entram só pela importação manual `telegram-backfill.yml` (insertOnly, nunca sobrescreve oferta).
+- Revezamento do collect.yml só cede ao agendamento nativo com 2+ execuções `schedule` em 50 min; um evento isolado não basta.

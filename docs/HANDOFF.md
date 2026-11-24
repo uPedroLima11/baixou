@@ -1,3 +1,17 @@
+# CHECKPOINT — divulgadas 48 h, importação de 30 dias, parser corrigido, revezamento consertado (Claude Code, 24/11/2026, ~03h45 UTC)
+
+- **Amazon:** não integrada. Novas frentes (embed público do X, agregadores no Telegram, WhatsApp, Linktree) sem preço recente ou sem vendedor identificável. Detalhes em MAJOR_STORES.md (topo).
+- **Ofertas divulgadas recentemente** (`/divulgadas`, `/api/announced`, link "Divulgadas" no menu): publicações das lojas nas últimas 6/24/48 h com preço anunciado, data/hora, tempo decorrido, loja, "disponibilidade não confirmada", link para a loja e para o post. O catálogo continua só com posts ≤ 6 h; TTL não mudou.
+- **Parser** (auditoria de 48 h): +23 posts/48 h da Terabyte e +4 da Pichau que eram recusados por engano (ver MAJOR_STORES.md). Open Box continua recusado.
+- **Importação de publicações antigas** (`telegram-backfill.yml`, manual, `scripts/telegram-backfill.ts`): run 45314521205, 30 dias, 0 erros — Terabyte 2.938 posts (1.076 produtos, 2.860 linhas diárias, desde 25/10), Pichau 718 posts (557 produtos). Ofertas criadas já vencidas (insertOnly: nunca sobrescreve oferta existente). announced_daily ≈ 1 MB.
+- **Estatísticas:** ofertas 'announced' excluídas do retrato e dos ids das estatísticas verificadas (vazamento encontrado e corrigido, teste novo).
+- **Orçamento dos conectores:** janela regular do Telegram 8 h (antes 24 h → ~75 chamadas extras/rodada), teto de 60 s por canal (`budgetMs`). Run 45320228127 (47cda6c): Terabyte 28 ativos em 29 s, Pichau 7 em 9 s, ML 488.
+- **Revezamento consertado:** um único evento `schedule` (01:51) encerrou o revezamento e o agendamento nativo não voltou (~1 h sem coleta, KaBuM caiu para 207 ativos). Agora o revezamento só cede com 2+ execuções `schedule` em 50 min (87bbb27). KaBuM voltou a 595 ativos.
+- **Números (03h45):** Terabyte 28 ativos no catálogo / 133 divulgados em 48 h / 1.076 produtos no histórico anunciado; Pichau 7 / 42 / 557. Imagens: 25/28 e 7/7 ativos. Identidade exata: 117 produtos Terabyte e 35 Pichau no total; 4 ativos casam com o mesmo modelo em outra loja.
+- **Consumo:** banco 46 MB (offers 13 MB com ~1.500 linhas criadas pela importação). 122 testes; CI verde.
+
+Pendências: rodar a importação para mais dias se desejado (até 120; ~20 min por 30 dias); confirmação explícita do canal da Pichau; Amazon sem fonte.
+
 # CHECKPOINT — Pichau ativada, Terabyte com imagens/24 h, histórico de preços anunciados (Claude Code, 24/11/2026, ~02h15 UTC)
 
 - **Pichau ativada** (`pichau-telegram`, implemented:true). Evidência em MAJOR_STORES.md: `pruuu.me` é o encurtador de marca da Pichau (links personalizados no YouTube oficial @pichauinfo) e o canal publica links personalizados desse domínio para as lives oficiais. Nenhuma página acessível da Pichau linka o canal: UI = "canal da Pichau no Telegram". Rejeita link de categoria (slug < 4 partes); resolve `pruuu.me` por HEAD sem seguir (400 ms entre links).

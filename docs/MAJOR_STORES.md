@@ -1,3 +1,25 @@
+# Amazon, cobertura de Pichau/Terabyte e confirmação de preço (Claude Code, 24/11/2026 ~03h30 UTC)
+
+## Amazon — novas frentes examinadas (nenhuma utilizável)
+- **Embed público do X** (`syndication.twitter.com/srv/timeline-profile/screen-name/…`, sem login): responde para @amazonbrasil, @pichauinfo e @terabyteshop, mas devolve tweets populares antigos (2020–2025), sem ofertas recentes. Inútil para preço.
+- **Canais de agregadores no Telegram** (promobit, ofertasamazonbrasil): sem links Amazon recentes nem identificação do vendedor. Sem vendedor identificado, anúncio de marketplace não passa na política (lib/connectors/policy.ts).
+- **WhatsApp**: a prévia pública de canal mostra só nome/descrição, não as publicações; os canais "Amazon" encontrados são de afiliados.
+- Mantidos fora: páginas Amazon (Condições de Uso), agregadores com termos que vedam robôs, comunidades (preço de usuário).
+
+## Terabyte e Pichau — fontes próprias novas
+- **Linktree oficial da Terabyte** (`linktr.ee/terabyte_shop`, linkado no X oficial): confirma Telegram (`terabyteshopoficial`) e um canal de WhatsApp (`whatsapp.com/channel/0029VaDconEI1rcnK1Ygyt0J`, publicações não legíveis sem o app). A aba "Shop" tem poucos produtos (título, link, imagem do CDN da loja), **sem preço**.
+- **landing.terabyteshop.com.br** (robots: "Liberado para buscadores e leitores de IA (23/11/2026)"): bundles e campanhas com links de produto, **sem preço**; cupons vêm de `www.terabyteshop.com.br/content/coupons.php` (host bloqueado).
+- **Linktree da Pichau** (`linktr.ee/pichau`): links para site, SAC, Instagram, TikTok, YouTube, X — **não lista o Telegram**. A confirmação explícita do canal continua ausente; vale a evidência indireta (pruuu.me).
+- Nenhum outro canal de Telegram das lojas encontrado.
+
+## Confirmação automática de preço/estoque
+- Não há fonte pública independente com preço/estoque atuais de pichau.com.br ou terabyteshop.com.br: sitemap (Pichau) só tem URL/lastmod; Linktree/landing sem preço; páginas e APIs das lojas bloqueadas ou proibidas pelo robots. **Nenhum anúncio foi promovido a verificado.** A Pichau também vende pela loja oficial no ML (preço próprio do ML, já comparado como o mesmo vendedor), o que não confirma o preço do site.
+
+## Auditoria do parser (48 h)
+- Terabyte: 183 posts → 160 aceitos antes; 17 recusados por "vitrine" em chamada de marketing ("visual de vitrine") e 6 por cupom em linha separada. Corrigido: "usado/vitrine/mostruário" só no título; open box/recondicionado/seminovo/pré-venda em qualquer parte; cupom em linha própria vira dica não validada; preço na mesma linha do cupom ou "com o cupom" continua recusado. As 9 recusas "Open Box" legítimas permanecem.
+- Pichau: 48 posts → 4 recusados por formato "Preço à vista R$ X" (madrugada) — corrigido; 4 posts de vídeos/matérias seguem fora (sem produto).
+- Prévia pública: ~20 posts por página e paginação `?before=` até o início do canal (2022 na Pichau). Não há limite prático além da cortesia de 1,5 s por página.
+
 # Pichau ativada, Terabyte ampliada, Amazon reavaliada (Claude Code, 24/11/2026 ~02h UTC)
 
 ## Pichau — por que o canal `t.me/pichauofertas` foi aceito
