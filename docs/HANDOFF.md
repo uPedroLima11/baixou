@@ -1,3 +1,19 @@
+# CHECKPOINT — Terabyte integrada (parcial) pelo canal oficial no Telegram (Claude Code, 24/11/2026, ~01h30 UTC)
+
+Missão: Pichau, Terabyte ou Amazon por qualquer caminho gratuito, sem cadastro e sem contorno. Detalhes e tabela de candidatas em MAJOR_STORES.md (topo).
+
+- **Terabyte: integrada parcialmente.** Fonte: canal oficial `t.me/terabyteshopoficial` (linkado no rodapé de terabyteshop.com.br), lido pela prévia pública `t.me/s/` com o UA do coletor. Conector `terabyte-telegram` (lib/connectors/telegram-channels.ts), primeiro na fila do job `connectors` do collect.yml.
+  - Run 45301410374: 38 posts válidos, mas o check de `offers.verification_status` recusou 'announced' → migration 20261124020000 (status 'announced'; store_registry terabyte = partial).
+  - Run 45303071494 (c092b37): **37 aceitos, 0 rejeitados, 0 erros**. No banco: 37 ativos, posts de 19h20 a 01h05 UTC, 34 com marca, 10 com part number/identidade exata, 4 batendo com o mesmo modelo em outras lojas (ex.: Ryzen 7 5700X em 2 lojas). Histórico bruto: 0 linhas (intencional).
+  - Conferência amostral: RTX 5060 Ghost (44165) post R$ 3.139,99 = preço Pix da página (cartão 12× R$ 307,84; vendido por Terabyte; "Restam 4").
+  - Produção: /produto/terabyte-454a15bff93ef8b4ed31 mostra "à vista · preço anunciado pela loja" e "Anunciado pela loja no canal oficial do Telegram há 36 min. Página do produto não conferida…". Sem imagem (fotos do Telegram são banners com preço; CDN de imagens da loja exige nome de arquivo desconhecido).
+- **Pichau: pronto e desligado.** Canal `t.me/pichauofertas` (97 mil inscritos, links pruuu.me → pichau.com.br). Sem página da Pichau acessível confirmando o canal (site 403; navegador do app bloqueado pela política de permissões para pichau.com.br). Para ligar: o proprietário confirma o link no rodapé de pichau.com.br; então `implemented:true` em `pichauTelegram` e conferência amostral.
+- **Amazon:** nenhum canal próprio público; repositórios encontrados usam Selenium/impersonação. Continua dependente de autorização.
+- Regras: 'announced' = checked_at do post, 6 h de validade, fora do histórico/referência de mercado/alertas; cupom, open box, link fora da loja, preço ambíguo e título que não confere com o link são rejeitados.
+- Testes: 118 + tests/telegram-channels.test.ts (fixtures reais aparadas). CI verde em c092b37.
+
+Pendências: confirmação da Pichau; imagem da Terabyte (não inventar URL); avaliar exibir histórico separado de preços anunciados se o proprietário quiser.
+
 # CHECKPOINT — evolução histórica de RAM/GPU e gráfico diário (Claude Code, 24/11/2026, ~00h35–01h30 UTC)
 
 Pedido: gráficos de evolução por grupos equivalentes (RAM por geração/uso/capacidade/kit; GPU por modelo exato + VRAM), sem viés de composição; histórico do produto com UM ponto por dia (menor preço observado no dia, dia atual parcial; verificações intradiárias só como visão secundária); validar alertas de queda histórica quando houver dados; medir custo do histórico. Sem novas lojas (nenhum caminho novo para Pichau/Terabyte/Amazon surgiu; pesquisa não repetida).

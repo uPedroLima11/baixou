@@ -135,3 +135,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Gráficos: nunca interpolar lacunas; períodos só com cobertura real; preço riscado nunca entra. Visão por loja/menor entre lojas usa o mesmo modelo exato (comparisonIndex).
 - Estatísticas: grupos equivalentes estritos (lib/stats.ts); variação só em painel consistente; sem probabilidade de queda até haver histórico longo e validação retrospectiva documentada.
 - Gráfico do produto e evolução de grupos usam escala diária (`price_daily`): ponto = menor preço observado no dia; hoje é parcial. Verificações horárias só na visão secundária de 48 h. "Preço típico" de grupo é encadeado pelos mesmos anúncios (group_daily); "menor preço" pode refletir entrada de anúncio novo e deve ser rotulado assim.
+
+## Canais oficiais das lojas no Telegram (Claude Code, 24/11/2026)
+
+- Terabyte entra como **preço anunciado** pelo canal oficial `t.me/terabyteshopoficial` (prévia pública t.me/s, sem conta). `verification_status='announced'`: checked_at = horário do post, 6 h de validade, sem histórico, fora da referência de mercado e dos alertas. UI sempre diz "anunciado pela loja" e "página não conferida". Nunca promover a 'verified' sem consulta real à página.
+- Só ligar um canal depois de confirmado como da própria loja (link no site oficial). Pichau (`pichauofertas`) está desligada aguardando essa confirmação. Não usar o navegador para burlar o bloqueio do site; não usar User-Agent falso nem Selenium.

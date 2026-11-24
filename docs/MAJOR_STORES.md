@@ -1,3 +1,31 @@
+# Pichau, Terabyte e Amazon — caminhos novos (Claude Code, 24/11/2026 ~01h UTC)
+
+Nova frente: **canais oficiais de ofertas das próprias lojas no Telegram**, lidos pela prévia pública da web (`https://t.me/s/<canal>`; t.me não tem robots.txt), sem conta, bot ou login. São anúncios de primeira mão: produto, preço à vista, parcelado e link.
+
+| Loja | Canal | Oficialidade | Conteúdo | Decisão |
+| --- | --- | --- | --- | --- |
+| Terabyte | `t.me/terabyteshopoficial` (119 mil inscritos, ~20 posts/h) | **Confirmada**: link no rodapé de www.terabyteshop.com.br (conferido uma vez no navegador do app) | Título com part number, "💰 R$ X" ou "A partir de R$ X" (= preço à vista Pix/boleto, 15% abaixo do cartão), link `/produto/<id>/<slug>` | **Integrado** como preço anunciado (ver abaixo) |
+| Pichau | `t.me/pichauofertas` (97 mil inscritos, desde 2022) | **Não confirmada**: nome "Pichau", links pelo encurtador `pruuu.me` (Bitly de marca; raiz redireciona para pichau.com.br; "Pru Pru" é a marca da página de bloqueio da própria Pichau). Nenhuma página da Pichau acessível mostra o canal | "Oferta a partir de R$ X" (à vista) + "Ou Parcelado R$ Y" | Parser pronto e testado; **desligado** até o proprietário confirmar no rodapé de pichau.com.br |
+| Amazon | `t.me/amazonbr` | Não é da Amazon (spam de 2021, 115 inscritos) | — | Descartado |
+
+Conferência amostral (Terabyte, RTX 5060 Ghost 44165): post R$ 3.139,99 = página "R$ 3.139,99 · 15% de desconto à vista no boleto ou pix", cartão 12× R$ 307,84, "Vendido por: Terabyte", "Restam 4", "Pronta entrega".
+
+Outras alternativas novas examinadas e descartadas:
+- `igor-navarro/price-tracker` (atualizado em 23/11/2026, diz que Terabyte "funciona"): só funciona com User-Agent falso de Chrome na página bloqueada — impersonação, não usada.
+- `Gabrielcodebr/price-scraping` (Amazon no GitHub Actions): Selenium headless com "aquecimento" e atrasos humanos — contorno e contra as Condições de Uso.
+- `lukeSkywallk/price-checker` (2020) e similares: mesmas páginas bloqueadas.
+- Pichau: o encurtador `pruuu.me` só devolve o redirecionamento (sem preço). Host de origem Magento não usado.
+- Amazon: nenhum canal público próprio encontrado; continua dependente de Associados/Creators API ou aprovação.
+- O navegador do app foi usado só para conferir o rodapé da Terabyte e um produto; o acesso à Pichau pelo navegador foi bloqueado pela política de permissões (não insistido).
+
+Regras do conector (lib/connectors/telegram-channels.ts):
+- `verification_status='announced'`, `checked_at` = horário do post, validade de 6 h; o post mais recente de cada produto vence.
+- Não grava histórico, não entra na referência de mercado nem nos alertas por e-mail (que exigem 'verified').
+- Rejeita post com cupom, open box/usado/vitrine/pré-venda, link fora da loja, preço ambíguo ou título que não confere com o slug do link.
+- Preço = único valor da linha de preço (ou "De X por Y"); parcelado vai para a nota de pagamento, nunca para "preço antigo".
+- Marca: só entre marcas já registradas no catálogo, primeira ocorrência no título; part number pelo fim do título (mesma regra das lojas).
+- UI: "à vista · anunciado pela loja", "Anunciado pela loja no canal oficial do Telegram há X", e na comparação "anunciado pela loja, não conferido".
+
 # Pichau, Terabyte e Amazon — investigação sem cadastro (Claude Code, 24/11/2026 ~00h UTC)
 
 Diretriz: nenhuma conta, campanha, credencial ou e-mail comercial; nenhum contorno de Cloudflare/CAPTCHA, proxy ou cookie de terceiros; não substituir por outras lojas. Sondagens com o UA identificado do coletor (`BaixouBot/1.0`), uma requisição por URL, local e no runner (probe.yml, execução 45294199182).
