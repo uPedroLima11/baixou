@@ -9,7 +9,8 @@ import {listingToProduct} from '../lib/connectors/convert';
 import {persistVerifiedProduct} from '../lib/connectors/persist';
 import {ANNOUNCED_TTL_MINUTES} from '../lib/connectors/telegram-channels';
 import {loadKnownCodes,enrichListing,announcedProduct,recordAnnouncement} from '../lib/connectors/announce';
-const db=adminDb(),days=Math.min(120,Math.max(1,Number(process.env.BACKFILL_DAYS)||30)),deadline=Date.now()+Math.min(40,Number(process.env.BACKFILL_MINUTES)||30)*60000;
+const skipDays=Math.max(0,Math.min(119,Number(process.env.BACKFILL_SKIP_DAYS)||0));let skipped=0;
+const db=adminDb(),days=Math.min(120,Math.max(1,Number(process.env.BACKFILL_DAYS)||30)),deadline=Date.now()+Math.min(45,Number(process.env.BACKFILL_MINUTES)||30)*60000;
 const {known,brands}=await loadKnownCodes(db);
 for(const c of connectors.filter(c=>c.id.endsWith('-telegram')&&c.implemented)){
  const existing=new Set<string>();const store=c.id.replace('-telegram','');
@@ -18,6 +19,8 @@ for(const c of connectors.filter(c=>c.id.endsWith('-telegram')&&c.implemented)){
  const env={...process.env,TELEGRAM_LOOKBACK_HOURS:String(days*24),TELEGRAM_MAX_PAGES:'600'};
  for await(const listing of c.listings({env,fetch,deadline,maxListings:100000})){
   posts++;oldest=listing.announcement?.postedAt??oldest;
+  // Dias mais recentes já importados podem ser pulados (BACKFILL_SKIP_DAYS): só a paginação passa por eles.
+  if(skipDays&&Date.parse(listing.announcement?.postedAt??'')>Date.now()-skipDays*86400000){skipped++;continue;}
   if(!acceptListing(listing,{hosts:c.hosts,marketplace:c.marketplace}).ok){rejected++;continue;}
   const id=listingToProduct(listing,c.name).id;
   try{
@@ -26,5 +29,5 @@ for(const c of connectors.filter(c=>c.id.endsWith('-telegram')&&c.implemented)){
    else if(await recordAnnouncement(db,listing,c.name))recorded++;else errors++;
   }catch(e){errors++;console.error(c.id,e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,200):'erro');}
  }
- console.log(JSON.stringify({connector:c.id,days,posts,created_offers:created,recorded_posts:recorded,rejected,errors,oldest_post:oldest,seconds:Math.round((Date.now()-started)/1000)}));
+ console.log(JSON.stringify({connector:c.id,days,skip_days:skipDays,skipped_recent:skipped,posts,created_offers:created,recorded_posts:recorded,rejected,errors,oldest_post:oldest,seconds:Math.round((Date.now()-started)/1000)}));
 }

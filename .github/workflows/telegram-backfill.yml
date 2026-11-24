@@ -8,6 +8,10 @@ on:
         description: 'Dias para trás (1-120)'
         required: true
         default: '30'
+      skip_days:
+        description: 'Pular os N dias mais recentes (já importados)'
+        required: false
+        default: '0'
 concurrency:
   group: telegram-backfill
   cancel-in-progress: false
@@ -16,12 +20,13 @@ permissions:
 jobs:
   backfill:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       BACKFILL_DAYS: ${{ inputs.days }}
-      BACKFILL_MINUTES: '35'
+      BACKFILL_SKIP_DAYS: ${{ inputs.skip_days }}
+      BACKFILL_MINUTES: '42'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
