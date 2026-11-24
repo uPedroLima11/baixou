@@ -39,3 +39,8 @@ test('announced (Telegram) and expired offers are never scored; lowest-ever reas
  assert.ok(baixouScore({...base,price:780,...hist(1000,12,8,800)}).reasons.some(r=>/Menor preço registrado nos últimos 8 dias/.test(r)));
  assert.ok(!baixouScore({...base,price:820,...hist(1000,12,8,800)}).reasons.some(r=>/Menor preço/.test(r)));
 });
+test('score number always sits inside its class band (no 100 labelled "boa")',()=>{
+ const good=baixouScore({...base,price:800,...hist(1000,6,4)});assert.equal(good.klass,'good');assert.equal(good.score,87);
+ const comp=baixouScore({...base,price:800,...mkt(1000,2,750,1100)});assert.equal(comp.klass,'competitive');assert.equal(comp.score,69);
+ for(let p=700;p<=1200;p+=5){const b=baixouScore({...base,price:p,...hist(1000)});const band={exceptional:[88,100],good:[70,87],competitive:[58,69],normal:[38,57],above:[0,37]}[b.klass as 'good'];assert.ok(b.score!>=band[0]&&b.score!<=band[1],p+' '+b.klass+' '+b.score);}
+});

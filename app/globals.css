@@ -148,3 +148,8 @@
 .score-box ul{margin:0;padding-left:18px;font-size:13px;display:grid;gap:2px}
 .score-box>small{font-size:11px}
 .opportunity-label{font-weight:700}
+.score-refs{display:grid;gap:6px;font-size:12px}
+.score-refs div{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.score-refs span{color:var(--muted)}.score-refs b{font-variant-numeric:tabular-nums}
+.score-refs i{grid-column:1/-1;height:6px;border-radius:3px;background:var(--line);display:block}
+.score-refs .current i{background:var(--green)}.score-box.above .score-refs .current i{background:var(--up)}

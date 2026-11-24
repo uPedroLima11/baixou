@@ -20,8 +20,11 @@ import type {Offer} from './types';
 export type ScoreClass='exceptional'|'good'|'competitive'|'normal'|'above'|'insufficient';
 export const SCORE_LABEL:Record<ScoreClass,string>={exceptional:'Oportunidade excepcional',good:'Boa oportunidade',competitive:'Preço competitivo',normal:'Preço normal',above:'Acima do preço habitual',insufficient:'Dados insuficientes para avaliar'};
 export const SCORE_RANK:Record<ScoreClass,number>={exceptional:5,good:4,competitive:3,normal:2,above:1,insufficient:0};
+// Faixas de nota por classe (economia s → 50+250·s): excepcional ≥15% = 88–100; boa 8–15% = 70–87; competitivo
+// 3–8% = 58–69; normal −5%…3% = 38–57; acima ≤ −5% = 0–37. Contínuas, sem lacunas entre classes.
+export const SCORE_BAND:Record<Exclude<ScoreClass,'insufficient'>,[number,number]>={exceptional:[88,100],good:[70,87],competitive:[58,69],normal:[38,57],above:[0,37]};
 export type Confidence='alta'|'média'|null;
-export type BaixouScore={score:number|null;klass:ScoreClass;label:string;confidence:Confidence;saving:number|null;reasons:string[];basis:{history:number|null;market:number|null}};
+export type BaixouScore={score:number|null;klass:ScoreClass;label:string;confidence:Confidence;saving:number|null;reasons:string[];basis:{history:number|null;market:number|null};refs?:{history?:{median:number;days:number;samples:number};market?:{median:number;stores:number;lowest:number|null}}};
 type ScoreInput=Pick<Offer,'price'|'available'|'expires_at'|'evidence'|'discount'|'original_price'|'store'>&Partial<Pick<Offer,'verification_status'|'reference_median'|'reference_samples'|'reference_days'|'reference_min'|'reference_max'|'payment_basis'|'product_id'>>&{market_median?:number|string|null;market_lowest?:number|string|null;market_highest?:number|string|null;market_stores?:number|null;market_expires_at?:string|null};
 const pct=(x:number)=>Math.floor(Math.abs(x)*1000+1e-6)/10;
 const fmt=(x:number)=>pct(x).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
@@ -54,7 +57,9 @@ export function baixouScore(o:ScoreInput,now=Date.now()):BaixouScore{
  let klass:ScoreClass=s>=0.15?'exceptional':s>=0.08?'good':s>=0.03?'competitive':s>-0.05?'normal':'above';
  if(klass==='exceptional'&&confidence!=='alta'){klass='good';reasons.push('Economia alta, mas com amostra limitada (confiança média): classificada como boa oportunidade.');}
  if(cheaperElsewhere&&SCORE_RANK[klass]>SCORE_RANK.competitive)klass='competitive';// não é destaque se outra loja está mais barata
- const score=Math.max(0,Math.min(100,Math.round(50+250*s)));
- return {score,klass,label:SCORE_LABEL[klass],confidence,saving:s,reasons,basis:{history:sh,market:sm}};
+ // Nota coerente com a classe: cada classe tem sua faixa (as faixas da economia mapeiam exatamente nelas); quando a
+ // classe é rebaixada (confiança média ou outra loja mais barata), a nota fica limitada à faixa da nova classe.
+ const [lo,hi]=SCORE_BAND[klass],score=Math.max(lo,Math.min(hi,Math.round(50+250*s)));
+ return {score,klass,label:SCORE_LABEL[klass],confidence,saving:s,reasons,basis:{history:sh,market:sm},refs:{...(h?{history:{median:h.median,days:h.days,samples:h.samples}}:{}),...(m?{market:m}:{})}};
 }
 export const isOpportunity=(b:BaixouScore)=>b.klass==='exceptional'||b.klass==='good';
