@@ -5,6 +5,7 @@ import {money} from '@/lib/types';
 import {storeNames} from '@/lib/stores';
 import {dayStart} from '@/lib/history';
 import {Chart,type Series} from './PriceHistory';
+import StatsEvolution from './StatsEvolution';
 type Panel={offers:number;median:number|null;down:number;up:number;stable:number};
 type Group={key:string;label:string;tier?:string;offers:number;sellers:number;brands:number;low:number;median:number;high:number;perGbLow?:number;perGbMedian?:number;best:{id:string;title:string;store:string;seller:string;url:string;price:number};ids:string[]};
 type Move={id:string;title:string;store:string;seller:string;url:string;base:number;last:number;change:number};
@@ -44,7 +45,9 @@ export default function Stats(){
      :<p className="forming"><Info size={16} aria-hidden/>Variações em formação. A comparação entre dias começa quando houver pelo menos um dia completo anterior{nextDay?' (a partir de '+nextDay+')':''}; 7, 30 e 90 dias ficam disponíveis conforme o histórico cresce.</p>}
     </section>
 
-    {indexSeries.some(s=>s.points.length>1)&&<section className="stats-card"><h2>Índice de preços (base 100)</h2><Chart series={indexSeries} showExtremes={false} withTime={false} axis={v=>v.toFixed(1)} value={v=>v.toFixed(1)}/>{indexSeries.length>1&&<ul className="chart-legend">{indexSeries.map(s=><li key={s.id}><i style={{background:`var(--s${s.color+1})`}}/>{s.label}</li>)}</ul>}<p className="muted small">Cada dia compara o preço de fechamento de cada anúncio com o do dia anterior (mesmo anúncio) e usa a mediana dessas variações. Novos produtos ou faixas de preço diferentes não deslocam o índice. Dias com menos de 5 anúncios pareados ficam em branco.</p></section>}
+    <StatsEvolution key={cat} category={cat} groups={d.groups} firstDay={d.coverage.firstDay}/>
+
+    {indexSeries.some(s=>s.points.length>1)&&<section className="stats-card"><h2>Índice de preços (base 100)</h2><Chart series={indexSeries} showExtremes={false} daily axis={v=>v.toFixed(1)} value={v=>v.toFixed(1)}/>{indexSeries.length>1&&<ul className="chart-legend">{indexSeries.map(s=><li key={s.id}><i style={{background:`var(--s${s.color+1})`}}/>{s.label}</li>)}</ul>}<p className="muted small">Cada dia compara o preço de fechamento de cada anúncio com o do dia anterior (mesmo anúncio) e usa a mediana dessas variações. Novos produtos ou faixas de preço diferentes não deslocam o índice. Dias com menos de 5 anúncios pareados ficam em branco.</p></section>}
 
     <section className="stats-card"><div className="stats-card-head"><h2>{cat==='ram'?'Preço por configuração':'Preço por GPU'}</h2>{tiers.length>1&&<div className="segmented" role="group" aria-label="Filtro"><button aria-pressed={!tier} className={!tier?'active':''} onClick={()=>setTier('')}>Todas</button>{tiers.map(t=><button key={t} aria-pressed={tier===t} className={tier===t?'active':''} onClick={()=>setTier(t)}>{t}</button>)}</div>}</div>
      <div className="stats-table-wrap"><table className="stats-table"><thead><tr><th>{cat==='ram'?'Configuração':'GPU e VRAM'}</th><th>Anúncios</th><th>{cat==='ram'?'Lojas':'Fabricantes'}</th><th>Menor preço</th><th>Mediana</th>{cat==='ram'?<th>R$/GB (menor · mediana)</th>:<th>Maior</th>}{p&&<th>Variação {p.label}</th>}</tr></thead>

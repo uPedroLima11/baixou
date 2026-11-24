@@ -44,3 +44,20 @@ export function groupPanel(ids:string[],changes:Map<string,number>):Panel{const 
 // Índice encadeado (base 100): multiplica a mediana diária das razões dia/dia anterior. Dia com menos de
 // `minOffers` anúncios pareados interrompe a série (null) em vez de estimar.
 export function chainIndex(rows:{day:string;offers:number;ratio:number|null}[],minOffers=5){let level=100,started=false;return rows.map(r=>{if(!started){started=true;return {day:r.day,value:100,offers:r.offers};}if(r.ratio==null||r.offers<minOffers){return {day:r.day,value:null as number|null,offers:r.offers};}level*=Number(r.ratio);return {day:r.day,value:level,offers:r.offers};});}
+// Série diária de grupo (RPC group_daily). "Menor" = menor preço observado no dia (pode cair só porque entrou um
+// anúncio mais barato: é o que estava disponível). "Típico" = nível encadeado: começa na mediana dos menores diários
+// e evolui pela mediana das variações dos MESMOS anúncios de um dia para o outro; com menos de `minPairs` pares a
+// linha é interrompida e recomeça na mediana do dia seguinte (novo trecho, sem ligar os pontos).
+export type GroupDay={day:string;offers:number;lowest:number;lowest_offer:string;median_low:number;pairs:number;ratio:number|null};
+export type GroupPoint=GroupDay&{typical:number|null;segment:number};
+export function consistentSeries(days:GroupDay[],minPairs=3,minOffers=3):GroupPoint[]{
+ let level:number|null=null,segment=0;
+ return [...days].sort((a,b)=>a.day.localeCompare(b.day)).map(d=>{
+  if(level!=null&&d.ratio!=null&&d.pairs>=minPairs)level=level*Number(d.ratio);
+  else if(d.offers>=minOffers){if(level!=null)segment++;level=Number(d.median_low);}
+  else{if(level!=null)segment++;level=null;}
+  return {...d,lowest:Number(d.lowest),median_low:Number(d.median_low),ratio:d.ratio==null?null:Number(d.ratio),typical:level,segment};
+ });
+}
+// Variação do preço típico entre o primeiro e o último ponto do MESMO trecho contínuo (amostra consistente).
+export function typicalChange(points:GroupPoint[]){const last=points.filter(p=>p.typical!=null).at(-1);if(!last)return null;const first=points.find(p=>p.segment===last.segment&&p.typical!=null)!;return first.day===last.day?null:{from:first.day,to:last.day,change:last.typical!/first.typical!-1};}

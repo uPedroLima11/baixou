@@ -36,3 +36,16 @@ test('chained index starts at 100 and breaks (null) on thin days',()=>{
  const r=chainIndex([{day:'1',offers:0,ratio:null},{day:'2',offers:10,ratio:0.9},{day:'3',offers:2,ratio:2},{day:'4',offers:8,ratio:1.1}]);
  assert.deepEqual(r.map(x=>x.value==null?null:Math.round(x.value*100)/100),[100,90,null,99]);
 });
+import {consistentSeries,typicalChange} from '../lib/stats';
+test('typical series follows the same offers day to day and is immune to a cheap newcomer',()=>{
+ // Dia 2: os mesmos anúncios ficaram 10% mais caros (razão 1,1), mas entrou um anúncio novo muito barato:
+ // o menor cai, o típico sobe — a composição não engana a tendência.
+ const s=consistentSeries([{day:'2026-12-01',offers:4,lowest:100,lowest_offer:'a',median_low:120,pairs:0,ratio:null},{day:'2026-12-02',offers:5,lowest:60,lowest_offer:'new',median_low:118,pairs:4,ratio:1.1}]);
+ assert.equal(s[1].lowest,60);assert.ok(Math.abs(s[1].typical!-132)<1e-9);
+ assert.ok(Math.abs(typicalChange(s)!.change-0.1)<1e-9);
+});
+test('typical series breaks with few pairs and restarts as a new segment',()=>{
+ const s=consistentSeries([{day:'2026-12-01',offers:3,lowest:1,lowest_offer:'a',median_low:100,pairs:0,ratio:null},{day:'2026-12-02',offers:3,lowest:1,lowest_offer:'a',median_low:100,pairs:1,ratio:2},{day:'2026-12-03',offers:2,lowest:1,lowest_offer:'a',median_low:90,pairs:2,ratio:1}]);
+ assert.deepEqual(s.map(p=>[p.typical,p.segment]),[[100,0],[100,1],[null,2]]);
+ assert.equal(typicalChange(s),null);
+});
