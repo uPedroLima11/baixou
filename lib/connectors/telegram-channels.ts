@@ -86,7 +86,7 @@ export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:strin
    // Lê a janela de posts: o mais recente de cada produto vira oferta (vale 6 h a partir do post; mais antigo já nasce
    // vencido e fica fora do catálogo); todos alimentam o histórico de preços anunciados.
    // A importação de publicações antigas (scripts/telegram-backfill.ts) amplia janela e páginas por variáveis.
-   const lookback=Math.min(24*120,Number(ctx.env.TELEGRAM_LOOKBACK_HOURS)||ANNOUNCED_LOOKBACK_HOURS),maxPages=Math.min(600,Number(ctx.env.TELEGRAM_MAX_PAGES)||12);
+   const lookback=Math.min(24*120,Number(ctx.env.TELEGRAM_LOOKBACK_HOURS)||ANNOUNCED_LOOKBACK_HOURS),maxPages=Math.min(1000,Number(ctx.env.TELEGRAM_MAX_PAGES)||12);
    const since=Date.now()-lookback*3600000,seen=new Set<string>();let before:number|undefined,emitted=0,last=0;
    for(let page=0;page<maxPages&&Date.now()<ctx.deadline;page++){
     const wait=last+1500-Date.now();if(wait>0)await sleep(wait);last=Date.now();

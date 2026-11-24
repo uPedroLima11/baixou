@@ -17,7 +17,7 @@ for(const c of connectors.filter(c=>c.id.endsWith('-telegram')&&c.implemented&&(
  const existing=new Set<string>();const store=c.id.replace('-telegram','');
  for(let from=0;from<50000;from+=1000){const r=await db.from('offers').select('id').eq('store',store).range(from,from+999);if(r.error)throw r.error;for(const x of r.data??[])existing.add(x.id);if((r.data?.length??0)<1000)break;}
  let posts=0,created=0,recorded=0,rejected=0,errors=0,oldest='';const started=Date.now();
- const env={...process.env,TELEGRAM_LOOKBACK_HOURS:String(days*24),TELEGRAM_MAX_PAGES:'600'};
+ const env={...process.env,TELEGRAM_LOOKBACK_HOURS:String(days*24),TELEGRAM_MAX_PAGES:'1000'};
  for await(const listing of c.listings({env,fetch,deadline,maxListings:100000})){
   posts++;oldest=listing.announcement?.postedAt??oldest;
   // Dias mais recentes já importados podem ser pulados (BACKFILL_SKIP_DAYS): só a paginação passa por eles.
