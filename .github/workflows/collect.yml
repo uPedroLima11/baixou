@@ -117,9 +117,12 @@ jobs:
     steps:
       - name: Aguardar próxima janela e despachar coleta
         run: |
-          recent=$(gh run list --workflow collect.yml --event schedule --limit 1 --json createdAt --jq '.[0].createdAt // empty')
-          if [ -n "$recent" ] && [ $(( $(date +%s) - $(date -d "$recent" +%s) )) -lt 2700 ]; then
-            echo "Agendamento nativo ativo ($recent); revezamento encerrado."; exit 0
+          # Só encerra se o agendamento nativo estiver REGULAR: 2+ execuções "schedule" nos últimos 50 min.
+          # (Em 24/11 um único evento às 01:51 encerrou o revezamento e o schedule não voltou: ~1 h sem coleta.)
+          since=$(date -u -d '50 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          count=$(gh run list --workflow collect.yml --event schedule --limit 5 --json createdAt --jq "[.[]|select(.createdAt>\"$since\")]|length")
+          if [ "${count:-0}" -ge 2 ]; then
+            echo "Agendamento nativo regular ($count execuções em 50 min); revezamento encerrado."; exit 0
           fi
           sleep 420
           gh workflow run collect.yml --ref main
