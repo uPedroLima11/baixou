@@ -6,14 +6,17 @@ import {acceptListing} from '../lib/connectors/policy';
 import {listingToProduct} from '../lib/connectors/convert';
 import {persistVerifiedProduct} from '../lib/connectors/persist';
 import {storeNames} from '../lib/stores';
-import {knownCodeInTitle} from '../lib/identity';
+import {knownCodeInTitle,manufacturerCode,brandInTitle} from '../lib/identity';
+import {ANNOUNCED_TTL_MINUTES} from '../lib/connectors/telegram-channels';
 const db=adminDb(),env=process.env,deadline=Date.now()+Math.min(300000,Number(env.CONNECTOR_DEADLINE_MS)||240000);
 const only=(env.CONNECTORS??'').split(',').map(s=>s.trim()).filter(Boolean);
 let failedConnectors=0;
 // Códigos de fabricante já registrados por marca (dados estruturados das lojas), para reconhecer o MESMO código
 // impresso em títulos do Mercado Livre (knownCodeInTitle). Somente igualdade exata.
 const known=new Map<string,Set<string>>();
-for(let from=0;from<20000;from+=1000){const r=await db.from('catalog_products').select('brand,mpn').not('mpn','is',null).range(from,from+999);if(r.error)throw r.error;for(const row of r.data??[]){const set=known.get(row.brand)??new Set<string>();set.add(String(row.mpn));known.set(row.brand,set);}if((r.data?.length??0)<1000)break;}
+// Marcas conhecidas (canônicas) para reconhecer o fabricante no título de anúncios que não informam marca.
+const brands=new Set<string>();
+for(let from=0;from<20000;from+=1000){const r=await db.from('catalog_products').select('brand,mpn').not('mpn','is',null).range(from,from+999);if(r.error)throw r.error;for(const row of r.data??[]){brands.add(row.brand);const set=known.get(row.brand)??new Set<string>();set.add(String(row.mpn));known.set(row.brand,set);}if((r.data?.length??0)<1000)break;}
 for(const c of connectors){
  if(only.length&&!only.includes(c.id))continue;
  const missing=c.requiredEnv.filter(n=>!env[n]?.trim());
@@ -27,8 +30,10 @@ for(const c of connectors){
    if(runId===undefined){const run=await db.from('collection_runs').insert({store}).select('id').single();if(run.error)throw run.error;runId=run.data.id;}
    const decision=acceptListing(listing,{hosts:c.hosts,marketplace:c.marketplace});
    if(!decision.ok){rejected++;reasons[decision.reason]=(reasons[decision.reason]??0)+1;continue;}
-   if(!listing.mpn&&!listing.gtin&&listing.brand){const code=knownCodeInTitle(listing.title,listing.brand,known);if(code)listing.mpn=code;}
-   try{const evidence=await persistVerifiedProduct(db,listingToProduct(listing,storeNames[listing.source]??c.name));accepted++;if(evidence.evidence!=='none')discounts++;}
+   if(!listing.brand)listing.brand=brandInTitle(listing.title,brands);
+   if(!listing.mpn&&!listing.gtin&&listing.brand){const code=manufacturerCode(null,listing.title)??knownCodeInTitle(listing.title,listing.brand,known);if(code)listing.mpn=code;}
+   try{const product=listingToProduct(listing,storeNames[listing.source]??c.name);if(listing.announcement){const a=listing.announcement;product.payment_note='Preço à vista anunciado pela '+(storeNames[listing.source]??c.name)+' no canal oficial do Telegram em '+new Date(a.postedAt).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+(a.installmentTotal?'; parcelado R$ '+a.installmentTotal.toLocaleString('pt-BR',{minimumFractionDigits:2}):'')+'. Página do produto não conferida pelo Baixou!: confirme preço e estoque na loja.';product.specs={...product.specs,'Fonte do preço':'Anúncio da loja no Telegram (t.me/'+a.channel+'/'+a.postId+')'};}
+    const evidence=await persistVerifiedProduct(db,product,listing.announcement?{at:listing.announcement.postedAt,ttlMinutes:ANNOUNCED_TTL_MINUTES}:undefined);accepted++;if(evidence.evidence!=='none')discounts++;}
    catch(e){errors++;console.error(c.id,'gravação:',e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,200):'erro');}
   }
   if(store){const status=await db.from('source_status').upsert({store,status:accepted?'ok':'degraded',checked_at:new Date().toISOString(),products:accepted,message:accepted?c.name+': anúncios confirmados nas vitrines públicas':'Nenhum anúncio aprovado nesta execução; ofertas anteriores vencem pelo TTL'});if(status.error)throw status.error;}

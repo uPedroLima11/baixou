@@ -3,7 +3,9 @@
 export type ListingCondition='new'|'used'|'refurbished'|null;
 export type ListingSeller={id:string|null;name:string|null;official:boolean|null;reputationLevel:string|null;positiveRate:number|null;completedSales:number|null};
 // Dados exatamente como a API oficial devolveu; nada estimado. Campos desconhecidos ficam null.
-export type MarketplaceListing={paymentBasis?:'cash'|null;source:string;externalId:string;url:string;title:string;price:number;originalPrice:number|null;currency:string;available:boolean|null;condition:ListingCondition;seller:ListingSeller;images:string[];brand:string|null;mpn:string|null;gtin:string|null;couponHint:string|null;fetchedAt:string};
+export type MarketplaceListing={paymentBasis?:'cash'|null;source:string;externalId:string;url:string;title:string;price:number;originalPrice:number|null;currency:string;available:boolean|null;condition:ListingCondition;seller:ListingSeller;images:string[];brand:string|null;mpn:string|null;gtin:string|null;couponHint:string|null;fetchedAt:string;
+ // Anúncio publicado pela própria loja (ex.: canal oficial no Telegram): preço pontual, não conferido na página.
+ announcement?:{channel:string;postId:number;postedAt:string;installmentTotal:number|null}};
 export type ConnectorContext={env:Record<string,string|undefined>;fetch:typeof fetch;deadline:number;maxListings:number};
 export type Connector={
  id:string;name:string;marketplace:boolean;

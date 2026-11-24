@@ -1,10 +1,13 @@
 import type {Connector} from './types';
-import {mercadoLivreOfficialStores} from './mercadolivre-stores';import {terabyteFeed,pichauFeed} from './merchant-feed';
+import {mercadoLivreOfficialStores} from './mercadolivre-stores';import {terabyteFeed,pichauFeed} from './merchant-feed';import {terabyteTelegram,pichauTelegram} from './telegram-channels';
 // Conectores independentes. As APIs oficiais abaixo NÃO estão implementadas: faltam credenciais e consulta real aprovada.
 // Trocar `implemented` para true SOMENTE após teste hospedado com produtos, preços, disponibilidade e vendedores reais.
 // Passos de acesso: docs/ACCESS_GUIDE.md.
 async function* notImplemented(){}
 export const connectors:Connector[]=[
+ // Canais oficiais das lojas no Telegram (prévia pública t.me/s): preço anunciado pela loja, gravado como 'announced'.
+ // Primeiro na fila: poucas páginas, e o prazo compartilhado não deve cortá-los.
+ terabyteTelegram,pichauTelegram,
  // Sem credencial: vitrines públicas de lojas oficiais (validado no runner hospedado; ver HANDOFF).
  mercadoLivreOfficialStores,
  // Feeds autorizados (padrão Google Merchant). Desligados até autorização e teste hospedado.
