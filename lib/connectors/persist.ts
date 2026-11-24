@@ -10,7 +10,7 @@ import type {ParsedProduct} from '../../scripts/store-adapters';
 // announced: anúncio da própria loja ainda não conferido na página. checked_at = horário do anúncio, validade curta,
 // sem histórico (que só guarda verificações), status 'announced' (fora dos alertas e da referência de mercado).
 export async function persistVerifiedProduct(db:SupabaseClient,base:ParsedProduct,announced?:{at:string;ttlMinutes:number;post:string;insertOnly?:boolean}){
- const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null}>();if(stats.error)throw stats.error;
+ const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null;ref_median:number|null;ref_samples:number|null;ref_days:number|null;ref_min:number|null;ref_max:number|null}>();if(stats.error)throw stats.error;
  const evidence=evidenceFromStats(base.price,base.original_price,stats.data??{median:null,samples:0,days:0}),ttl=verificationTTL(evidence.evidence,evidence.discount);
  const identity=identityForOffer({...base,...evidence} as Offer);let productId:string|null=null;
  if(identity){const resolved=await db.rpc('resolve_catalog_product',{p_brand:identity.brand,p_mpn:identity.mpn,p_gtin:identity.gtin,p_variant:identity.variant});if(resolved.error)throw resolved.error;productId=resolved.data;}

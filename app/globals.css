@@ -138,3 +138,13 @@
 .announced-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.announced-actions .primary{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;font-size:13px}
 .announced-item small{font-size:12px}
 @media(max-width:800px){.announced-list{grid-template-columns:1fr}.announced-item{grid-template-columns:84px 1fr}.announced-photo{width:84px;height:84px}}
+.score-box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;margin:10px 0}
+.score-head{display:flex;align-items:center;gap:12px}
+.score-head strong{display:block;font-size:15px}.score-head small{color:var(--muted);font-size:12px}
+.score-value{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-family:Manrope,Arial,sans-serif;font-weight:800;font-size:20px;background:var(--bg);color:var(--text);flex:none;font-variant-numeric:tabular-nums}
+.score-box.exceptional .score-value,.score-box.good .score-value{background:var(--green-soft);color:var(--green)}
+.score-box.competitive .score-value{background:var(--soft);color:var(--orange)}
+.score-box.above .score-value{background:var(--bg);color:var(--up)}
+.score-box ul{margin:0;padding-left:18px;font-size:13px;display:grid;gap:2px}
+.score-box>small{font-size:11px}
+.opportunity-label{font-weight:700}

@@ -4,7 +4,7 @@ import {departmentOptions} from '../lib/departments';import {sameProduct} from '
 const base={id:'base',title:'Memória Corsair DDR5 16GB 6000MHz',category:'ram',brand:'Corsair',price:500,discount:0,evidence:'none',available:true,checked_at:'2026-11-23T18:00:00Z',expires_at:'2099-01-01',specs:{},variant:{},historical_days:0,historical_samples:0} as Offer;
 test('announced 90% does not outrank historical evidence; low absolute price does not boost ranking',()=>{
  const announced={...base,id:'announced',price:30,discount:90,evidence:'retailer' as const};
- const proven={...base,id:'proven',discount:10,evidence:'history' as const,historical_median:600,historical_days:3,historical_samples:8};
+ const proven={...base,id:'proven',discount:10,evidence:'history' as const,historical_median:600,historical_days:3,historical_samples:8,reference_median:600,reference_days:3,reference_samples:8};
  assert.equal([announced,proven].sort(compareOpportunities)[0].id,'proven');
 });
 test('general catalog keeps valid products without discounts, departments reuse nonempty technical facets',()=>{

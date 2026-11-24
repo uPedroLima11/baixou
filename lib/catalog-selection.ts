@@ -1,15 +1,17 @@
 import {consolidateOffers,matchesQuery} from './search';
-import {effectiveDiscount,effectiveEvidence,marketStatus} from './market';
+import {effectiveDiscount,effectiveEvidence} from './market';
+import {baixouScore,isOpportunity} from './score';
 import type {Offer} from './types';
 // verified=true: só quedas comprovadas no histórico. market=true: só abaixo do preço de mercado (>=2 outras lojas).
 // Ambos falsos: inclui também descontos anunciados. O desconto considerado é o efetivo (lib/market.ts),
 // então um preço riscado nunca vale mais do que a diferença real para outras lojas.
 export type CatalogFilters={verified:boolean;market?:boolean;allProducts?:boolean;savedOnly?:boolean;stores?:string[];maxPrice?:number;minDiscount:number;query:string};
-function inMode(o:Offer,f:CatalogFilters){if(f.market)return marketStatus(o)==='below';const ev=effectiveEvidence(o);if(f.verified)return ev==='history';return ev!=='none';}
+// market=true agora é a modalidade "Baixou!": só oportunidades sustentadas por evidência (Baixou Score boa/excepcional).
+function inMode(o:Offer,f:CatalogFilters){if(f.market)return isOpportunity(baixouScore(o,undefined));const ev=effectiveEvidence(o);if(f.verified)return ev==='history';return ev!=='none';}
 // Both facets and cards consume this exact eligibility + grouping pipeline.
 export function catalogSelection(offers:Offer[],filters:CatalogFilters,now=Date.now()){
  return consolidateOffers(offers.filter(o=>
-  (filters.savedOnly||(o.available&&Date.parse(o.expires_at)>now&&(filters.allProducts||(inMode(o,filters)&&effectiveDiscount(o)>=filters.minDiscount))))&&
+  (filters.savedOnly||(o.available&&Date.parse(o.expires_at)>now&&(filters.allProducts||(inMode(o,filters)&&(filters.market||effectiveDiscount(o)>=filters.minDiscount)))))&&
   (!filters.stores?.length||filters.stores.includes(o.store))&&(!filters.maxPrice||o.price<=filters.maxPrice)&&matchesQuery(o,filters.query)
  ));
 }
