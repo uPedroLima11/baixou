@@ -1,3 +1,34 @@
+# CHECKPOINT — Baixou Score, preço de referência e catálogo guiado por oportunidades (Claude Code, 24/11/2026, ~05h UTC)
+
+## Auditoria do catálogo (produção, 24/11 ~04h UTC)
+- 2.642–2.793 anúncios ativos (varia com a coleta), ~2.548 produtos distintos (product_id ou anúncio), 1.496 com identidade exata.
+- Só desconto anunciado (preço riscado): 1.220–1.318 (média anunciada 34%; KaBuM 623, ML 291, Patoloco 231). Queda histórica comprovada: 0 (histórico verificado tem 2 dias). Comparação com ≥2 outras lojas: 18 anúncios (6 abaixo, 3 em linha, 6 acima, 3 dispersos). 1 loja comparada: 64. Sem evidência: ~1.420. Preço anunciado no Telegram: 34.
+- Antes, o modo "Incluir ofertas das lojas" e a ordenação davam destaque a qualquer preço riscado ≥5%; o padrão caía em ofertas anunciadas sem histórico.
+- Ruído de preço (price_daily): 94% dos dias-anúncio sem variação; ~5% variam >3% no dia; ~1% dos anúncios mudou >3% entre dias → base para as faixas.
+
+## Preço de referência não contaminado (migration 20261124050000)
+- `price_history_stats` devolve também a janela de referência (verificações com mais de 24 h, até 30 dias): mediana, mín., máx., amostras, dias → `offers.reference_*` e `catalog_offers`. `evidenceFromStats` usa essa janela para queda comprovada e alertas (sem ref_*, comportamento antigo). 1.674 ofertas ativas já com referência; ≥3 dias só a partir de ~26/11.
+
+## Baixou Score (lib/score.ts, tests/score.test.ts)
+- Nota 0–100 = 50 + 250·s, s = economia vs. referência própria (≥5 verificações/≥3 dias) e/ou vs. mediana de ≥2 lojas comparadas (dispersão ≤1,5×); com ambas, a menor. Confiança separada (alta: ≥7 dias e ≥10 verificações, ou ≥3 lojas, ou as duas evidências; média: o resto).
+- Classes: excepcional ≥15% (só confiança alta), boa 8–15%, competitivo 3–8%, normal ±3%, acima ≤ −5%, dados insuficientes. Outra loja mais barata limita a competitivo. Preço riscado e Telegram nunca pontuam.
+- Produção (2.793 ativos): boa 5, competitivo 3, normal 3, acima 6, insuficiente 2.776. Dos 1.318 com desconto anunciado: 2 competitivos, 1 normal, 1 acima, 1.314 sem evidência independente.
+- Exemplos: Ryzen 7 7800X3D KaBuM R$ 1.679,99 (anunciado 60%) = 22,3% abaixo de 2 lojas → boa (100, confiança média); i5-12400 KaBuM 27,8% abaixo → boa; A400 240 GB WAZ 19,8% abaixo → boa; i5-12400F KaBuM 11,4% abaixo mas Guerra mais barata → competitivo; Ryzen 5 5500 iByte (anunciado 30%) em linha → normal; 7800X3D Patoloco (anunciado 29%) 21% acima → acima; Mouse Galax Patoloco R$ 32 (anunciado 83%) → dados insuficientes.
+
+## Catálogo
+- Modalidades: "Baixou!" (boa/excepcional; padrão; sem nenhuma, catálogo completo), "Quedas de preço", "Ofertas anunciadas" (inclui descontos de loja ainda não comprovados), "Catálogo completo"; "Divulgadas" no menu. Removido o botão "Abaixo das lojas comparadas" (agora parte do Score).
+- Ordenação: relevância > classe > nota > confiança > identidade > completude. Card: primeiro motivo do Score + "Baixou Score N · classe". Detalhe: caixa do Score com classe, confiança e motivos.
+
+## Infraestrutura
+- `watchdog.yml` (minutos 7,17,…,57): dispara coleta se nenhuma ativa e a última começou há 25+ min. Teste manual OK; o schedule do GitHub ainda não disparou sozinho até 05h (mesma instabilidade do collect) — o revezamento consertado mantém coletas a cada ~13 min.
+- Banco 52 MB (offers cresce com a importação).
+
+## Histórico anunciado (importação controlada)
+- Janela 30–75 dias (run 45324077050, 0 erros): Terabyte até 10/09 (+4.533 posts, 683 anúncios criados vencidos); Pichau até 27/09 (+691 posts; prazo compartilhado esgotou). Janela final em execução: Terabyte 75–120 dias, Pichau 57–120 dias (um job por loja).
+
+## Alertas de queda
+- 0 anúncios elegíveis (referência com no máximo 1 dia). Homologação real só a partir de ~26/11; regras e testes já cobrem absoluto, percentual, favoritos, combinação e deduplicação.
+
 # CHECKPOINT — divulgadas 48 h, importação de 30 dias, parser corrigido, revezamento consertado (Claude Code, 24/11/2026, ~03h45 UTC)
 
 - **Amazon:** não integrada. Novas frentes (embed público do X, agregadores no Telegram, WhatsApp, Linktree) sem preço recente ou sem vendedor identificável. Detalhes em MAJOR_STORES.md (topo).

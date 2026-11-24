@@ -146,3 +146,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `/divulgadas` mostra publicações das lojas até 48 h com "disponibilidade não confirmada"; o catálogo continua só com posts ≤ 6 h. Não aumentar o TTL de 'announced' para inflar o catálogo.
 - Coleta regular do Telegram lê 8 h e tem teto de 60 s por canal; publicações antigas entram só pela importação manual `telegram-backfill.yml` (insertOnly, nunca sobrescreve oferta).
 - Revezamento do collect.yml só cede ao agendamento nativo com 2+ execuções `schedule` em 50 min; um evento isolado não basta.
+
+## Baixou Score e preço de referência (Claude Code, 24/11/2026)
+
+- Preço habitual = mediana das verificações com mais de 24 h (até 30 dias), gravada em `offers.reference_*` por `price_history_stats`. Queda comprovada e alertas de queda usam essa janela: a promoção de hoje nunca entra na própria referência.
+- Baixou Score (lib/score.ts) só usa referência própria (≥5 verificações em ≥3 dias) e/ou ≥2 lojas comparadas (dispersão ≤1,5×). Economia menor vence; nota = 50 + 250·s (0–100); confiança separada. Faixas: normal ±3%, competitivo 3–8%, boa 8–15%, excepcional ≥15% só com confiança alta, acima ≤ −5%. Outra loja mais barata limita a "competitivo".
+- Preço riscado e preços anunciados no Telegram nunca recebem nota ("Dados insuficientes"). Não criar meta de quantidade de promoções nem relaxar faixas para preencher a modalidade Baixou!.
+- Modalidade padrão "Baixou!" = boa/excepcional; sem nenhuma, catálogo completo ordenado pelo Score. Ordenação padrão: relevância da busca > classe > nota > confiança. Desconto anunciado não ordena.
+- `watchdog.yml` (a cada 10 min) dispara coleta se nada roda há 25+ min; revezamento do collect.yml continua como primeira linha.
