@@ -15,5 +15,7 @@ export type Connector={
  hosts:string[];
  // false até haver consulta real aprovada com credenciais; impede ativação por engano.
  implemented:boolean;
+ // Tempo máximo desta fonte dentro do prazo compartilhado do job (ms), para uma fonte não consumir o das outras.
+ budgetMs?:number;
  listings(ctx:ConnectorContext):AsyncIterable<MarketplaceListing>;
 };

@@ -21,7 +21,9 @@ for(const c of connectors){
  if(claim.error)throw claim.error;if(!claim.data){console.log(JSON.stringify({connector:c.id,skipped:true,reason:'lease ocupado'}));continue;}
  let store='',runId:number|undefined,accepted=0,rejected=0,errors=0,discounts=0,olderPosts=0,liveAnnounced=0;const reasons:Record<string,number>={};
  try{
-  for await(const listing of c.listings({env,fetch,deadline,maxListings:Number(env.CONNECTOR_MAX_LISTINGS)||600})){
+  const own=Math.min(deadline,Date.now()+(c.budgetMs??Infinity));
+  for await(const listing of c.listings({env,fetch,deadline:own,maxListings:Number(env.CONNECTOR_MAX_LISTINGS)||600})){
+   if(Date.now()>own){console.log(JSON.stringify({connector:c.id,budget_exhausted:true}));break;}
    store=listing.source;
    if(runId===undefined){const run=await db.from('collection_runs').insert({store}).select('id').single();if(run.error)throw run.error;runId=run.data.id;}
    const decision=acceptListing(listing,{hosts:c.hosts,marketplace:c.marketplace});

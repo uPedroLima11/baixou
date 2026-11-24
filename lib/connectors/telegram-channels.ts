@@ -81,7 +81,7 @@ async function resolveShort(ctx:ConnectorContext,link:string,cfg:ChannelConfig){
  try{const u=new URL(link);if(!cfg.shortHosts?.includes(u.hostname))return undefined;const r=await ctx.fetch(link,{method:'HEAD',redirect:'manual',headers:{'User-Agent':agent},signal:AbortSignal.timeout(8000)});const loc=r.headers.get('location');return loc&&r.status>=300&&r.status<400?new URL(loc,link).toString():undefined;}catch{return undefined;}
 }
 export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:string;implemented:boolean}):Connector{
- return {id:cfg.id,name:cfg.name,marketplace:false,requiredEnv:[],hosts:[cfg.productHost],implemented:cfg.implemented,
+ return {id:cfg.id,name:cfg.name,marketplace:false,requiredEnv:[],hosts:[cfg.productHost],implemented:cfg.implemented,budgetMs:60000,
   async *listings(ctx){
    // Lê a janela de posts: o mais recente de cada produto vira oferta (vale 6 h a partir do post; mais antigo já nasce
    // vencido e fica fora do catálogo); todos alimentam o histórico de preços anunciados.
