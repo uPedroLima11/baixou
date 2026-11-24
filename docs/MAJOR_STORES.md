@@ -1,3 +1,22 @@
+# Pichau ativada, Terabyte ampliada, Amazon reavaliada (Claude Code, 24/11/2026 ~02h UTC)
+
+## Pichau — por que o canal `t.me/pichauofertas` foi aceito
+- `pruuu.me` é o encurtador de marca da Pichau: as descrições do YouTube oficial (@pichauinfo, canal `UCo4-WGKOvw3QmzW8MRuuFtQ`, dono "Pichau", links sociais facebook.com/PichauInfo e pichau.com.br) usam dezenas de links `pruuu.me`, inclusive com nomes personalizados (`pruuu.me/ryzen77700x` → produto em pichau.com.br). Em domínio de marca do Bitly, só a conta dona do domínio cria links (a raiz redireciona para pichau.com.br).
+- O canal publica links personalizados desse domínio para as lives oficiais (`pruuu.me/Live24H` → youtube ZK3_OFo9FSY e `pruuu.me/Live13-11-26` → k3iJTn1bOkc, ambos do canal oficial da Pichau), além de vídeos ("João e Juninho da Pichau") e matérias da Pichau Arena. Existe desde 19/01/2022.
+- Não encontrado: link direto para o canal em página acessível da Pichau (site 403; Instagram/Facebook exigem login; YouTube "about" sem Telegram; SAC Freshdesk sem menção). Por isso a UI diz "canal da Pichau no Telegram" (não "oficial confirmado pelo site").
+
+## Terabyte — cobertura
+- Só um canal linkado no site (`terabyteshopoficial`). Prévia pública: ~20 posts/página; 6 h ≈ 37 posts/produtos, 24 h ≈ 101 posts/97 produtos. O conector lê 24 h (≤12 páginas, 1,5 s entre páginas).
+- Pichau: 6 h ≈ 10 produtos; 24 h ≈ 26.
+
+## Imagens
+- 1º: imagem do MESMO produto canônico (identidade exata por marca + código) em outra loja, com "Fonte da imagem" na ficha. 2º: foto publicada pela própria loja no post (CDN do Telegram, `cdn*.telesco.pe`, cache 3 h, renovada a cada coleta; imagem quebrada some da tela). Nunca por semelhança.
+- Fotos conferidas: Terabyte = foto limpa do produto; Pichau = arte promocional do produto exato, sem preço.
+
+## Amazon — caminhos novos examinados
+- Canais próprios: nenhum canal público da Amazon Brasil legível sem conta (WhatsApp encontrados são de afiliados/grupos de ofertas; `t.me/amazonbr` é spam). YouTube oficial (@amazonbrasil) sem preços nas descrições. aboutamazon.com.br (notícias oficiais, robots permite com Crawl-delay 10): só campanhas (cupons, sorteio), sem preço por produto.
+- Continuam descartados: páginas de produto (Condições de Uso vedam robôs), agregadores (Buscapé/Zoom vedam), comunidades (Pelando/Promobit: preço de usuário, não verificável), repositórios com Selenium/impersonação.
+
 # Pichau, Terabyte e Amazon — caminhos novos (Claude Code, 24/11/2026 ~01h UTC)
 
 Nova frente: **canais oficiais de ofertas das próprias lojas no Telegram**, lidos pela prévia pública da web (`https://t.me/s/<canal>`; t.me não tem robots.txt), sem conta, bot ou login. São anúncios de primeira mão: produto, preço à vista, parcelado e link.

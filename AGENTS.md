@@ -140,3 +140,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - Terabyte entra como **preço anunciado** pelo canal oficial `t.me/terabyteshopoficial` (prévia pública t.me/s, sem conta). `verification_status='announced'`: checked_at = horário do post, 6 h de validade, sem histórico, fora da referência de mercado e dos alertas. UI sempre diz "anunciado pela loja" e "página não conferida". Nunca promover a 'verified' sem consulta real à página.
 - Só ligar um canal depois de confirmado como da própria loja (link no site oficial). Pichau (`pichauofertas`) está desligada aguardando essa confirmação. Não usar o navegador para burlar o bloqueio do site; não usar User-Agent falso nem Selenium.
+- Pichau entra pelo canal `t.me/pichauofertas` (evidência: encurtador de marca pruuu.me, usado no YouTube oficial, e links personalizados para as lives oficiais). UI: "canal da Pichau no Telegram". Se a Pichau publicar o link do canal no site, atualizar o rótulo para oficial.
+- Histórico de preços anunciados (`announced_daily`) é separado de `price_daily`: nunca somar, comparar ou usar em estatísticas, referência de mercado, evidência ou alertas.
+- Largura de barramento ("128-bit") nunca é código de fabricante; conferir outros atributos de ficha antes de aceitar código de fim de título.

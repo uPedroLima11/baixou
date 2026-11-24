@@ -1,3 +1,16 @@
+# CHECKPOINT — Pichau ativada, Terabyte com imagens/24 h, histórico de preços anunciados (Claude Code, 24/11/2026, ~02h15 UTC)
+
+- **Pichau ativada** (`pichau-telegram`, implemented:true). Evidência em MAJOR_STORES.md: `pruuu.me` é o encurtador de marca da Pichau (links personalizados no YouTube oficial @pichauinfo) e o canal publica links personalizados desse domínio para as lives oficiais. Nenhuma página acessível da Pichau linka o canal: UI = "canal da Pichau no Telegram". Rejeita link de categoria (slug < 4 partes); resolve `pruuu.me` por HEAD sem seguir (400 ms entre links).
+- **Coleta hospedada 45309957300 (6f78376):** terabyte-telegram 32 ativos + 59 posts antigos só no histórico, 0 erros; pichau-telegram 5 ativos + 15 no histórico, 0 erros; ML 485 aceitos (prazo dos conectores subiu para 300 s; antes a rodada 45307793055 cortou o ML em 195 porque os canais levavam ~105 s — agora ~50 s).
+- **Banco (02h15):** Terabyte 32 ativos (29 com imagem, 11 com identidade exata); Pichau 5 ativos (5 com imagem, 1 identidade). announced_daily: 87 + 20 linhas, 120 kB.
+- **Imagens:** mesmo produto canônico em outra loja (origem em "Fonte da imagem") ou foto do próprio post (CDN Telegram, renovada a cada coleta); `onError` esconde imagem quebrada.
+- **Janela:** lê 24 h de posts; o mais recente de cada produto vira oferta (validade 6 h a partir do post); posts anteriores e últimos posts já vencidos só gravam histórico anunciado (1 chamada).
+- **Histórico de preços anunciados:** tabela `announced_daily` (migration 20261124030000) + `record_announcement()` (service_role): por anúncio e dia de São Paulo, menor preço anunciado, horário e post, último preço e nº de publicações distintas (repetições da mesma publicação contam uma vez; ensaiado com rollback). `/api/history` devolve `announced` separado; detalhe de oferta anunciada mostra só "Histórico de preços anunciados" (um ponto por dia, horário e link do post no tooltip). Fora de price_daily, estatísticas, referência de mercado e alertas.
+- **Correção de identidade:** "128-bit"/"192-bit" virava código de fabricante (2 Pichau, 1 Guerra) e criou produtos canônicos falsos (afox/gigabyte 128BIT, gigabyte 192BIT). Regra corrigida (NOT_CODE `\d+BITS?`), produtos falsos removidos (migration 20261124032000), teste novo.
+- **Amazon:** sem fonte própria legível sem conta (detalhes em MAJOR_STORES.md).
+- **Operação:** run 45307793055 falhou em "Resolver links candidatos" (Guerra) por 5xx do gateway Supabase; o passo ganhou uma nova tentativa (6f78376). O revezamento parou quando o schedule do GitHub (`4,19,34,49 * * * *`) voltou a disparar, como previsto.
+- Testes: 121 passando; CI verde em 6f78376.
+
 # CHECKPOINT — Terabyte integrada (parcial) pelo canal oficial no Telegram (Claude Code, 24/11/2026, ~01h30 UTC)
 
 Missão: Pichau, Terabyte ou Amazon por qualquer caminho gratuito, sem cadastro e sem contorno. Detalhes e tabela de candidatas em MAJOR_STORES.md (topo).
