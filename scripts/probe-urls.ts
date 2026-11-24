@@ -11,6 +11,6 @@ for(const url of urls){
  if(!allowed){console.log(JSON.stringify({url,robots:'disallow'}));continue;}
  await new Promise(r=>setTimeout(r,1500));
  try{const res=await fetch(url,{headers:{'User-Agent':agent,Accept:'text/html,application/json'},redirect:'manual',signal:AbortSignal.timeout(10000)});const body=await res.text();
-  console.log(JSON.stringify({url,status:res.status,location:res.headers.get('location')?.slice(0,120)??null,bytes:body.length,priceMarks:(body.match(/andes-money-amount__fraction/g)??[]).length,cards:(body.match(/poly-component__title/g)??[]).length,title:body.match(/<title>([^<]{0,80})/)?.[1]??null}));}
+  console.log(JSON.stringify({url,status:res.status,location:res.headers.get('location')?.slice(0,120)??null,bytes:body.length,priceMarks:(body.match(/andes-money-amount__fraction/g)??[]).length,cards:(body.match(/poly-component__title/g)??[]).length,title:body.match(/<title>([^<]{0,80})/)?.[1]??null,telegram:[...new Set(body.match(/(?:t\.me|telegram\.me)\/[A-Za-z0-9_]{3,40}/g)??[])].slice(0,10)}));}
  catch(e){console.log(JSON.stringify({url,error:e instanceof Error?e.message:'erro'}));}
 }
