@@ -7,7 +7,7 @@ import {storeNames} from '@/lib/stores';
 // Evolução diária de até 6 grupos equivalentes (mesmas regras de agrupamento do retrato atual).
 // Usa todos os anúncios do grupo com preço à vista/Pix comparável, inclusive os hoje indisponíveis (foram observados).
 export const dynamic='force-dynamic';
-const FIELDS='id,store,title,category,brand,specs,variant,price,url,seller,seller_key,payment_basis,available,expires_at,image';
+const FIELDS='id,store,title,category,brand,specs,variant,price,url,seller,seller_key,payment_basis,available,expires_at,image,verification_status';
 export async function GET(req:Request){
  const q=new URL(req.url).searchParams,c=q.get('c');if(c!=='ram'&&c!=='gpu')return NextResponse.json({error:'invalid_category'},{status:400});
  const keys=[...new Set((q.get('keys')??'').split(',').map(s=>s.trim()).filter(Boolean))].slice(0,6),days=Math.min(400,Math.max(1,Number(q.get('days'))||30));

@@ -49,3 +49,9 @@ test('typical series breaks with few pairs and restarts as a new segment',()=>{
  assert.deepEqual(s.map(p=>[p.typical,p.segment]),[[100,0],[100,1],[null,2]]);
  assert.equal(typicalChange(s),null);
 });
+test('announced store prices never enter verified statistics',()=>{
+ const live=new Date(Date.now()+3600000).toISOString();
+ const v={id:'v',store:'kabum',title:'Memória 16GB DDR5',category:'ram',brand:'X',specs:{},variant:{},price:800,url:'u',seller:'KaBuM!',seller_key:null,payment_basis:'cash',available:true,expires_at:live,image:null,verification_status:'verified'} as StatOffer;
+ const a={...v,id:'a',store:'terabyte',price:100,verification_status:'announced'} as StatOffer;
+ const [g]=snapshot([v,a],ramGroup);assert.equal(g.offers,1);assert.equal(g.low,800);
+});

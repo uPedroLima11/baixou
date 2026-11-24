@@ -7,7 +7,7 @@ import {offerFacets} from './specs';
 import {independentSeller} from './search';
 import {median} from './history';
 import type {Offer} from './types';
-export type StatOffer=Pick<Offer,'id'|'store'|'title'|'category'|'brand'|'specs'|'variant'|'price'|'url'|'seller'|'seller_key'|'payment_basis'|'available'|'expires_at'|'image'>;
+export type StatOffer=Pick<Offer,'id'|'store'|'title'|'category'|'brand'|'specs'|'variant'|'price'|'url'|'seller'|'seller_key'|'payment_basis'|'available'|'expires_at'|'image'|'verification_status'>;
 export type GroupKey={key:string;label:string;order:number[];gb?:number;tier?:string};
 export function ramGroup(o:StatOffer):GroupKey|null{
  const f=offerFacets(o),ddr=Number(f.ddr),total=Number(f.total_gb),modules=Number(f.modules),per=Number(f.per_module_gb);
@@ -22,7 +22,8 @@ export function ramGroup(o:StatOffer):GroupKey|null{
 }
 const GPU_ORDER=(m:string)=>{const n=Number(m.match(/\d{3,4}/)?.[0]??0),suffix=/Ti Super/.test(m)?3:/Ti|XTX/.test(m)?2:/Super|XT|GRE/.test(m)?1:0;return n*10+suffix;};
 export function gpuGroup(o:StatOffer):GroupKey|null{const f=offerFacets(o),model=f.gpu_model?String(f.gpu_model):'',vram=Number(f.vram_gb);if(!model||!vram)return null;const vendor=String(f.chip_vendor??'');return {key:model+'|'+vram,label:model+' · '+vram+' GB',order:[vendor==='nvidia'?0:vendor==='amd'?1:2,GPU_ORDER(model),vram],tier:vram+' GB'};}
-export const cashComparable=(o:Pick<Offer,'store'|'payment_basis'>)=>o.payment_basis==='cash'||o.store!=='mercadolivre';
+// Estatísticas verificadas: preço à vista comparável e NUNCA preço apenas anunciado pela loja (canais no Telegram).
+export const cashComparable=(o:Pick<Offer,'store'|'payment_basis'>&{verification_status?:string|null})=>o.verification_status!=='announced'&&(o.payment_basis==='cash'||o.store!=='mercadolivre');
 export const isLive=(o:Pick<Offer,'available'|'expires_at'>,now=Date.now())=>o.available&&Date.parse(o.expires_at)>now;
 export type Snapshot={key:string;label:string;tier?:string;offers:number;sellers:number;brands:number;low:number;median:number;high:number;perGbLow?:number;perGbMedian?:number;best:{id:string;title:string;store:string;seller:string;url:string;price:number};ids:string[];order:number[]};
 export function snapshot(offers:StatOffer[],group:(o:StatOffer)=>GroupKey|null,now=Date.now()):Snapshot[]{
