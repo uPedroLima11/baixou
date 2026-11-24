@@ -1,8 +1,42 @@
-# CHECKPOINT — evolução histórica de RAM/GPU e gráfico diário (Claude Code, 24/11/2026, início ~00h35 UTC) — EM ANDAMENTO
+# CHECKPOINT — evolução histórica de RAM/GPU e gráfico diário (Claude Code, 24/11/2026, ~00h35–01h30 UTC)
 
-Pedido: gráficos de evolução por grupos equivalentes (RAM por geração/uso/capacidade/kit; GPU por modelo exato + VRAM), sem viés de composição; histórico do produto com UM ponto por dia (menor preço observado no dia, dia atual parcial; verificações intradiárias só como visão secundária); validar alertas de queda histórica quando houver dados (≥3 dias, ≥5 observações); medir custo do histórico. Sem novas lojas; Pichau/Terabyte/Amazon só se surgir caminho novo, gratuito e sem cadastro.
+Pedido: gráficos de evolução por grupos equivalentes (RAM por geração/uso/capacidade/kit; GPU por modelo exato + VRAM), sem viés de composição; histórico do produto com UM ponto por dia (menor preço observado no dia, dia atual parcial; verificações intradiárias só como visão secundária); validar alertas de queda histórica quando houver dados; medir custo do histórico. Sem novas lojas (nenhum caminho novo para Pichau/Terabyte/Amazon surgiu; pesquisa não repetida).
 
 Estado inicial verificado: main limpo em bf59277, CI verde; banco 31 MB; price_history 14.561 linhas (4,3 MB); price_daily 2.380 linhas (416 kB), 1 dia de São Paulo.
+
+## Gráfico do produto (5a98a92)
+
+- Padrão = um ponto por dia de São Paulo vindo de `price_daily`: valor = MENOR preço observado no dia; traço vertical até o maior do dia; tooltip com menor, maior, último/atual e nº de verificações. Hoje = ponto vazado "parcial", que inclui o preço atual verificado (dentro do TTL). Dia sem coleta não tem ponto e interrompe a linha.
+- Eixo X diário: uma marca por dia observado (sem datas repetidas); folga de meio dia (ponto único centralizado). 7/30/90 dias/6 meses/1 ano na mesma escala diária, liberados por cobertura real.
+- "Ver verificações das últimas 48 h" = visão secundária com as verificações horárias. Coleta horária e `price_history` inalterados (alertas continuam usando `price_history_stats` e a confirmação recente).
+- Por loja e Menor entre lojas usam a mesma série diária (mesmo modelo exato via comparisonIndex).
+
+## Evolução por grupos (7c78ff5)
+
+- RPC `group_daily(ids, dias)` (migration 20261124010000): por dia, anúncios observados, menor preço e anúncio, mediana dos menores, e mediana da razão menor(d)/menor(d−1) dos MESMOS anúncios. 8 ms para toda a categoria GPU em 400 dias.
+- `/api/stats/series?c=&keys=&days=` recalcula os grupos com as mesmas regras do retrato (lib/stats.ts), só preço à vista/Pix comparável, inclusive anúncios hoje indisponíveis (foram observados). Cache de borda 15 min.
+- Métricas: "Menor preço" (o que estava à venda; pode cair por entrada de anúncio barato) e "Preço típico" (encadeado pelos mesmos anúncios; produtos novos não o deslocam; <3 pares interrompe e recomeça em novo trecho). RAM também em R$/GB.
+- UI em /estatisticas: RAM por faixa (DDR3/DDR4/DDR5 × desktop/notebook/servidor; linhas por capacidade e divisão de kit); GPU com seleção de até 6 modelos exatos (padrão: RTX 5060, 5060 Ti 16 GB, 5070, 5070 Ti, RX 9070 XT quando presentes; RTX 4060 não está no catálogo atual), cor fixa por modelo. Tabela: hoje (parcial), menor do período (data e loja), mediana dos menores, variação do preço típico, dias, lojas, leitura descritiva (describeTrend sobre o menor diário; "dados insuficientes" até 3 dias).
+- Validado em desktop e celular (local) e em produção (claro/escuro).
+
+## Alertas de queda histórica
+
+- Não homologáveis com dados reais ainda: 0 anúncios com ≥5 observações em ≥3 dias UTC (a regra exclui a última hora); 1.350 já têm ≥5 observações. Primeiros elegíveis a partir de 25/11 (~01h UTC), e só disparam se houver queda real abaixo da mediana. Não há alertas cadastrados no banco agora.
+- Testes novos (alert-rules.test.ts): porcentagem real sem arredondamento (10% exato casa, 9,999% não), mínimo de 5 observações/3 dias, combinação preço máximo + queda absoluta + percentual (AND). Já existiam: queda absoluta, preço riscado não comprova queda, favorito só com queda comprovada, deduplicação por reserva atômica (tests/notification-claims.sql).
+- Homologação pendente: em 25/11 ou depois, conferir `select count(*) from offers where evidence='history'` e, havendo casos, criar alerta de teste na conta do proprietário (autorizado antes para testes), observar envio único e remover.
+
+## Custo do histórico
+
+- Medido: bruto ≈300 B/linha (2 índices), ~13–15 mil linhas/dia → ~150 MB estável com 35 dias. Diário ≈175–200 B/linha, ~2,4 mil/dia → ~170–190 MB com 400 dias. Projeção com o catálogo atual: ~350 MB em ~13 meses (limite gratuito 500 MB). Sem reduzir retenções agora.
+- Consultas: série do produto 0,2 ms (pk de price_daily), bruto 48 h 0,5 ms, catálogo por categoria 2 ms (seq scan em 2,7 mil linhas; criar índice por categoria se passar de ~20 mil).
+- `storage_report()` (service_role) + seção "Armazenamento" no relatório do Actions com projeção de 400 dias.
+- Se o catálogo crescer: (1) remover o índice redundante `history_lookup` ou trocar consultas para (offer_id,bucket); (2) migrar a mediana de 30 dias para `price_daily` e reduzir o bruto para 14 dias. Ambos exigem decisão e medição.
+- Anúncios indisponíveis não geram observação (sem ponto/linha interrompida); nenhum anúncio é apagado, então resumos e favoritos permanecem.
+
+## Pendências
+
+- Homologar alertas de queda (≥25/11). Leituras de tendência e variações aparecem automaticamente com 2–3 dias; 7/30/90 dias com o tempo.
+- Probabilidade de queda continua fora (exige meses de histórico e validação retrospectiva).
 
 # CHECKPOINT — Pichau/Terabyte/Amazon, histórico de longo prazo, gráficos e estatísticas (Claude Code, 24/11/2026, ~00h30 UTC)
 
