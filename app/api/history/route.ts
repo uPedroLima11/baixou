@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {publicDb} from '@/lib/supabase';
 // Histórico de preços de até 8 anúncios (o produto e os mesmos modelos em outras lojas).
-// raw: observações reais (até 1 por hora, retenção 35 dias) quando days<=31; daily: resumo diário (até 400 dias).
+// raw: observações reais (até 1 por hora, retenção 21 dias) quando days<=31; daily: resumo diário (até 400 dias).
 export const dynamic='force-dynamic';
 type Row=Record<string,unknown>;
 async function all(query:(from:number,to:number)=>PromiseLike<{data:Row[]|null;error:unknown}>,cap:number){const out:Row[]=[];for(let from=0;from<cap;from+=1000){const r=await query(from,Math.min(cap,from+1000)-1);if(r.error)throw r.error;out.push(...(r.data??[]));if((r.data?.length??0)<1000)break;}return out;}

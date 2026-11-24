@@ -38,7 +38,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Quedas exigem mediana confiável. Preço riscado nunca comprova queda. Comparar porcentagem real, sem arredondar para decidir disparo. Specs desconhecidas não casam por suposição.
 - Wishlist e alertas nunca são apagados por TTL, estoque ou falha. FKs para offers são RESTRICT. Catálogo ativo e produtos salvos são consultas diferentes.
 - Falha de consulta não confirma esgotamento. Preservar checked_at/preço; atualizar last_attempt_at/verification_status. Nunca estender TTL sem consulta real. Ordenar revalidação por tentativa para não repetir eternamente URLs que falham.
-- Histórico tem retenção documentada de 35 dias; favoritos/alertas não possuem expiração automática. Mudanças de retenção precisam ser explícitas e documentadas.
+- Histórico bruto tem retenção de 21 dias desde 24/11/2026 (era 35; medição de volume em HANDOFF), resumo diário 400 dias; favoritos/alertas não possuem expiração automática. Mudanças de retenção precisam ser explícitas e documentadas.
 
 ## E-mail, operação e validação
 
@@ -131,7 +131,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Histórico, gráficos e estatísticas (Claude Code, 24/11/2026)
 
 - Pichau/Terabyte/Amazon investigadas a fundo sem cadastro (MAJOR_STORES.md, topo): nenhuma integrável sem autorização. Não usar o host de origem `media.pichau.com.br` para páginas bloqueadas no site, nem agregadores (Buscapé/Zoom vedam robôs e redistribuição). Não substituir por outras lojas sem pedido do proprietário.
-- `price_daily` (centavos, dia de São Paulo) é mantido por gatilho a partir de `price_history`; não gravar nele diretamente. Retenção 400 dias; bruto 35 dias. Medir tamanho antes de mudar retenções.
+- `price_daily` (centavos, dia de São Paulo) é mantido por gatilho a partir de `price_history`; não gravar nele diretamente. Retenção 400 dias; bruto 21 dias. Medir tamanho antes de mudar retenções.
 - Gráficos: nunca interpolar lacunas; períodos só com cobertura real; preço riscado nunca entra. Visão por loja/menor entre lojas usa o mesmo modelo exato (comparisonIndex).
 - Estatísticas: grupos equivalentes estritos (lib/stats.ts); variação só em painel consistente; sem probabilidade de queda até haver histórico longo e validação retrospectiva documentada.
 - Gráfico do produto e evolução de grupos usam escala diária (`price_daily`): ponto = menor preço observado no dia; hoje é parcial. Verificações horárias só na visão secundária de 48 h. "Preço típico" de grupo é encadeado pelos mesmos anúncios (group_daily); "menor preço" pode refletir entrada de anúncio novo e deve ser rotulado assim.
@@ -154,3 +154,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Preço riscado e preços anunciados no Telegram nunca recebem nota ("Dados insuficientes"). Não criar meta de quantidade de promoções nem relaxar faixas para preencher a modalidade Baixou!.
 - Modalidade padrão "Baixou!" = boa/excepcional; sem nenhuma, catálogo completo ordenado pelo Score. Ordenação padrão: relevância da busca > classe > nota > confiança. Desconto anunciado não ordena.
 - `watchdog.yml` (a cada 10 min) dispara coleta se nada roda há 25+ min; revezamento do collect.yml continua como primeira linha.
+- Identidade: código do título que é prefixo do MPN da loja (título truncado/sufixo de região) não é conflito; código só numérico apenas do campo MPN, com separador e ≥7 dígitos; `knownCodeInTitle` vale para todas as lojas (coletor). Recalcular vínculos com `identity-backfill.yml` (tem dry run) depois de mudar regras.
+- Nota do Score fica dentro da faixa da classe (excepcional 88–100, boa 70–87, competitivo 58–69, normal 38–57, acima 0–37).
+- Recuperação da coleta independente do GitHub: o Actions grava `infra_heartbeat('actions-collect')`; o pg_cron `baixou-collect-recovery` (*/5) chama `/api/jobs/collect?recovery=1` quando o batimento passa de 25 min. Não depende de nova credencial (segredo do Vault já existente).
+- Listagem do catálogo sem `images` (detalhe busca a galeria); cache de borda 5 min; atualização do cliente a cada 5 min. Filtros/paginação no servidor: reavaliar perto de 10 mil anúncios.
