@@ -1,3 +1,13 @@
+# CHECKPOINT — WhatsApp com remetente central (Claude Code, 27/11/2026, ~00h UTC)
+
+- Proprietário recusou o CallMeBot (chave por usuário). **CallMeBot removido** (código, UI e testes). Novo modelo em docs/WHATSAPP.md: Baileys (WhiskeySockets, 7.0.0-rc14, versão exata) em ciclos curtos na Vercel; sem servidor 24/7, sem custo.
+- Commits `1f0fffa` (implementação) e o workflow `whatsapp-check.yml`. CI success; produção Ready. Suíte 164/164, typecheck e build aprovados.
+- Migration `20261127000000_whatsapp_central_sender.sql` **aplicada** (whatsapp_contacts estava vazia): `whatsapp_auth` (sessão AES-256-GCM, ids HMAC), `whatsapp_sender` (situação), fila `queued`/`body`, status `delivered`. RLS ligado; anon/authenticated sem privilégio (conferido).
+- Vercel Production: `WHATSAPP_STATE_KEY` (gerada, sensível, nunca exibida; perdida = parear de novo), `WHATSAPP_ADMIN_USERS` = proprietário; `WHATSAPP_MODE=test` e `WHATSAPP_TEST_USERS` = proprietário (mantidos).
+- Diagnóstico hospedado `45909764261`: HTTP 200 `{"baileys":true,"mode":"test","keyConfigured":true,"sender":"unlinked"}` — o pacote carrega na função da Vercel. `/api/whatsapp/sender` sem sessão: GET `{admin:false}`, POST 403.
+- **Ainda NÃO feito (depende do proprietário):** escolher o número remetente (dedicado recomendado), parear em Conta → Notificações → "Remetente do Baixou! no WhatsApp" (código por número de telefone, ~2 min), confirmar o próprio número como usuário (BAIXOU código) e observar um alerta real. Sem isso, nenhum envio real ocorreu; não declarar homologado.
+- Riscos registrados: termos do WhatsApp vedam clientes não oficiais (risco de bloqueio do remetente); celular remetente precisa abrir o WhatsApp a cada ~14 dias; latência até ~15 min (fila vence em 60 min); Baileys ainda RC.
+
 # CHECKPOINT — Amazon, ChipArt, descoberta, favicon e WhatsApp (Claude Code, 26/11/2026, ~22h40 UTC)
 
 - Entrada: main = origin/main em `a2e056a`, árvore limpa. Saída: commits `5eee5f7` (favicon), `c3cb79a` (descoberta), `9de0b04` (WhatsApp) + correções/documentação seguintes. CI `45904818987` success; produção `baixou-kfe7q1xz2` Ready. Suíte **163/163**, typecheck e build aprovados.
