@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';import {adminDb} from './server';
-import {cheapestPerProduct,notificationKey} from './identity';
+import {notificationKey} from './identity';
 import {alertCovers,matchesAlert} from './alert-rules';
 import {buildNotificationEmail,offerEmailUrl,reasonForAlert,wishlistReason,type NotificationReason} from './email-templates';
 import type {Alert,Offer} from './types';
@@ -15,17 +15,18 @@ type WishItem={offer_id:string;offers:{product_id:string|null}|null};
 // NÃO são atendidas, a lista de desejos não avisa — salvo opt-in explícito (wishlist_ignore_alert_limits).
 // Caso real de 26/11: alerta RAM DDR4 16 GB desktop ≤ R$ 850 + Kingston KF432C16BB/16 favoritado → e-mail "wishlist"
 // a R$ 1.194,99. Com esta regra, o alerta define o limite e o e-mail não é enviado.
-export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wishlist_email_enabled'|'wishlist_ignore_alert_limits'|'payment_preference'>,rules:Alert[],wishlist:WishItem[],now=Date.now()):NotificationReason|null{
+export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wishlist_email_enabled'|'wishlist_ignore_alert_limits'|'payment_preference'>,rules:Alert[],wishlist:WishItem[],now=Date.now(),only?:'pix'|'card'):NotificationReason|null{
  if(!o.available||Date.parse(o.expires_at)<=now||excludedCondition(o.title))return null;
  // Limite geral e regras na modalidade de cada alerta (preço que o usuário vai pagar naquela forma de pagamento).
  const cap=(x:Offer)=>!p.global_max_price||Number(x.price)<=Number(p.global_max_price);
- const rule=rules.find(a=>{const x=offerForPayment(o,a.payment??'pix');return !!x&&cap(x)&&matchesAlert(a,o,now);});
+ // only: decide apenas uma modalidade (alertas Pix e cartão do mesmo produto são avaliados separadamente).
+ const rule=rules.filter(a=>!only||(a.payment??'pix')===only).find(a=>{const x=offerForPayment(o,a.payment??'pix');return !!x&&cap(x)&&matchesAlert(a,o,now);});
  if(rule){const pay=rule.payment??'pix';return {...reasonForAlert(rule,offerForPayment(o,pay)!),payment:pay};}
  const saved=wishlist.some(w=>w.offer_id===o.id||(!!o.product_id&&w.offers?.product_id===o.product_id));
  if(!p.wishlist_email_enabled||!saved)return null;
  if(!p.wishlist_ignore_alert_limits&&rules.some(a=>alertCovers(a,o)))return null;
  // Favoritos na forma de pagamento preferida do usuário. Queda comprovada: ≥5% abaixo do habitual DAQUELA modalidade.
- const pay=p.payment_preference==='card'?'card':'pix',w=offerForPayment(o,pay);if(!w||!cap(w))return null;
+ const pay=p.payment_preference==='card'?'card':'pix';if(only&&only!==pay)return null;const w=offerForPayment(o,pay);if(!w||!cap(w))return null;
  if(w.evidence==='history'&&w.historical_samples>=5&&w.historical_days>=3&&Number(w.historical_median)*0.95>=Number(w.price))return {...wishlistReason(!!p.wishlist_ignore_alert_limits&&rules.some(a=>alertCovers(a,o))),payment:pay};
  return null;
 }
@@ -33,6 +34,17 @@ export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wi
 export function permanentSmtpFailure(e:unknown){const code=Number((e as {responseCode?:number})?.responseCode);return Number.isFinite(code)&&code>=500&&code<600;}
 
 type Contact={user_id:string;jid:string};
+export type NotificationCandidate={o:Offer;po:Offer;reason:NotificationReason;payment:'pix'|'card';key:string};
+// Melhor loja POR PRODUTO E POR MODALIDADE: cada oferta é decidida na modalidade da regra que disparou (Pix ou cartão) e
+// comparada só com ofertas do mesmo produto decididas na MESMA modalidade, pelo preço dessa modalidade (po.price).
+// Ex.: alerta cartão ≤ 850; A Pix 699/cartão 899 (não casa) e B Pix 749/cartão 799 → B. Nunca compara cartão com Pix.
+export function selectNotifications(offers:Offer[],decide:(o:Offer,only:'pix'|'card')=>NotificationReason|null):NotificationCandidate[]{
+ const best=new Map<string,NotificationCandidate>();
+ for(const o of offers)for(const only of ['pix','card'] as const){const reason=decide(o,only);if(!reason)continue;const payment=reason.payment??'pix';if(payment!==only)continue;const po=offerForPayment(o,payment);if(!po)continue;
+  const key=notificationKey(o)+(payment==='card'?':card':''),prior=best.get(key);
+  if(!prior||Number(po.price)<Number(prior.po.price)||(Number(po.price)===Number(prior.po.price)&&o.checked_at>prior.o.checked_at))best.set(key,{o,po,reason,payment,key});}
+ return [...best.values()].sort((a,b)=>Number(a.po.price)-Number(b.po.price));
+}
 type Channel='email'|'whatsapp';
 
 // Canais independentes sobre a MESMA decisão (notificationReason): falha ou limite de um canal nunca impede o outro.
@@ -61,14 +73,11 @@ export async function sendNotifications(options:{budgetMs?:number;maxEmails?:num
   const contact=contacts.get(p.id);const emailOn=!!transport&&p.email_enabled;if(!emailOn&&!contact)continue;
   const {data:rules,error:re}=await db.from('alerts').select('*').eq('user_id',p.id).eq('enabled',true);if(re)throw re;
   const {data:wishlist,error:we}=await db.from('wishlist').select('offer_id,offers(product_id)').eq('user_id',p.id);if(we)throw we;
-  const reasons=new Map<string,NotificationReason>();
-  for(const o of (offers??[]) as Offer[]){const r=notificationReason(o,p,(rules??[]) as Alert[],(wishlist??[]) as unknown as WishItem[]);if(r)reasons.set(o.id,r);}
-  const matches=cheapestPerProduct(((offers??[]) as Offer[]).filter(o=>reasons.has(o.id))).slice(0,5);
+  const matches=selectNotifications((offers??[]) as Offer[],(o,only)=>notificationReason(o,p,(rules??[]) as Alert[],(wishlist??[]) as unknown as WishItem[],Date.now(),only)).slice(0,5);
   if(!matches.length)continue;
   let email:string|null=null;if(emailOn){const {data:{user}}=await db.auth.admin.getUserById(p.id);if(user?.email&&user.email_confirmed_at)email=user.email;}
   const channels:Channel[]=[...(email?['email' as const]:[]),...(contact?['whatsapp' as const]:[])];
-  for(const o of matches){if(Date.now()-started>budget)break;if(!offerEmailUrl(o.url)){skipped++;continue;}
-   const reason=reasons.get(o.id)!,pay=reason.payment??'pix',po=offerForPayment(o,pay)!,key=notificationKey(o)+(pay==='card'?':card':'');
+  for(const {o,po,reason,key} of matches){if(Date.now()-started>budget)break;if(!offerEmailUrl(o.url)){skipped++;continue;}
    for(const channel of channels){
     if(channel==='email'&&sent>=cap)continue;if(channel==='whatsapp'&&waQueued>=waCap)continue;
     // Deduplicação por produto e canal: só avisa de novo se o preço ficar abaixo do último aviso deste canal.

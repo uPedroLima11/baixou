@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {cardTerms,installmentRows,NO_CARD,offerForPayment,cardReferenceFields} from '../lib/payment';
 import {matchesAlert} from '../lib/alert-rules';
-import {notificationReason} from '../lib/notifications';
+import {notificationReason,selectNotifications} from '../lib/notifications';
 import {buildWhatsAppMessage} from '../lib/whatsapp';
 import {baixouScore} from '../lib/score';
 import type {Alert,Offer} from '../lib/types';
@@ -69,4 +69,21 @@ test('Score e mensagem no cartão: sem habitual do cartão, nenhuma nota inventa
  const c=offerForPayment(synex,'card')!;assert.equal(baixouScore(c,now).score,null);
  const msg=buildWhatsAppMessage({offer:c,reason:{kind:'price',summary:'',conditions:[],short:'Seu alerta (Memória RAM, cartão): até R$ 900,00.',payment:'card'},siteUrl:site});
  assert.match(msg,/💳 R\$\s858,81 no cartão \(12× de R\$\s71,57 sem juros\)/);assert.ok(!msg.includes('729,99')&&!msg.includes('1.159,90'));
+});
+
+test('loja escolhida pela modalidade do alerta: A Pix 699/cartão 899, B Pix 749/cartão 799, alerta cartão ≤ 850 → B',()=>{
+ const A={...synex,id:'a',store:'kabum',product_id:'p1',price:699,card_price:899,card_installment_value:89.9,card_installments:10} as Offer;
+ const B={...synex,id:'b',store:'waz',url:'https://www.waz.com.br/x/p',product_id:'p1',price:749,card_price:799,card_installment_value:79.9,card_installments:10} as Offer;
+ const decide=(rules:Alert[],prof=profile)=>(o:Offer,only:'pix'|'card')=>notificationReason(o,prof,rules,[],now,only);
+ const card=selectNotifications([A,B],decide([ramAlert(850,'card')]));
+ assert.deepEqual(card.map(c=>[c.o.id,c.payment,c.po.price,c.key]),[['b','card',799,'product:p1:card']]);
+ // Mesmo quando as duas lojas casam no cartão, vence o menor TOTAL NO CARTÃO (não o menor Pix).
+ const both=selectNotifications([A,B],decide([ramAlert(950,'card')]));assert.deepEqual(both.map(c=>c.o.id),['b']);
+ // Alerta Pix e alerta cartão do mesmo produto: cada modalidade escolhe a sua loja, com chaves de deduplicação separadas.
+ const two=selectNotifications([A,B],decide([ramAlert(750,'pix'),ramAlert(850,'card')]));
+ assert.deepEqual(two.map(c=>[c.o.id,c.payment,c.key]).sort(),[['a','pix','product:p1'],['b','card','product:p1:card']]);
+ // Favoritos com preferência cartão: menor total no cartão com queda comprovada no cartão.
+ const favA={...A,card_reference_median:1000,card_reference_samples:8,card_reference_days:4} as Offer,favB={...B,card_reference_median:1000,card_reference_samples:8,card_reference_days:4} as Offer;
+ const fav=selectNotifications([favA,favB],(o,only)=>notificationReason(o,{...profile,payment_preference:'card'},[],[{offer_id:'a',offers:{product_id:'p1'}}],now,only));
+ assert.deepEqual(fav.map(c=>[c.o.id,c.payment]),[['b','card']]);
 });
