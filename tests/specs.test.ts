@@ -43,3 +43,9 @@ test('owner examples: any DDR5 16GB R$100 below history; any NVIDIA with >=12GB 
  assert.equal(matchesAlert(gpuAlert,offer('Placa de Vídeo MSI RTX 5060 8GB GDDR7','gpu',{price:1999}),now),false);
  assert.equal(matchesAlert(gpuAlert,offer('Placa de Vídeo Sapphire RX 9070 16GB','gpu',{price:3299}),now),false);
 });
+
+import {offerFacets as facetsMT} from '../lib/specs';
+test('RAM frequency in MT/s is the same as MHz (Kingston Fury Beast KF432C16BB/16)',()=>{
+ const f=facetsMT({title:'Memoria RAM Kingston Fury  Beast, 16GB, 3200MT/s, DDR4, CL16, DIMM,  Preto - KF432C16BB/16',category:'ram',specs:{},brand:'Kingston'} as any);
+ assert.equal(f.frequency,3200);assert.equal(f.ddr,'4');assert.equal(f.total_gb,16);assert.equal(f.form_factor,'desktop');
+});

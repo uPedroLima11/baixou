@@ -5,7 +5,7 @@
 //     >=5 observações em >=3 dias. A promoção de hoje não entra na própria referência.
 //  2. Lojas comparadas: mesmo produto canônico em >=2 outros vendedores independentes agora (market_*), com
 //     dispersão <= 1,5× e referência ainda válida. Preço à vista/Pix comparável.
-// Economia s = 1 − preço/referência. Com as duas evidências vale a MENOR (conservador).
+// Economia s = 1 − preço/referência. Com as duas evidências vale a do mercado, salvo preço acima do habitual (vale a menor).
 // Pontos = 50 + 250·s, limitado a 0–100: preço igual à referência = 50; 10% abaixo = 75; 20% abaixo = 100.
 //
 // Faixas (calibradas com dados reais de 24/11/2026; ver docs/HANDOFF.md):
@@ -15,7 +15,17 @@
 //    O limite de 5% já usado na queda comprovada e na comparação de lojas fica dentro de "competitivo".
 //  - s <= −5%: acima do habitual (simétrico ao limite de 5% das evidências).
 // Ofertas apenas anunciadas pela loja (Telegram) ou só com preço riscado: "Dados insuficientes", nunca nota.
+//
+// Freios (auditoria de 26/11/2026, RTX 5060 EAGLE MAX KaBuM R$ 4.199,99 = "boa, 37%" contra R$ 6.678,23 praticados
+// só ~1,5 dia antes da Black Friday, enquanto 20 RTX 5060 8 GB equivalentes custavam mediana ~R$ 3.600):
+//  - Preço habitual = mediana dos MENORES preços diários de dias completos anteriores (price_history_stats), não
+//    das verificações horárias: um dia com muitas verificações não pesa mais, e preço que já se repetia não é queda.
+//  - Alternativas equivalentes (lib/groups.ts): >=10% acima da mediana do grupo limita a "preço normal".
+//  - Só histórico próprio (sem comparação de lojas) com menos de 7 dias de referência e sem grupo que confirme
+//    o preço limita a "competitivo": queda isolada em poucos dias não é boa oportunidade por si só.
+// Quatro leituras separadas (dimensions): queda no anúncio, preço habitual, competitivo entre lojas e oportunidade.
 import {marketDiscount} from './market';
+import type {GroupReference} from './groups';
 import type {Offer} from './types';
 export type ScoreClass='exceptional'|'good'|'competitive'|'normal'|'above'|'insufficient';
 export const SCORE_LABEL:Record<ScoreClass,string>={exceptional:'Oportunidade excepcional',good:'Boa oportunidade',competitive:'Preço competitivo',normal:'Preço normal',above:'Acima do preço habitual',insufficient:'Dados insuficientes para avaliar'};
@@ -24,8 +34,9 @@ export const SCORE_RANK:Record<ScoreClass,number>={exceptional:5,good:4,competit
 // 3–8% = 58–69; normal −5%…3% = 38–57; acima ≤ −5% = 0–37. Contínuas, sem lacunas entre classes.
 export const SCORE_BAND:Record<Exclude<ScoreClass,'insufficient'>,[number,number]>={exceptional:[88,100],good:[70,87],competitive:[58,69],normal:[38,57],above:[0,37]};
 export type Confidence='alta'|'média'|null;
-export type BaixouScore={score:number|null;klass:ScoreClass;label:string;confidence:Confidence;saving:number|null;reasons:string[];basis:{history:number|null;market:number|null};refs?:{history?:{median:number;days:number;samples:number};market?:{median:number;stores:number;lowest:number|null}}};
-type ScoreInput=Pick<Offer,'price'|'available'|'expires_at'|'evidence'|'discount'|'original_price'|'store'>&Partial<Pick<Offer,'verification_status'|'reference_median'|'reference_samples'|'reference_days'|'reference_min'|'reference_max'|'payment_basis'|'product_id'>>&{market_median?:number|string|null;market_lowest?:number|string|null;market_highest?:number|string|null;market_stores?:number|null;market_expires_at?:string|null};
+export type BaixouScore={score:number|null;klass:ScoreClass;label:string;confidence:Confidence;saving:number|null;reasons:string[];basis:{history:number|null;market:number|null};refs?:{history?:{median:number;days:number;samples:number};market?:{median:number;stores:number;lowest:number|null};group?:GroupReference}};
+export const GROUP_ABOVE=0.10,SHORT_REFERENCE_DAYS=7;
+type ScoreInput=Pick<Offer,'price'|'available'|'expires_at'|'evidence'|'discount'|'original_price'|'store'>&Partial<Pick<Offer,'verification_status'|'reference_median'|'reference_samples'|'reference_days'|'reference_min'|'reference_max'|'payment_basis'|'product_id'>>&{market_median?:number|string|null;market_lowest?:number|string|null;market_highest?:number|string|null;market_stores?:number|null;market_expires_at?:string|null;group?:GroupReference|null};
 const pct=(x:number)=>Math.floor(Math.abs(x)*1000+1e-6)/10;
 const fmt=(x:number)=>pct(x).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 export const REFERENCE_MIN_SAMPLES=5,REFERENCE_MIN_DAYS=3;
@@ -46,7 +57,10 @@ export function baixouScore(o:ScoreInput,now=Date.now()):BaixouScore{
   if(o.evidence==='retailer'&&Number(o.discount)>0)why.unshift('Desconto anunciado pela loja ('+o.discount+'%), ainda não comprovado.');
   return none(why);
  }
- const s=sh!==null&&sm!==null?Math.min(sh,sm):(sh??sm)!;
+ // Oportunidade de compra = preço contra o mercado (mesmo modelo em 2+ lojas) quando existe: uma loja que vende
+ // sempre 20% abaixo das demais é boa compra mesmo sem queda própria. O histórico próprio só freia quando o preço
+ // atual está acima do habitual (alta recente). Sem mercado, vale a economia contra o preço habitual (com os freios).
+ const s=sm!==null?(sh!==null&&sh<=-0.05?Math.min(sh,sm):sm):sh!;
  if(sh!==null)reasons.push(Math.abs(sh)<0.03?'Em linha com o preço habitual observado ('+h!.days+' dias).':fmt(sh)+(sh>0?' abaixo':' acima')+' do preço habitual observado ('+h!.days+' dias).');
  if(sm!==null)reasons.push(Math.abs(sm)<0.03?'Em linha com '+m!.stores+' outras lojas comparadas.':fmt(sm)+(sm>0?' abaixo':' acima')+' da mediana de '+m!.stores+' outras lojas comparadas.');
  if(h?.min&&o.price<=h.min&&h.days>=3)reasons.push('Menor preço registrado nos últimos '+h.days+' dias.');
@@ -59,7 +73,16 @@ export function baixouScore(o:ScoreInput,now=Date.now()):BaixouScore{
  if(cheaperElsewhere&&SCORE_RANK[klass]>SCORE_RANK.competitive)klass='competitive';// não é destaque se outra loja está mais barata
  // Nota coerente com a classe: cada classe tem sua faixa (as faixas da economia mapeiam exatamente nelas); quando a
  // classe é rebaixada (confiança média ou outra loja mais barata), a nota fica limitada à faixa da nova classe.
+ // Alternativas equivalentes (não é o mesmo modelo): freio, nunca prova de promoção.
+ const g=o.group??null,sg=g?1-o.price/g.median:null;
+ if(g&&sg!==null){
+  if(sg<=-GROUP_ABOVE){reasons.push(fmt(sg)+' acima da mediana de '+g.offers+' alternativas equivalentes ('+g.label+').');if(SCORE_RANK[klass]>SCORE_RANK.normal)klass='normal';}
+  else reasons.push(sg>=0.03?fmt(sg)+' abaixo da mediana de '+g.offers+' alternativas equivalentes ('+g.label+').':'Em linha com '+g.offers+' alternativas equivalentes ('+g.label+').');
+ }
+ if(sh!==null&&sm===null&&h!.days<SHORT_REFERENCE_DAYS&&SCORE_RANK[klass]>SCORE_RANK.competitive&&!(sg!==null&&sg>=0)){
+  klass='competitive';reasons.push('Queda medida em só '+h!.days+' dias de histórico e sem comparação de mercado que a confirme: limitada a preço competitivo.');
+ }
  const [lo,hi]=SCORE_BAND[klass],score=Math.max(lo,Math.min(hi,Math.round(50+250*s)));
- return {score,klass,label:SCORE_LABEL[klass],confidence,saving:s,reasons,basis:{history:sh,market:sm},refs:{...(h?{history:{median:h.median,days:h.days,samples:h.samples}}:{}),...(m?{market:m}:{})}};
+ return {score,klass,label:SCORE_LABEL[klass],confidence,saving:s,reasons,basis:{history:sh,market:sm},refs:{...(h?{history:{median:h.median,days:h.days,samples:h.samples}}:{}),...(m?{market:m}:{}),...(g?{group:g}:{})}};
 }
 export const isOpportunity=(b:BaixouScore)=>b.klass==='exceptional'||b.klass==='good';
