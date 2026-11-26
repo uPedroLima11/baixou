@@ -7,6 +7,7 @@ import {sources} from './sources';
 import {TARGETED_STORES,targetedSearchUrl,targetedProductLinks,replacementUrls,sitemapLocs,SITEMAP_STORES} from './targeted-adapters';
 import {productURL} from '../lib/collection-policy';
 const SITEMAP_MAX=150;
+const sameOrigin=(location:string,origin:string)=>{try{return new URL(location,origin).origin===origin;}catch{return false;}};
 const UA='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)',PRIORITY=['ram','gpu','cpu','ssd'];
 export const compact=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 export function searchableCode(mpn:string|null|undefined){const c=compact(mpn??'');return c.length>=6&&c.length<=30&&/[a-z]/.test(c)&&/\d/.test(c)?c:null;}
@@ -55,7 +56,7 @@ async function main(){
       for(const child of sitemapLocs(await body(r)).filter(u=>/\/products?\//.test(u)).slice(0,5)){const c=await get(child);fetched++;if(!c.ok){errors++;break;}urls.push(...sitemapLocs(await body(c)).map(u=>productURL(u.replace(/\/$/,''),source)).filter((u):u is string=>!!u&&rules.isAllowed(u,UA)===true));}}}
     catch(e){errors++;console.error(store,'sitemap',e instanceof Error?e.message:'erro');}
     const unique=[...new Set(urls)],exact=unique.filter(u=>targets.some(t=>sameCodeUrl(u,t.code)));
-    const known=new Set<string>();for(let i=0;i<unique.length;i+=200){const k=await db.from('product_candidates').select('url').eq('store',store).in('url',unique.slice(i,i+200));if(k.error)throw k.error;for(const r of k.data??[])known.add(r.url);}
+    const known=new Set<string>();for(let i=0;i<unique.length;i+=40){const k=await db.from('product_candidates').select('url').eq('store',store).in('url',unique.slice(i,i+40)); /* URLs longas: lotes pequenos (limite de URL do PostgREST) */if(k.error)throw k.error;for(const r of k.data??[])known.add(r.url);}
     const fresh=[...exact,...unique.filter(u=>!exact.includes(u)&&PRIORITY.includes(candidateCategory(u)))].filter(u=>!known.has(u)).slice(0,Math.min(remaining,SITEMAP_MAX));
     let added=0;if(fresh.length){const ins=await db.from('product_candidates').upsert(fresh.map(url=>({store,url,category:candidateCategory(url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(ins.error)throw ins.error;added=ins.data?.length??0;}
     const m=await db.from('collection_pages').upsert({store,url:mark,last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+(errors?6:24)*3600000).toISOString()},{onConflict:'store,url'});if(m.error)throw m.error;
@@ -67,7 +68,9 @@ async function main(){
     try{const r=await get(t.url);status=r.status;if(r.ok)links=targetedProductLinks(store,await body(r));
      // Busca com resultado único pode redirecionar direto ao produto (Shopify/Shopinfo, 302 em 26/11): é resultado, não erro.
      else if(r.status>=300&&r.status<400&&productURL(r.headers.get('location')??'',source)){links=[productURL(r.headers.get('location')!,source)!];status=200;}
-     else{errors++;console.error(store,'busca HTTP',status,r.status>=300&&r.status<400?'redirecionamento fora de produto':'');}}catch(e){errors++;console.error(store,'busca',e instanceof Error?e.message:'erro');}
+     // Redirecionamento para outra página da própria loja (coleção/busca configurada) = sem resultado exato, não bloqueio.
+     else if(r.status>=300&&r.status<400&&sameOrigin(r.headers.get('location')??'',source.origin)){status=200;}
+     else{errors++;console.error(store,'busca HTTP',status);}}catch(e){errors++;console.error(store,'busca',e instanceof Error?e.message:'erro');}
     const exact=links.filter(u=>sameCodeUrl(u,t.code)&&rules.isAllowed(u,UA)===true);found+=exact.length;
     let newLinks=exact;
     if(exact.length&&!remaining){const present=await db.from('product_candidates').select('url').eq('store',store).in('url',exact);if(present.error)throw present.error;const known=new Set((present.data??[]).map(r=>r.url));newLinks=exact.filter(u=>!known.has(u));}
@@ -92,4 +95,4 @@ async function main(){
   }finally{const r=await db.rpc('release_collector_lease',{lease_name:lease});if(r.error)throw r.error;}
  }
 }
-if(/scripts[/\\]targeted.ts$/.test(process.argv[1]??''))main().catch(e=>{console.error('Descoberta direcionada falhou:',e instanceof Error?e.message:'erro');process.exitCode=1;});
+if(/scripts[/\\]targeted.ts$/.test(process.argv[1]??''))main().catch(e=>{console.error('Descoberta direcionada falhou:',e instanceof Error?e.message:String((e as {message?:unknown})?.message??'erro').slice(0,300));process.exitCode=1;});
