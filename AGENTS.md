@@ -168,3 +168,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Catálogo é consultado no servidor (lib/catalog-query.ts + lib/catalog-server.ts); não voltar a baixar o catálogo inteiro no navegador. Validade conferida na consulta e no cliente. Estado do catálogo na URL (lib/catalog-params.ts).
 - Produto abre em /produto/[id] (página própria). Voltar preserva o catálogo (URL + memória da sessão + rolagem).
 - KaBuM: 380 itens/620 s por rodada com o mesmo ritmo por requisição (due_rechecks aceita até 400); medir queue_health antes de mudar.
+
+- Ciclos de coleta: KaBuM em collect-kabum.yml (revezamento próprio); demais em collect.yml. Relay comum espera o job mais lento: não alongar um job sem medir o efeito nas outras lojas.
+- Catálogo: atualização em segundo plano nunca esmaece a grade; esqueleto só sem dados.

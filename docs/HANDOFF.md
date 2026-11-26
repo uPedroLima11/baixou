@@ -1,3 +1,39 @@
+# CHECKPOINT — Black Friday, rodada 2: fila, alertas reais, preço real, UX do produto (Claude Code, 26/11/2026, ~20h30 UTC)
+
+## Fila e coleta (evidência em queue_health/collection_runs)
+| KaBuM | 19:54 | 20:09 | 20:24 |
+| --- | --- | --- | --- |
+| Vivas | 823 | 901 | 1.212 (lançamentos da Black Friday) |
+| Devidas | 680 | 534 | 91 |
+| Vencidas disponíveis | 412 | 332 | 19 |
+| Atraso médio / máx. | 24 / 46,7 min | 20,9 / 36,9 | 5,9 / 23,0 |
+- Causas e correções: (1) `due_rechecks` limitava a 200 por rodada → 600 (migrations 20261126200000 e 20261126210000, aplicadas); (2) rodada perdia a loja quando o lote Vercel segurava o lease → espera até 60 s (9677dba); (3) o relay do ciclo comum só despacha depois do job MAIS LENTO + pausa, então o job longo da KaBuM esticava todas as lojas para ~18 min e a WAZ atrasou → KaBuM em `collect-kabum.yml` com revezamento próprio (500 itens/870 s, pausa 45 s, schedule de reserva 11/41, mesmo ritmo ≥1,5 s por requisição); `watchdog.yml` vigia os dois ciclos.
+- WAZ às 20:24: 510 vivas, 116 vencidas, atraso máx. 25,7 min → 270 itens/450 s e pausa do relay comum 420 → 300 s (31b7a24). **Conferir na próxima sessão.** Demais lojas às 20:24: ChipArt, Guerra, Patoloco ~0–5 min; iByte 12 min; Shopinfo 14 min.
+- Rodadas de 26/11 todas verdes no Actions; pg_cron ativo (lote */15, recuperação */5, retry 2/17/32/47).
+
+## Alertas homologados com dados reais
+- Preço máximo (alerta real do proprietário): e-mail 19:15 UTC, ADATA AD4U 16 GB DDR4 desktop R$ 699,99, conferido 7 s antes.
+- Queda em R$ + queda em % + preço máximo combinados: alerta TEMPORÁRIO de teste (CPU, ≥10%, ≥R$ 50, ≤R$ 1.500) criado 20:12 e removido após o envio; e-mail 20:17:52 UTC, Core Ultra 5 250KF R$ 1.149,99, habitual R$ 1.299,99 (−R$ 150; −11,54%). notification_state desse produto removido para não bloquear avisos futuros; notification_log mantido. Alerta de RAM do proprietário intocado.
+- Ensaio sem envio de 7 tipos (preço máx., queda R$, queda %, combinados, specs RAM/GPU/SSD) contra 3.402 ofertas vivas: 0 divergências com cálculo independente, 0 violações de limite, alerta pausado nunca dispara (work/dry-alerts.ts, local).
+- E-mail agora informa a regra: "Regra: alerta de <categoria> (todas as condições juntas)" ou "Regra: lista de desejos" + "nenhum alerta ativo cobre este produto"/opt-in.
+
+## Preço real × preço "de"
+- `cappedDiscount` (lib/catalog-query.ts): desconto anunciado e queda a partir de base inflada (>1,3× as alternativas) ficam limitados à economia contra a mediana das alternativas equivalentes; card informa "Preço "de" acima do mercado · alternativas a R$ X". Selo do card segue a economia do Score quando há evidência (antes: "Anunciada" ao lado de "Score 100").
+- Auditoria: 161 quedas vivas; preço habitual gravado = recálculo pelo price_daily em 100% (0 divergências). Todas com 3 dias de referência (histórico desde 23/11) → limitadas a "competitivo" sem confirmação de mercado.
+- Vínculos "mesmo modelo" com maior dispersão (até 2,66×) conferidos: todos com o mesmo código do fabricante; diferença de preço é real (ex.: iByte). Score ignora mercado com dispersão >1,5×.
+
+## UX do produto e catálogo
+- Veredito curto (nota, classe, confiança, 3 comparações: habitual, mesmo modelo, alternativas) e "Como chegamos a isso" recolhido. Ao lado/abaixo da foto: histórico 30 dias (menores diários, atual/menor/maior, dias monitorados, "histórico curto") e principais especificações. Especificações em grade de 3 colunas; descrição longa recolhida.
+- Abas montadas ao abrir e mantidas; histórico pré-carregado (aba abre em ~22 ms em produção).
+- Abertura: casca do produto aparece no clique (dados do card), prefetch no hover/toque, servidor não espera índice frio >600 ms; página completa ~1,5 s em produção (antes ~3 s). Entrada "para frente" (escala), não para cima.
+- Catálogo acinzentado: causa = revalidação do HTML ISR (>60 s) marcava toda a grade com opacidade .6. Agora: esqueleto só sem dados; atualização em segundo plano com "Atualizando…" no botão; barra fina só ao trocar consulta; falha mantém a lista válida com aviso. Fade GSAP da grade a cada troca de filtro removido. Validado: rede lenta simulada, falha simulada, 375 px, claro e escuro.
+
+## Pendências / riscos
+- Logotipos oficiais das lojas: a busca dos ícones nos sites foi negada pela permissão da sessão; não contornado. Opções: o proprietário autoriza a coleta dos favicons publicados pelas lojas ou fornece os arquivos em public/stores/. Selo atual: monograma próprio + nome + Verificado/Anunciado.
+- Coleta direcionada entre lojas: plano na seção 9 do checkpoint anterior (busca permitida na KaBuM, Patoloco, iByte, ChipArt, Shopinfo). Não implementada durante a Black Friday.
+- Retenção do bruto: depois da Black Friday (banco 109 MB às 19h).
+- Amazon: sem caminho novo sem cadastro.
+
 # CHECKPOINT — Black Friday: notificações, Score, catálogo no servidor, página do produto (Claude Code, 26/11/2026, ~19h30 UTC)
 
 ## 1. E-mail de 26/11 09h02 acima de R$ 850 (investigado no banco)
