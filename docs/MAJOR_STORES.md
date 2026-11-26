@@ -18,6 +18,8 @@ Novas alternativas examinadas, sem executar código de terceiros:
 
 Resultado: **nenhuma integração Amazon funcional comprovada**. Busca em repositórios e serviços não oficiais foi realizada; as candidatas acima não satisfazem simultaneamente origem permitida, dados reais atuais, vendedor identificável, custo zero e ausência de conta. Isso é o resultado desta investigação, não prova de inexistência de qualquer alternativa. Não publicar amostras de documentação, dados fictícios de APIs de treino ou preços de demos como ofertas reais.
 
+Teste HTTP real adicional (26/11, sem chave, sem cadastro e sem repetir após recusa): Scavio `GET /api/v1/amazon/options` HTTP200 (4.304 bytes, só metadados de países); `POST /api/v1/amazon/search` HTTP401 (40 bytes); EveryInfra `POST /api/v1/social` para busca Amazon HTTP401 (225 bytes). Nenhum preço de produto foi retornado. Não tentar endpoints de demonstração para contornar a chave/cota.
+
 Histórico anterior a 23/11: nenhuma fonte nova de histórico verificado com licença/cobertura adequada confirmada. O histórico próprio começa na data da coleta; `announced_daily` de Pichau/Terabyte continua separado e pode mostrar até 120 dias realmente importados, sem preencher lacunas.
 
 # Amazon Brasil — rodada de 26/11/2026 (Claude Code)

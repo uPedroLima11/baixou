@@ -40,7 +40,7 @@ npx supabase config push --remote=slmhkfqqeyptngjubfhn --yes
 ~~~
 Usar CLI oficial autenticado; Claude pode precisar que o usuário reautorize. Nunca colocar tokens em argumentos, Git ou documentação.
 ## Cobertura
-Quatro fontes diretas com coleta hospedada comprovada: KaBuM!, WAZ, Guerra Digital e Patoloco. Mercado Livre possui cobertura parcial por vitrines oficiais, sem equivaler à integração direta da Pichau. Oficina dos Bits está bloqueada no runner. Descoberta progressiva e revalidação por loja; contagens e testes em docs/EXPANSION_REPORT.md.
+Sete fontes diretas com coleta hospedada comprovada: KaBuM!, WAZ, Guerra Digital, Patoloco, iByte, ChipArt e Shopinfo. Mercado Livre possui cobertura parcial por vitrines de lojas oficiais. Pichau e Terabyte publicam preços anunciados pelos canais das lojas no Telegram, com página/estoque não conferidos, separados de preços verificados, Score e alertas. Amazon permanece sem fonte utilizável comprovada nas condições de custo zero e sem cadastro. Oficina dos Bits está bloqueada no runner. Estado atual, métricas e limitações em docs/HANDOFF.md.
 
 ## Documentação
 - docs/HANDOFF.md: estado real, acessos, testes e continuidade.
@@ -55,3 +55,5 @@ Quatro fontes diretas com coleta hospedada comprovada: KaBuM!, WAZ, Guerra Digit
 Catálogo completo inclui produtos válidos sem desconto. Departamentos utiliza categorias e facetas reais, compartilhadas com filtros e alertas. A ordenação inicial prioriza relevância/evidências, sem pontuar preço riscado.
 
 Abaixo das lojas comparadas é uma amostra parcial de vendedores monitorados, não garantia de menor preço do mercado. A mediana exige o mesmo produto e dois outros vendedores independentes, pagamento equivalente e referências válidas. Preço riscado da loja não comprova preço normal nem queda histórica. A auditoria somente leitura `npm run pricing:audit` mede a API publicada sem credenciais de servidor.
+
+Estatísticas recorta DDR4/DDR5 desktop a partir de 8 GB (módulos e kits separados) e GPUs GeForce RTX/Radeon RX recentes; outros produtos continuam no catálogo. Gráficos usam apenas pontos reais. O histórico anunciado das lojas pode mostrar 120 dias e nunca é misturado ao histórico verificado.

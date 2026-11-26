@@ -180,3 +180,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Descoberta direcionada: scripts/targeted.ts só aceita resultado com o mesmo código do fabricante no endereço.
 - Amazon: robots.txt bloqueia agentes Claude; não testar páginas/feeds da Amazon por agente.
 - Retenção do bruto: plano 21 -> 7 dias depois da Black Friday (HANDOFF), antes de o banco passar de 300 MB.
+
+## Continuidade Codex (26/11/2026)
+- Nesta rodada, nenhuma conta nova, credencial, cadastro de afiliados ou serviço pago para expansão. Amazon ainda sem fonte funcional comprovada; novas candidatas em MAJOR_STORES.md. Não voltar a solicitar esses acessos.
+- Estatísticas possui recorte próprio em statsGroup/statFacts (DDR4/5 desktop conhecido >=8 GB e GeForce RTX/Radeon RX >=5000). Não aplicar esse recorte ao catálogo ou alertas.
+- Catálogo usa snapshot público Brotli no Data Cache, teto codificado de 1,8 MB/revalidação 120 s; at/since/TTL originais são preservados. Não transformar reconstrução do índice em nova verificação de preço.
+- Recertificada/recondicionada/open box/usada explícita no título é exclusão de política, não estoque esgotado. Migration 20261126213134 aplicada; não apagar dados salvos.
+- Descoberta direcionada também possui Patoloco/iByte/Shopinfo; ChipArt tem adaptador mas busca local 429, fora da rotina. Rechecagens/alertas vêm antes da busca; confirmar no host. Fila cheia só admite substituição limitada de candidato antigo com >=3 falhas, >24 h e SEM oferta, após achar URL exata nova; teto de 2.000 permanece. Histórico/favoritos/alertas nunca são removidos.
