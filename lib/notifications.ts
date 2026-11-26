@@ -20,7 +20,7 @@ export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wi
  if(!p.wishlist_email_enabled||!saved)return null;
  if(!p.wishlist_ignore_alert_limits&&rules.some(a=>alertCovers(a,o)))return null;
  // Queda comprovada: ≥5% abaixo do preço habitual diário (dias completos anteriores; ver price_history_stats).
- if(o.evidence==='history'&&o.historical_samples>=5&&o.historical_days>=3&&Number(o.historical_median)*0.95>=Number(o.price))return wishlistReason();
+ if(o.evidence==='history'&&o.historical_samples>=5&&o.historical_days>=3&&Number(o.historical_median)*0.95>=Number(o.price))return wishlistReason(!!p.wishlist_ignore_alert_limits&&rules.some(a=>alertCovers(a,o)));
  return null;
 }
 // Falha permanente: destinatário/conteúdo recusado (5xx). Temporária: rede, timeout, 4xx do SMTP.

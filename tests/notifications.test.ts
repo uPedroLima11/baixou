@@ -129,3 +129,8 @@ test('combined conditions: max price AND absolute AND percent drop',()=>{
  assert.equal(notificationReason(h,p,[{...a,min_drop_amount:320.02} as Alert],[],now),null);
  assert.equal(notificationReason(h,p,[{...a,max_price:1679.98} as Alert],[],now),null);
 });
+test('e-mail states which rule fired (alert scope or wishlist, and the opt-in)',()=>{
+ const r=reasonForAlert({...priceAlert,min_discount:10,min_drop_amount:50} as Alert,base);assert.match(r.conditions[0],/Regra: alerta de Processadores \(todas as condições juntas\)/);
+ assert.match(wishlistReason().conditions.join(' '),/Nenhum alerta ativo seu cobre este produto/);
+ assert.match(wishlistReason(true).conditions.join(' '),/fora dos limites dos seus alertas/);
+});

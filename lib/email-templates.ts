@@ -19,17 +19,18 @@ export function notificationProductName(o:Offer){
  return cut(title.split(/,| - | – /)[0],48);
 }
 export function reasonForAlert(a:Alert,o:Offer):NotificationReason{
- const history=(a.min_drop_amount??0)>0||(a.min_discount??0)>0,conditions:string[]=[],product=!!(a.offer_id||a.product_id);
+ const history=(a.min_drop_amount??0)>0||(a.min_discount??0)>0,product=!!(a.offer_id||a.product_id),conditions:string[]=['Regra: '+(product?'alerta deste produto':'alerta de '+(a.category==='all'?'todas as categorias':(categories.find(([id])=>id===a.category)?.[1]??a.category)))+(history&&a.max_price!=null?' (todas as condições juntas)':'')+'.'];
  if(a.max_price!=null)conditions.push('Preço máximo de '+money(Number(a.max_price))+' atingido.');
- if(a.min_drop_amount!=null)conditions.push('Queda de pelo menos '+money(Number(a.min_drop_amount))+' em relação à mediana histórica.');
- if(a.min_discount!=null)conditions.push('Queda de pelo menos '+a.min_discount+'% em relação à mediana histórica.');
+ if(a.min_drop_amount!=null)conditions.push('Queda de pelo menos '+money(Number(a.min_drop_amount))+' em relação ao preço habitual.');
+ if(a.min_discount!=null)conditions.push('Queda de pelo menos '+a.min_discount+'% em relação ao preço habitual.');
  if(!product&&a.category!=='all')conditions.push('Categoria: '+(categories.find(([id])=>id===a.category)?.[1]??a.category)+'.');
  if(a.brands?.length)conditions.push('Marca dentro da sua seleção.');
  if(Object.keys(a.spec_filters??{}).length)conditions.push('As características técnicas selecionadas foram atendidas.');
  const summary=history?'Seu alerta de queda de preço foi atendido.':product?'O produto que você acompanha chegou ao preço desejado.':'Uma oferta atingiu o preço do seu alerta.';
  return {kind:history?'history':'price',summary,conditions,product};
 }
-export function wishlistReason():NotificationReason{return {kind:'wishlist',summary:'Um produto da sua lista de desejos caiu em relação ao histórico.',conditions:[]};}
+// Regra explícita no e-mail: favoritos só avisam fora do escopo dos alertas ativos, salvo opção marcada pelo usuário.
+export function wishlistReason(ignoredAlertLimits=false):NotificationReason{return {kind:'wishlist',summary:'Um produto da sua lista de desejos caiu pelo menos 5% abaixo do preço habitual.',conditions:['Regra: lista de desejos.',ignoredAlertLimits?'Você permitiu avisos de favoritos fora dos limites dos seus alertas.':'Nenhum alerta ativo seu cobre este produto.']};}
 export function offerEmailUrl(value:string){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['www.kabum.com.br','www.terabyteshop.com.br','www.pichau.com.br','www.waz.com.br','www.oficinadosbits.com.br','www.guerradigital.com.br','patoloco.com.br','www.ibyte.com.br','www.chipart.com.br','shopinfo.com.br','www.mercadolivre.com.br','produto.mercadolivre.com.br'].includes(u.hostname)?u.href:null;}catch{return null;}}
 function imageUrl(value:string|null){try{if(!value)return null;const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&/\.(?:avif|webp|jpe?g|png)$/i.test(u.pathname)&&['kabum.com.br','waz.com.br','guerradigital.com.br','patoloco.com.br','mlstatic.com','lojaibyte.vtexassets.com','i.chipart.openk.com.br','shopinfo.com.br'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h))?u.href:null;}catch{return null;}}
 // Preposição com o nome da loja: "no Mercado Livre", "na KaBuM!".
