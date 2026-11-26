@@ -55,7 +55,10 @@ export default function Catalog({initial}:{initial?:CatalogResult|null}){
   catch{if(id===request.current)setError(itemsKey.current===key?'Não foi possível atualizar agora; mostrando a última consulta válida.':'Não foi possível atualizar as ofertas.');}
   finally{if(id===request.current){setLoading(false);setRefreshing(false);}}
  },[key,initial,st.count]);
- useEffect(()=>{if(ready)load();},[ready,key]);// eslint-disable-line react-hooks/exhaustive-deps
+ useEffect(()=>{if(ready)load();},[ready,key]);
+ // Prefetch seletivo: com a página ociosa, a 1ª página das OUTRAS modalidades (mesmos filtros) — 3 respostas pequenas
+ // com cache de borda. A troca de aba vem da memória, sem esperar o servidor. Nada de produtos individuais.
+ useEffect(()=>{if(!ready||loading||!result)return;const t=setTimeout(()=>{const ric=(window as Window&{requestIdleCallback?:(f:()=>void)=>void}).requestIdleCallback??((f:()=>void)=>f());ric(()=>{for(const m of ['market','history','retailer','all'] as Mode[]){if(m===(st.mode??result.mode))continue;const k=searchFromState({...st,mode:m,count:PAGE_STEP},{includeCount:false}).toString();if(memo.has(k))continue;fetchCatalog(new URLSearchParams(k),0,PAGE_STEP,false).then(r=>{if(!memo.has(k))memo.set(k,{at:Date.now(),result:r,items:r.items});}).catch(()=>{});}});},1500);return()=>clearTimeout(t);},[ready,loading,key]);// eslint-disable-line react-hooks/exhaustive-deps// eslint-disable-line react-hooks/exhaustive-deps
  // URL sempre reflete o estado (sem novas entradas no histórico); preserva o estado interno do roteador.
  useEffect(()=>{if(!ready)return;const s=searchFromState({...st,count:items.length>PAGE_STEP?items.length:PAGE_STEP}).toString(),url=location.pathname+(s?'?'+s:'');if(url!==location.pathname+location.search)history.replaceState(history.state,'',url);},[ready,st,items.length]);
  useEffect(()=>{if(restoreScroll.current==null||loading||!items.length)return;const y=restoreScroll.current;restoreScroll.current=null;requestAnimationFrame(()=>window.scrollTo(0,y));},[loading,items.length]);
