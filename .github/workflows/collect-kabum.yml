@@ -40,14 +40,15 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Resolver links candidatos
         run: npm run discover || { echo "Nova tentativa em 45 s"; sleep 45; npm run discover; }
-      - name: Descoberta direcionada (mesmos modelos de outras lojas)
-        # Até 15 buscas por código do fabricante; só resultados com o mesmo código viram candidatos. Falha não bloqueia a coleta.
-        run: npm run discover:targeted || echo "Descoberta direcionada falhou; coleta segue."
       - name: Confirmar preços e estoque na KaBuM
         # Mesmas novas tentativas do ciclo comum para 5xx transitório do gateway Supabase. Idempotente (lease).
         run: npm run collect || { echo "Nova tentativa em 45 s"; sleep 45; npm run collect; } || { echo "Última tentativa em 90 s"; sleep 90; npm run collect; }
       - name: Enviar alertas opt-in
         run: npm run notifications
+      - name: Descoberta direcionada (depois das rechecagens e alertas)
+        env:
+          TARGETED_MAX: '15'
+        run: npm run discover:targeted
 
   relay:
     needs: collect

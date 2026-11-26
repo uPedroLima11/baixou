@@ -50,7 +50,7 @@ export async function runCollector(options:Options={}){
    const fresh=new Set<string>();
    if(discover){
    if(db){const seeded=await db.from('collection_pages').upsert(source.paths.map(path=>({store:source.id,url:source.origin+path})),{onConflict:'store,url',ignoreDuplicates:true});if(seeded.error)throw seeded.error;}
-   const duePages=db?await db.from('collection_pages').select('url,last_attempt_at').eq('store',source.id).not('url','like','%/busca/%').lte('next_attempt_at',new Date().toISOString()).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('url').limit(300):{data:[{url:source.origin+source.paths[cursor%source.paths.length],last_attempt_at:null}],error:null};if(duePages.error)throw duePages.error;
+   const duePages=db?await db.from('collection_pages').select('url,last_attempt_at').eq('store',source.id).not('url','like','%/busca/%').not('url','like','%#targeted').lte('next_attempt_at',new Date().toISOString()).order('last_attempt_at',{ascending:true,nullsFirst:true}).order('url').limit(300):{data:[{url:source.origin+source.paths[cursor%source.paths.length],last_attempt_at:null}],error:null};if(duePages.error)throw duePages.error;
    const page={data:pickDiscoveryPages(duePages.data??[],new Set(source.paths.map(path=>source.origin+path)),db?discoveryPages:1,cursor)};
    for(const {url}of page.data??[]){if(!allowed(url)) {if(db)await db.from('collection_pages').update({last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+86400000).toISOString()}).eq('store',source.id).eq('url',url);continue;}
     try{await pause();const html=await get(url),$=cheerio.load(html);

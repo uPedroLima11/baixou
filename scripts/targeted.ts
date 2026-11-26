@@ -1,43 +1,53 @@
-// Descoberta direcionada entre lojas (26/11/2026): procura na KaBuM os MESMOS modelos (código do fabricante) que hoje
-// só existem em outra loja monitorada, para formar comparações reais de mercado. Prioridade: produtos acompanhados
-// (alerta de produto/favorito), depois RAM, GPU, CPU e SSD.
-// Regras: busca permitida pelo robots (/busca/<termo>, sem query string), ritmo de 1,5 s, teto por rodada; só entra
-// como candidato o resultado cujo endereço contém o MESMO código do fabricante (comparação exata de código, nunca
-// semelhança de título). O candidato passa depois pela verificação completa do coletor (identidade, vendedor, Pix).
-// Cada código buscado fica registrado em collection_pages (próxima busca em 7 dias) para não repetir.
+// Busca pública por código forte. Só descobre candidatos: preço/estoque/vendedor/identidade são conferidos depois.
+// Rodar DEPOIS das rechecagens. Lease compartilhado, 1,5 s/domínio, 8 MB, timeout 8 s, teto 2.000 candidatos.
 import robotsParser from 'robots-parser';
 import {adminDb} from '../lib/server';
-import {kabumDiscovery} from './parser';
 import {candidateCategory} from '../lib/collection-policy';
-const UA='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)',ORIGIN='https://www.kabum.com.br';
-const MAX=Number(process.env.TARGETED_MAX)||15,PRIORITY=['ram','gpu','cpu','ssd'];
+import {sources} from './sources';
+import {TARGETED_STORES,targetedSearchUrl,targetedProductLinks} from './targeted-adapters';
+const UA='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)',PRIORITY=['ram','gpu','cpu','ssd'];
 export const compact=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
-// Código buscável: ≥6 caracteres alfanuméricos, com letra e dígito (evita termos genéricos).
 export function searchableCode(mpn:string|null|undefined){const c=compact(mpn??'');return c.length>=6&&c.length<=30&&/[a-z]/.test(c)&&/\d/.test(c)?c:null;}
-// Resultado só vale se o slug do produto contiver o código inteiro.
-export function sameCodeUrl(url:string,code:string){try{return compact(new URL(url).pathname.split('/').pop()??'').includes(code);}catch{return false;}}
+export function sameCodeUrl(url:string,code:string){try{
+ const parts=new URL(url).pathname.split('/').filter(Boolean);if(parts.at(-1)==='p'||/^\d+$/.test(parts.at(-1)??''))parts.pop();
+ const slug=decodeURIComponent(parts.at(-1)??'').toLowerCase(),c=searchableCode(code);if(!c)return false;
+ return new RegExp('(?:^|[^a-z0-9])'+[...c].join('[-_/.]*')+'(?:$|[^a-z0-9])').test(slug);
+ }catch{return false;}}
+async function body(r:Response){let text='',size=0;const reader=r.body?.getReader(),d=new TextDecoder();if(!reader)throw Error('Resposta vazia');for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>8000000){await reader.cancel();throw Error('Resposta maior que 8MB');}text+=d.decode(value,{stream:true});}return text+d.decode();}
 async function main(){
- if(!(process.env.COLLECT_STORES??'kabum').split(',').includes('kabum')){console.log('Descoberta direcionada: só KaBuM nesta etapa.');return;}
+ const stores=(process.env.TARGETED_STORES??process.env.COLLECT_STORES??'kabum').split(',').filter(s=>TARGETED_STORES.includes(s));if(!stores.length)return;
+ const max=Math.min(15,Math.max(1,Number(process.env.TARGETED_MAX)||5)),budget=Math.min(60000,Math.max(10000,Number(process.env.TARGETED_DEADLINE_MS)||30000));
  const db=adminDb(),now=new Date().toISOString();
- const live=await db.from('catalog_offers').select('id,store,mpn,product_id,category').eq('available',true).gt('expires_at',now).not('product_id','is',null).not('mpn','is',null).in('category',PRIORITY).limit(5000);if(live.error)throw live.error;
- const byProduct=new Map<string,{stores:Set<string>;mpn:string;category:string;ids:string[]}>();
- for(const o of live.data){const e=byProduct.get(o.product_id!)??{stores:new Set<string>(),mpn:o.mpn!,category:o.category,ids:[] as string[]};e.stores.add(o.store);e.ids.push(o.id);byProduct.set(o.product_id!,e);}
- const [wish,alerts]=await Promise.all([db.from('wishlist').select('offers(product_id)').limit(2000),db.from('alerts').select('product_id').eq('enabled',true).not('product_id','is',null).limit(2000)]);
+ const [live,wish,alerts]=await Promise.all([
+  db.from('catalog_offers').select('id,store,mpn,product_id,category').eq('available',true).gt('expires_at',now).not('product_id','is',null).not('mpn','is',null).in('category',PRIORITY).limit(5000),
+  db.from('wishlist').select('offers(product_id)').limit(2000),db.from('alerts').select('product_id').eq('enabled',true).not('product_id','is',null).limit(2000)]);
+ for(const r of [live,wish,alerts])if(r.error)throw r.error;
  const watched=new Set<string>([...(wish.data??[]).map(w=>(w.offers as unknown as {product_id:string|null}|null)?.product_id).filter((x):x is string=>!!x),...(alerts.data??[]).map(a=>a.product_id as string)]);
- const targets=[...byProduct.entries()].filter(([,e])=>!e.stores.has('kabum')&&searchableCode(e.mpn)).map(([pid,e])=>({pid,code:searchableCode(e.mpn)!,category:e.category,watched:watched.has(pid)}))
-  .sort((a,b)=>Number(b.watched)-Number(a.watched)||PRIORITY.indexOf(a.category)-PRIORITY.indexOf(b.category));
- const pages=targets.map(t=>ORIGIN+'/busca/'+t.code);
- const recent:{data:{url:string}[]|null;error:unknown}=pages.length?await db.from('collection_pages').select('url').eq('store','kabum').in('url',pages.slice(0,1000)).gt('next_attempt_at',now):{data:[],error:null};if(recent.error)throw recent.error;
- const skip=new Set((recent.data??[]).map(r=>r.url));
- const rules=robotsParser(ORIGIN+'/robots.txt',await (await fetch(ORIGIN+'/robots.txt',{headers:{'User-Agent':UA},signal:AbortSignal.timeout(8000)})).text());
- let searched=0,found=0,last=0;const added:string[]=[];
- for(const t of targets){if(searched>=MAX)break;const url=ORIGIN+'/busca/'+t.code;if(skip.has(url)||rules.isAllowed(url,UA)!==true)continue;
-  const wait=1500-(Date.now()-last);if(wait>0)await new Promise(r=>setTimeout(r,wait));last=Date.now();searched++;
-  let links:string[]=[];try{const r=await fetch(url,{headers:{'User-Agent':UA},signal:AbortSignal.timeout(8000)});if(r.ok)links=kabumDiscovery(await r.text());}catch(e){console.error('busca',t.code,e instanceof Error?e.message:'erro');}
-  const hits=links.filter(u=>sameCodeUrl(u,t.code)&&rules.isAllowed(u,UA)===true);found+=hits.length;
-  if(hits.length){const ins=await db.from('product_candidates').upsert(hits.map(u=>({store:'kabum',url:u,category:candidateCategory(u)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(ins.error)throw ins.error;added.push(...(ins.data??[]).map(r=>r.url));}
-  const mark=await db.from('collection_pages').upsert({store:'kabum',url,last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+7*86400000).toISOString()},{onConflict:'store,url'});if(mark.error)throw mark.error;
+ const products=new Map<string,{stores:Set<string>;codes:Set<string>;mpn:string;category:string}>();
+ for(const o of live.data??[]){const code=searchableCode(o.mpn);if(!code)continue;const e=products.get(o.product_id!)??{stores:new Set<string>(),codes:new Set<string>(),mpn:o.mpn!,category:o.category};e.stores.add(o.store);e.codes.add(code);products.set(o.product_id!,e);}
+ for(const store of stores){
+  const source=sources.find(s=>s.id===store)!,lease='catalog:'+store,claim=await db.rpc('claim_collector_lease',{lease_name:lease,ttl_seconds:Math.ceil(budget/1000)+30});if(claim.error)throw claim.error;if(!claim.data){console.log(JSON.stringify({store,targeted:'lease ocupado'}));continue;}
+  try{
+   const until=Date.now()+budget,pool=await db.from('product_candidates').select('url',{count:'exact',head:true}).eq('store',store);if(pool.error)throw pool.error;let remaining=Math.max(0,2000-(pool.count??2000));
+   if(!remaining){console.log(JSON.stringify({store,targeted:'fila de candidatos cheia'}));continue;}
+   const targets=[...products.entries()].filter(([,e])=>!e.stores.has(store)&&e.codes.size===1).map(([pid,e])=>({mpn:e.mpn,code:[...e.codes][0],category:e.category,watched:watched.has(pid),url:targetedSearchUrl(store,e.mpn)!})).sort((a,b)=>Number(b.watched)-Number(a.watched)||PRIORITY.indexOf(a.category)-PRIORITY.indexOf(b.category));
+   const recent=await db.from('collection_pages').select('url').eq('store',store).gt('next_attempt_at',now).limit(5000);if(recent.error)throw recent.error;const skip=new Set((recent.data??[]).map(r=>r.url.replace(/#targeted$/,'')));
+   let last=0;const get=async(url:string)=>{const wait=last+1500-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));if(Date.now()>=until)throw Error('Prazo da descoberta atingido');last=Date.now();return fetch(url,{headers:{'User-Agent':UA},redirect:'manual',signal:AbortSignal.timeout(Math.max(1,Math.min(8000,until-Date.now())))});};
+   const rr=await get(source.origin+'/robots.txt');if(!rr.ok)throw Error('robots HTTP '+rr.status);const rules=robotsParser(source.origin+'/robots.txt',await body(rr));
+   let searched=0,found=0,errors=0,added=0;
+   for(const t of targets){if(searched>=max||Date.now()>=until-1000||!remaining)break;if(skip.has(t.url)||rules.isAllowed(t.url,UA)!==true)continue;
+    searched++;let status=0,links:string[]=[];
+    try{const r=await get(t.url);status=r.status;if(r.ok)links=targetedProductLinks(store,await body(r));else{errors++;console.error(store,'busca HTTP',status);}}catch(e){errors++;console.error(store,'busca',e instanceof Error?e.message:'erro');}
+    const hits=links.filter(u=>sameCodeUrl(u,t.code)&&rules.isAllowed(u,UA)===true).slice(0,remaining);found+=hits.length;
+    if(hits.length){const ins=await db.from('product_candidates').upsert(hits.map(url=>({store,url,category:candidateCategory(url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(ins.error)throw ins.error;added+=ins.data?.length??0;remaining-=ins.data?.length??0;}
+    const retry=status===200?7*86400000:86400000;
+    // Fragmento só no registro de cooldown; nunca enviado à loja. Não vira página de categoria na coleta comum.
+    const mark=await db.from('collection_pages').upsert({store,url:t.url+'#targeted',last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+retry).toISOString()},{onConflict:'store,url'});if(mark.error)throw mark.error;
+    if([301,302,303,307,308,401,403,429].includes(status))break;
+   }
+   console.log(JSON.stringify({store,targets:targets.length,watched:targets.filter(t=>t.watched).length,searched,found,newCandidates:added,errors}));
+   if(errors)process.exitCode=1;
+  }finally{const r=await db.rpc('release_collector_lease',{lease_name:lease});if(r.error)throw r.error;}
  }
- console.log(JSON.stringify({targets:targets.length,watched:targets.filter(t=>t.watched).length,searched,found,newCandidates:added.length,sample:added.slice(0,5)}));
 }
-if(/scripts[/]targeted.ts$/.test(process.argv[1]??''))main().catch(e=>{console.error('Descoberta direcionada falhou:',e instanceof Error?e.message:'erro');process.exitCode=1;});
+if(/scripts[/\\]targeted.ts$/.test(process.argv[1]??''))main().catch(e=>{console.error('Descoberta direcionada falhou:',e instanceof Error?e.message:'erro');process.exitCode=1;});

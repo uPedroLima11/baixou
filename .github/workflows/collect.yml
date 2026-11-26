@@ -54,6 +54,12 @@ jobs:
         run: npm run collect || { echo "Nova tentativa em 45 s"; sleep 45; npm run collect; } || { echo "Última tentativa em 90 s"; sleep 90; npm run collect; }
       - name: Enviar alertas opt-in
         run: npm run notifications
+      - name: Descobrir os mesmos modelos em outras lojas (HTML público)
+        if: matrix.store == 'patoloco' || matrix.store == 'ibyte' || matrix.store == 'shopinfo'
+        env:
+          TARGETED_MAX: '3'
+          TARGETED_DEADLINE_MS: '20000'
+        run: npm run discover:targeted
 
   # Conectores independentes (lib/connectors), em paralelo à matriz: hoje só as vitrines de lojas oficiais do
   # Mercado Livre (~25 requisições por execução). Desligar com a variável de repositório ML_STOREFRONTS=off.
