@@ -51,6 +51,13 @@
 - Laravel + Alpine, HTML no servidor (~15 KB/página), busca e paginação no servidor, sem API pública reaproveitável (rotas /api/ proibidas no robots; termos vedam coleta). ~60 lojas incluindo Amazon/Terabyte; meta Lomadee e links /link/{id} de afiliado; Amazon com imagens da própria Amazon e "Ver preço na loja" quando o preço envelhece (indica Associados/PA-API). Mesma separação "Visto há" × "Divulgado há". Logos próprios em /storage.
 - Conclusão: nenhuma fonte gratuita utilizável sem cadastro do proprietário. Amazon depende de Associados (+ vendas qualificadas para a API); Lomadee exige cadastro e conferência de termos. Terabyte/Pichau: nada novo além do Telegram já usado.
 
+## 9. Coleta direcionada (avaliada, não implementada antes da Black Friday)
+- robots.txt (26/11): busca permitida na KaBuM (`/busca/<termo>` sem query string; `/busca/*?` proibido), Patoloco, iByte, ChipArt e Shopinfo; proibida na WAZ (`/busca?*`) e Guerra (`/search/`).
+- Plano: para modelos com MPN conhecido em 1 loja só, consultar a busca das lojas permitidas pelo código, aceitar apenas resultado cujo produto confira MPN/variante na página (mesmo parser e regras de vendedor/Pix), com teto diário por loja dentro da faixa de descoberta (10%). Exige adaptador de resultados por loja e testes com fixtures; fica para depois da Black Friday.
+
+## 10. Egress do índice no servidor
+- Carga completa ~5,8 MB sem compressão a cada 60 min por instância ativa; deltas sob demanda a cada 120 s (margem 45 s) só com linhas alteradas. Sem visitas, nada é lido. Acompanhar Egress no painel do Supabase durante a Black Friday (cota 5 GB/mês); se subir, aumentar DELTA_MS.
+
 ## Pendências
 - Conferir envio real do alerta ADATA (notification_log) e o efeito da rodada KaBuM ampliada (queue_health).
 - Bruto: decidir retenção menor depois da Black Friday. Amazon/Pichau/Terabyte: sem caminho novo sem cadastro.
