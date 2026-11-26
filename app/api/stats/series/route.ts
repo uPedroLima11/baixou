@@ -4,6 +4,7 @@ import {cashComparable,consistentSeries,gpuGroup,isLive,ramGroup,typicalChange,t
 import {independentSeller} from '@/lib/search';
 import {describeTrend,median,spDay} from '@/lib/history';
 import {storeNames} from '@/lib/stores';
+import {statFacts,STATS_FILTERS,type StatsFilters} from '@/lib/stats-data';
 // Evolução diária de até 6 grupos equivalentes (mesmas regras de agrupamento do retrato atual).
 // Usa todos os anúncios do grupo com preço à vista/Pix comparável, inclusive os hoje indisponíveis (foram observados).
 export const dynamic='force-dynamic';
@@ -16,8 +17,10 @@ export async function GET(req:Request){
  try{
   const offers:StatOffer[]=[];
   for(let from=0;from<3000;from+=1000){const r=await db.from('catalog_offers').select(FIELDS).eq('category',c).order('id').range(from,from+999);if(r.error)throw r.error;offers.push(...(r.data as StatOffer[]));if(r.data.length<1000)break;}
-  const group=c==='ram'?ramGroup:gpuGroup,members=new Map<string,{label:string;gb?:number;list:StatOffer[]}>();
-  for(const o of offers){if(!cashComparable(o))continue;const g=group(o);if(!g||!keys.includes(g.key))continue;const e=members.get(g.key)??{label:g.label,gb:g.gb,list:[]};e.list.push(o);members.set(g.key,e);}
+  // Mesmos filtros do painel (frequência, marca, fabricante etc.), aplicados também a anúncios hoje indisponíveis.
+  const applied:StatsFilters={};for(const {key} of STATS_FILTERS[c]){const v=(q.get(key)??'').slice(0,40);if(v)applied[key]=v;}
+  const members=new Map<string,{label:string;gb?:number;list:StatOffer[]}>();void ramGroup;void gpuGroup;
+  for(const o of offers){if(!cashComparable(o))continue;const x=statFacts(o,c);if(!x||!Object.entries(applied).every(([k,v])=>x.values[k]===v))continue;const g=x.group;if(!keys.includes(g.key))continue;const e=members.get(g.key)??{label:g.label,gb:g.gb,list:[]};e.list.push(o);members.set(g.key,e);}
   const now=Date.now(),today=spDay(now),byId=new Map(offers.map(o=>[o.id,o]));
   const series=await Promise.all(keys.filter(k=>members.has(k)).map(async key=>{const m=members.get(key)!;
    const r=await db.rpc('group_daily',{p_ids:m.list.map(o=>o.id).slice(0,600),p_days:days});if(r.error)throw r.error;
@@ -28,7 +31,7 @@ export async function GET(req:Request){
    const live=m.list.filter(o=>isLive(o,now));
    return {key,label:m.label,gb:m.gb??null,members:m.list.length,live:live.length,sellers:new Set(live.map(independentSeller)).size,
     points:points.map(p=>({day:p.day,offers:p.offers,lowest:p.lowest,store:label(p.lowest_offer),offer:p.lowest_offer,median:p.median_low,typical:p.typical,segment:p.segment,pairs:p.pairs,partial:p.day===today})),
-    summary:{days:points.length,today:todayPoint?.lowest??null,periodLow:periodLow?{price:periodLow.lowest,day:periodLow.day,store:label(periodLow.lowest_offer),offer:periodLow.lowest_offer}:null,medianLow:median(lows),typical:typicalChange(points),trend}};}));
-  return NextResponse.json({category:c,days,today,series},{headers:{'Cache-Control':'public, s-maxage=900, stale-while-revalidate=1800'}});
+    summary:{days:points.length,today:todayPoint?.lowest??null,periodLow:periodLow?{price:periodLow.lowest,day:periodLow.day,store:label(periodLow.lowest_offer),offer:periodLow.lowest_offer,title:byId.get(periodLow.lowest_offer)?.title??'',live:(()=>{const o=byId.get(periodLow.lowest_offer);return !!o&&isLive(o,now)&&Number(o.price)<=periodLow.lowest+0.005;})()}:null,medianLow:median(lows),typical:typicalChange(points),trend}};}));
+  return NextResponse.json({category:c,days,today,series},{headers:{'Cache-Control':'public, s-maxage=600, stale-while-revalidate=1800'}});
  }catch(e){console.error('stats/series',e&&typeof e==='object'&&'message' in e?String(e.message).slice(0,200):'erro');return NextResponse.json({error:'unavailable'},{status:503});}
 }

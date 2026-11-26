@@ -83,7 +83,7 @@ export function Chart({series,showExtremes,daily,axis=short,value=money,domain}:
  // ficam vazios (nada é interpolado).
  const t0=daily?Math.min(domain?domain[0]:tMin,tMin)-DAY/2:tMin,t1=daily?Math.max(domain?domain[1]:tMax,tMax)+DAY/2:Math.max(tMax,tMin+3600000),span=t1-t0;
  const lo=Math.min(...all.map(p=>p.p)),hi=Math.max(...all.map(p=>p.hi??p.p)),yPad=Math.max((hi-lo)*0.12,hi*0.01);
- const ticks=niceTicks(lo-yPad,hi+yPad),y0=ticks[0],y1=ticks[ticks.length-1];
+ const ticks=niceTicks(Math.max(0,lo-yPad),hi+yPad),y0=ticks[0],y1=ticks[ticks.length-1];
  const x=(t:number)=>pad.l+(t-t0)/span*(width-pad.l-pad.r),y=(p:number)=>pad.t+(1-(p-y0)/(y1-y0))*(H-pad.t-pad.b);
  // Eixo X diário: uma marca por dia observado (sem datas repetidas); com muitos dias, marcas espaçadas em dias inteiros.
  const maxTicks=narrow?4:7,daysAll=[...new Set(all.map(p=>p.t))].sort((a,b)=>a-b);
