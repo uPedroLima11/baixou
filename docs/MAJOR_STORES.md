@@ -1,3 +1,13 @@
+# Amazon Brasil — rodada de 26/11/2026 (Claude Code)
+
+- **robots.txt de amazon.com.br (HTTP 200, 368 linhas)** bloqueia por completo `Claude-User`, `ClaudeBot` e `Claude-SearchBot` (`Disallow: /`). Para `*` é permissivo (`/gp/goldbox`, `/s/`, `/*/dp/`), sem linha para `/gp/rss` e sem `Sitemap:`. As Condições de Uso continuam vedando robôs/mineração para qualquer agente. Consequência: nenhum teste adicional na Amazon deve ser feito por um agente Claude.
+- Feeds RSS `/gp/rss/...`: sem documentação para o Brasil; os feeds documentados ficam dentro do programa de Associados (UK) e há relatos de restrição. Descartado.
+- Canal oficial com preço (Telegram/WhatsApp): nenhum linkado por canais oficiais da Amazon Brasil (diferente da KaBuM, que publica o próprio canal). Descartado.
+- PA-API/Creators (locale BR): exigem Associados + vendas. Descartado pelas condições do proprietário.
+- CamelCamelCamel: não há domínio brasileiro; termos vedam coleta e republicação; 403 para o coletor. Descartado.
+- Geradores de RSS de terceiros: raspam a mesma página da Amazon. Descartado.
+- **Conclusão:** sem fonte gratuita, legítima e sem cadastro. Único caminho realista: o proprietário se cadastrar como Associado e obter aprovação escrita para comparação/rastreamento de preço (cl. 6(y)) — fora das condições atuais.
+
 # Amazon, cobertura de Pichau/Terabyte e confirmação de preço (Claude Code, 24/11/2026 ~03h30 UTC)
 
 ## Amazon — novas frentes examinadas (nenhuma utilizável)

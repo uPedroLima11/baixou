@@ -1,3 +1,45 @@
+# CHECKPOINT — rodada 3: região, Estatísticas em painel, logotipos, consistência, descoberta direcionada, Amazon (Claude Code, 26/11/2026, ~21h UTC)
+
+## Filas e coletas (20:53 UTC, queue_health)
+| Loja | Vivas | Devidas | Vencidas | Atraso médio/máx. |
+| --- | ---: | ---: | ---: | --- |
+| KaBuM (ciclo próprio) | 1.258 | 444 | 0 | 6,7 / 12,6 min |
+| WAZ (270/450 s) | 623 | 85 | 3 | 7,6 / 9,8 |
+| Shopinfo | 434 | 92 | 0 | 8,8 / 10,0 |
+| iByte | 388 | 60 | 4 | 8,4 / 9,9 |
+| ChipArt | 292 | 77 | 1 | 8,8 / 10,0 |
+| Patoloco | 243 | 84 | 0 | 8,8 / 10,0 |
+| Guerra | 183 | 67 | 0 | 9,2 / 10,0 |
+- WAZ recuperada (às 20:24 eram 116 vencidas e 27 min). Actions (ciclo comum e KaBuM), CI e pg_cron verdes. iByte: falhas são páginas de categoria e 5 produtos em 6 h; produtos preservados.
+- Envios: 5 no log, 5 enviados, 0 falhos/desconhecidos, 0 duplicados por produto/dia.
+
+## Região das funções (maior ganho de latência)
+- Supabase está em sa-east-1; as funções Vercel rodavam em iad1 (cada consulta cruzava o continente). `vercel.json` → `regions: ["gru1"]` (plano gratuito permite 1 região). Medido (CDN miss): /api/history 0,83 → 0,35 s; /api/announced 0,85 → 0,35 s; /api/product ~0,8 → ~0,53 s.
+
+## Desempenho medido em produção (depois)
+- Primeiro acesso: TTFB 0,17 s, cards no HTML. Troca de modalidade: 17–230 ms (memória/CDN), 1ª troca em instância fria era 3,3 s → prefetch ocioso da 1ª página das outras 3 modalidades (2c02772). Categoria/filtro/ordem 140–160 ms; Mostrar mais 220 ms; busca 0,5 s (inclui 300 ms de digitação). Página do produto: casca no clique, completa ~1,5 s; aba de histórico 22 ms. Estatísticas: RAM no HTML (ISR 10 min), filtro ~0,2 s.
+- Instância fria: carga do índice 1,7 s + montagem 0,5 s (3,9 mil ofertas). Sem cache entre instâncias (valor >2 MB).
+
+## Estatísticas (painel)
+- Abas RAM/GPU, período, filtros compactos (RAM: geração, uso, formato módulo/kit, capacidade, frequência, marca ≥2 ofertas; GPU: chip, modelo, VRAM, fabricante). Tabela por configuração real: menor agora (link ao produto + ícone da loja), típico (mediana), maior, variação em R$ e % (mesmo anúncio no início e fim). Gráfico só das linhas marcadas (menor preço ou típico encadeado); sem R$/GB. Menor do período com link e aviso "histórico, não disponível agora". Contadores de amostra em "Metodologia". lib/stats-data.ts usa o índice em memória; /api/stats/series aplica os mesmos filtros. Eixo Y nunca negativo.
+
+## Score e grupos
+- Página do produto reutiliza a nota do índice quando preço/referências batem; nunca calcula sem o grupo. Auditoria em produção: 38 de 38 produtos com a mesma nota e classe no card e na página.
+- RAM equivalente também por classe de latência (DDR4 CL≤16, DDR5 CL≤36, DDR3 CL≤9; CL ausente só com CL ausente). Ofertas RAM com grupo: 69 → 31 (mais estrito, sem forçar).
+
+## Logotipos
+- public/stores/{kabum,terabyte,pichau,mercadolivre,waz,guerradigital,patoloco,ibyte,chipart,shopinfo}.png (64×64, 1,5–3,5 kB), obtidos uma vez com o UA do coletor a partir do ícone público de cada site; Terabyte e Pichau pelo avatar dos canais oficiais no Telegram (sites 403). Registro `storeIcons` em lib/stores.ts; `StoreIcon` com monograma de reserva; usado em cards, página do produto, comparação, filtro de lojas e Estatísticas.
+
+## Descoberta direcionada (scripts/targeted.ts, collect-kabum.yml)
+- Modelos com código forte presentes só em outra loja (favoritos/alertas primeiro; RAM, GPU, CPU, SSD) → busca KaBuM `/busca/<código>` (robots permite sem query string), até 15 por rodada, 1,5 s; aceita só resultado cujo endereço contém o mesmo código; vira candidato verificado pelo coletor. Código rebuscado após 7 dias; páginas de busca fora da descoberta comum. Outras lojas: busca permitida em Patoloco, iByte, ChipArt e Shopinfo, mas sem adaptador de resultado ainda.
+
+## Armazenamento (medido 20:50)
+- Banco 110 MB: price_history 41 MB (196 mil linhas, 201 B/linha, 85 mil/dia), offers 41 MB (8.957 linhas), price_daily 2,6 MB (176 B/linha, ~4,1 mil/dia), product_candidates 6,6 MB, announced_daily 3,6 MB.
+- Projeção sem mudança: bruto ~360 MB (até ~465 MB se todo anúncio vivo tiver 24 linhas/dia) quando a retenção de 21 dias se completar (~14/12) → risco de passar de 500 MB em dezembro. Plano (depois da Black Friday, antes de 300 MB): (1) price_history_stats calcular max/samples/days pelo price_daily; (2) bruto 21 → 7 dias (~155 MB), mantendo 48 h de detalhe e auditoria recente; resumo diário 400 dias (~290 MB em um ano com o volume atual) e announced_daily intactos. Reavaliar o resumo diário quando o catálogo crescer.
+
+## Amazon
+- Nenhuma fonte utilizável (detalhes no topo de MAJOR_STORES.md). Fato novo: robots.txt de amazon.com.br bloqueia por completo os agentes Claude; Condições de Uso vedam robôs. Sem RSS BR documentado, sem canal oficial com preço, CamelCamelCamel sem Brasil e com termos restritivos.
+
 # CHECKPOINT — Black Friday, rodada 2: fila, alertas reais, preço real, UX do produto (Claude Code, 26/11/2026, ~20h30 UTC)
 
 ## Fila e coleta (evidência em queue_health/collection_runs)

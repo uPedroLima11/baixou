@@ -171,3 +171,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - Ciclos de coleta: KaBuM em collect-kabum.yml (revezamento próprio); demais em collect.yml. Relay comum espera o job mais lento: não alongar um job sem medir o efeito nas outras lojas.
 - Catálogo: atualização em segundo plano nunca esmaece a grade; esqueleto só sem dados.
+
+## Rodada 3 (26/11/2026)
+- Funções Vercel em gru1 (vercel.json), ao lado do Supabase sa-east-1. Não voltar para iad1.
+- Estatísticas: painel em lib/stats-data.ts (índice em memória); preços de módulo/kit/placa reais, R$/GB fora da interface principal.
+- Ícones das lojas locais (public/stores, lib/stores.ts storeIcons); nunca serviço externo de favicon por renderização.
+- Grupos de RAM equivalentes incluem classe de latência (CL).
+- Descoberta direcionada: scripts/targeted.ts só aceita resultado com o mesmo código do fabricante no endereço.
+- Amazon: robots.txt bloqueia agentes Claude; não testar páginas/feeds da Amazon por agente.
+- Retenção do bruto: plano 21 -> 7 dias depois da Black Friday (HANDOFF), antes de o banco passar de 300 MB.
