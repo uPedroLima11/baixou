@@ -64,7 +64,10 @@ async function main(){
    let searched=0,found=0,errors=0,added=0,replaced=0;
    for(const t of targets){if(searched>=max||Date.now()>=until-1000)break;if(skip.has(t.url)||rules.isAllowed(t.url,UA)!==true)continue;
     searched++;let status=0,links:string[]=[];
-    try{const r=await get(t.url);status=r.status;if(r.ok)links=targetedProductLinks(store,await body(r));else{errors++;console.error(store,'busca HTTP',status);}}catch(e){errors++;console.error(store,'busca',e instanceof Error?e.message:'erro');}
+    try{const r=await get(t.url);status=r.status;if(r.ok)links=targetedProductLinks(store,await body(r));
+     // Busca com resultado único pode redirecionar direto ao produto (Shopify/Shopinfo, 302 em 26/11): é resultado, não erro.
+     else if(r.status>=300&&r.status<400&&productURL(r.headers.get('location')??'',source)){links=[productURL(r.headers.get('location')!,source)!];status=200;}
+     else{errors++;console.error(store,'busca HTTP',status,r.status>=300&&r.status<400?'redirecionamento fora de produto':'');}}catch(e){errors++;console.error(store,'busca',e instanceof Error?e.message:'erro');}
     const exact=links.filter(u=>sameCodeUrl(u,t.code)&&rules.isAllowed(u,UA)===true);found+=exact.length;
     let newLinks=exact;
     if(exact.length&&!remaining){const present=await db.from('product_candidates').select('url').eq('store',store).in('url',exact);if(present.error)throw present.error;const known=new Set((present.data??[]).map(r=>r.url));newLinks=exact.filter(u=>!known.has(u));}

@@ -1,3 +1,22 @@
+# Amazon, Pichau/Terabyte, histórico e ChipArt — rodada Claude Code (26/11/2026, noite)
+
+Nenhuma página amazon.com.br consultada (robots bloqueia agentes Claude). Pesquisa somente pública, sem conta, chave ou demo.
+
+| Frente | Encontrado | Decisão |
+| --- | --- | --- |
+| Amazon: canais oficiais (WhatsApp, Discord, Bluesky, Threads, Mastodon) | Só canais de afiliados/comunidades (ex.: discord.me/ofertas-amazon); releases no PR Newswire sem preço por produto | Descartado |
+| Amazon: datasets Kaggle/HuggingFace | Só amostras de outros países (ex.: iarbel/amazon-product-data-sample); nada BR com licença | Descartado |
+| Amazon: Apify (amazon-brazil-intelligence) | Conta + créditos; raspa contra as Condições de Uso | Descartado |
+| Histórico BR: HardwareBarato | Histórico diário por modelo (GPU/CPU/placa-mãe), à vista e parcelado, desde ~04–06/2025; sem API, termos de reuso ou licença | Só com autorização escrita (mesma categoria de Buscapé/Zoom) |
+| Histórico BR: Escorrega o Preço | Histórico KaBuM; sem API/licença | Idem |
+| Histórico BR: Terabyte `/historico` | Página da própria loja, mas host bloqueado para automação | Só com liberação da Terabyte |
+| Histórico BR: repositórios GitHub com CSV | AbathVictor/rastreador-precos-gpu (2 GPUs, 08–09/2026), monitor-precos-pichau/kabum, VFLins/Price_indexr — todos sem licença, sem MPN, sem separar Pix/cartão | Sem licença = todos os direitos reservados; descartado |
+| Histórico BR: Wayback Machine CDX | API gratuita sem chave (~24 consultas/min); termos do archive.org vedam copiar o acervo para fora sem permissão escrita; densidade de capturas de páginas de produto não medida (acesso a web.archive.org falhou neste ambiente) | Só consulta interna/validação; não publicar como histórico |
+| Pichau/Terabyte | Nada novo além do já registrado abaixo (Telegram, sitemap Pichau sem preço, Linktree/landing sem preço). Nenhuma confirmação explícita do canal da Pichau em página acessível | Mantidos parciais/anunciados |
+| ChipArt (busca 429) | Busca `/pesquisa` responde 429 já na 1ª requisição (nginx, sem Retry-After). O robots declara `sitemap.xml` → índice no CDN da plataforma (`cdn.okvendas.com/feed/arquivos/www.chipart.com.br/sitemap/...`, HTTP 200): 894 URLs de produto válidas | **Ativado**: descoberta direcionada da ChipArt usa o sitemap 1×/24 h (códigos exatos primeiro, depois RAM/GPU/CPU/SSD fora da fila, até 150, teto 2.000 preservado). Busca não é mais chamada |
+
+Conclusão: Amazon continua **sem fonte**; nenhum histórico verificado anterior a 23/11 com licença. Não repetir estas buscas sem fato novo.
+
 # Amazon Brasil — continuidade Codex (26/11/2026)
 
 Condição atual do proprietário: nenhuma conta nova, chave, cadastro de Associados/desenvolvedor, pagamento ou ação manual para viabilizar Amazon. Prioridade continua Amazon, inclusive fontes não oficiais; não voltar a pedir essas opções. Nenhuma página bloqueada foi consultada nesta rodada.

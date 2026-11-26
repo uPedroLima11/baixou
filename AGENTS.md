@@ -187,3 +187,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Catálogo usa snapshot público Brotli no Data Cache, teto codificado de 1,8 MB/revalidação 120 s; at/since/TTL originais são preservados. Não transformar reconstrução do índice em nova verificação de preço.
 - Recertificada/recondicionada/open box/usada explícita no título é exclusão de política, não estoque esgotado. Migration 20261126213134 aplicada; não apagar dados salvos.
 - Descoberta direcionada também possui Patoloco/iByte/Shopinfo; ChipArt tem adaptador mas busca local 429, fora da rotina. Rechecagens/alertas vêm antes da busca; confirmar no host. Fila cheia só admite substituição limitada de candidato antigo com >=3 falhas, >24 h e SEM oferta, após achar URL exata nova; teto de 2.000 permanece. Histórico/favoritos/alertas nunca são removidos.
+
+## WhatsApp, ChipArt e favicon (Claude Code, 26/11/2026 noite)
+- WhatsApp = CallMeBot com chave do PRÓPRIO usuário (docs/WHATSAPP.md). Meta Cloud API cobra desde 01/10/2026; Baileys/WAHA/Evolution exigem chip, processo 24/7 e violam regras: não trocar sem pedido do proprietário. Nunca conectar o WhatsApp do proprietário nem criar conta no provedor em nome dele.
+- Mesma decisão do e-mail (`notificationReason`); reserva, deduplicação e falhas por canal (`p_channel`). Falha de um canal nunca bloqueia o outro. `accepted` ≠ entregue. Chave/número só no servidor (`whatsapp_contacts` sem políticas para o cliente; `/api/whatsapp` mascara e nunca devolve a chave); nunca registrar a URL do provedor.
+- Liberação por `WHATSAPP_MODE` (off/test/on) + `WHATSAPP_TEST_USERS`, iguais na Vercel e em `vars` do repositório. Hoje: test só para o proprietário. Não ligar `on` sem homologação real documentada.
+- ChipArt: busca 429 → descoberta pelo sitemap declarado no robots (1×/24 h). Não voltar a chamar `/pesquisa`.
+- Favicon: arquivos de convenção em app/ (favicon.ico/icon.png/apple-icon.png) recortados da etiqueta do logo; não reapontar para /logo.png (wordmark).
+
