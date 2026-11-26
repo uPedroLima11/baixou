@@ -4,6 +4,9 @@ import {vtexLinkTexts,structuredProductLinks} from './store-adapters';
 import {sources} from './sources';
 import {productURL} from '../lib/collection-policy';
 export const TARGETED_STORES=['kabum','patoloco','ibyte','chipart','shopinfo'];
+// Lojas cuja descoberta direcionada usa o sitemap publicado (busca bloqueada por limite de taxa).
+export const SITEMAP_STORES=['chipart'];
+export function sitemapLocs(xml:string){return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map(m=>m[1].replace(/&amp;/g,'&')).filter(u=>/^https:\/\//.test(u)).slice(0,50000);}
 export function replacementUrls(urls:string[],protectedUrls:Set<string>,exact:string[],limit:number){return urls.filter(u=>!protectedUrls.has(u)&&!exact.includes(u)).slice(0,Math.max(0,Math.min(3,limit)));}
 export function targetedSearchUrl(id:string,mpn:string){
  const origin=sources.find(s=>s.id===id)?.origin;if(!origin)return null;

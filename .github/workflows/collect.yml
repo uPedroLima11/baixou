@@ -55,7 +55,7 @@ jobs:
       - name: Enviar alertas opt-in
         run: npm run notifications
       - name: Descobrir os mesmos modelos em outras lojas (HTML público)
-        if: matrix.store == 'patoloco' || matrix.store == 'ibyte' || matrix.store == 'shopinfo'
+        if: matrix.store == 'patoloco' || matrix.store == 'ibyte' || matrix.store == 'shopinfo' || matrix.store == 'chipart'
         env:
           TARGETED_MAX: '3'
           TARGETED_DEADLINE_MS: '20000'

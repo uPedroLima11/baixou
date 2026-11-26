@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {searchableCode,sameCodeUrl} from '../scripts/targeted';
-import {targetedSearchUrl,targetedProductLinks,replacementUrls} from '../scripts/targeted-adapters';
+import {searchableCode,sameCodeUrl,targetOrder} from '../scripts/targeted';
+import {targetedSearchUrl,targetedProductLinks,replacementUrls,sitemapLocs} from '../scripts/targeted-adapters';
 test('targeted discovery: only strong manufacturer codes are searched and only same-code results accepted',()=>{
  assert.equal(searchableCode('KF432C16BB/16'),'kf432c16bb16');assert.equal(searchableCode('G305'),null);assert.equal(searchableCode('Fury Beast'),null);
  assert.equal(sameCodeUrl('https://www.kabum.com.br/produto/172366/memoria-ram-kingston-fury-beast-16gb-3200mhz-ddr4-cl16-preto-kf432c16bb1-16','kf432c16bb116'),true);
@@ -25,4 +25,13 @@ test('full discovery queue only replaces unprotected failed candidates, never an
  assert.deepEqual(replacementUrls(urls,new Set(['has-offer']),['wanted'],10),['old1','old2','old3']);
  assert.deepEqual(replacementUrls(urls,new Set(urls),[],3),[]);
  assert.deepEqual(replacementUrls(urls,new Set(),[],0),[]);
+});
+
+test('targetOrder: monitorado > marca vendida pela loja > categoria prioritária',()=>{
+ const t=[{id:'a',watched:false,stocked:false,category:'ram'},{id:'b',watched:false,stocked:true,category:'ssd'},{id:'c',watched:true,stocked:false,category:'ssd'},{id:'d',watched:false,stocked:true,category:'gpu'}];
+ assert.deepEqual([...t].sort(targetOrder).map(x=>x.id),['c','d','b','a']);
+});
+
+test('sitemapLocs: extrai somente URLs https do sitemap',()=>{
+ assert.deepEqual(sitemapLocs('<urlset><url><loc>https://www.chipart.com.br/produto/hardware/ssd/sata/ssd-x/9106/</loc></url><url><loc>javascript:alert(1)</loc></url></urlset>'),['https://www.chipart.com.br/produto/hardware/ssd/sata/ssd-x/9106/']);
 });
