@@ -13,7 +13,7 @@
 - Catálogo: seletor Pix/Cartão (URL `pag=cartao`, localStorage e `profiles.payment_preference`); índice do cartão montado sob demanda só com ofertas que têm total no cartão. Cards: preço da modalidade + linha discreta da outra ("Cartão não informado" quando falta). Produto: tabela Pix × Cartão (clicável) e `/api/product?pag=cartao`; histórico `/api/history?pag=cartao` (séries card_*).
 - Alertas: forma de pagamento ao criar/editar (categoria e produto). Exemplo do proprietário testado: Pix 729,99 / cartão 858,81 não dispara alerta de cartão ≤ 850; 849,99 dispara; mesmo alerta no Pix dispara. Quedas no cartão usam só o habitual do cartão. Favoritos na modalidade preferida. Deduplicação com chave separada ':card'. tests/payment.test.ts.
 - Produção (02h UTC): primeira rodada gravou cartão em Patoloco 33, Shopinfo 32, iByte 23, WAZ 18, Guerra 3, KaBuM 1 (ciclo próprio), Pichau anunciado; razão cartão/Pix 1,05–1,22. API modo cartão: 153 ofertas, notas "Dados insuficientes" até haver habitual do cartão (≥5 verificações em ≥3 dias, ~30/11). Navegador: seletor, cards e página do produto conferidos.
-- Erro React #418 em produção (texto "há X min" do ISR diverge da hidratação) → idade relativa com suppressHydrationWarning. Conferir console após o deploy.
+- Erro React #418 em produção (texto "há X min" do ISR diverge da hidratação) → idade relativa com suppressHydrationWarning. Conferido após o deploy 20da559: catálogo (modo cartão) e produto sem erros no console.
 
 ## Pendências
 - Cobertura do cartão cresce a cada rechecagem (fila ~60 min); Score/queda no cartão só depois de dias completos.
