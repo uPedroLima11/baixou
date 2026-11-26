@@ -7,6 +7,8 @@
 - Correção: alerta ATIVO cujo escopo (categoria/produto/marcas/specs) cobre o produto define o limite; favoritos não avisam fora dele, salvo opt-in explícito `profiles.wishlist_ignore_alert_limits` (UI em Notificações, desligado por padrão). Alerta pausado não envia nem limita. Queda de favorito exige ≥5% abaixo do preço habitual. Testes com o caso real em tests/notifications.test.ts (pausado, especificação incompatível, SODIMM, AND de condições, vencida, <5%).
 - Homologação com dados reais (ensaio sem envio, conta real × 3.568 ofertas verificadas): Kingston → nenhum motivo; 0 disparos. Descoberto que a WAZ não informa formato: ADATA AD4U3200716G22 (DDR4 16 GB, R$ 699,99) ficava fora do alerta. `ramFormFromCode` decodifica só esquemas publicados (ADATA AD4U/AD4S, Kingston KF..C/S e KVR..N/S, Crucial G4DF/G4SF e U5/S5); Smart SMU4… continua desconhecida. Com isso o alerta real passa a cobrir a ADATA (disparo legítimo esperado quando a oferta for reconfirmada; conferir notification_log).
 
+- **Envio real confirmado no banco:** notification_log id 9, reason=`price`, waz-81a935d265a94a23731b (ADATA AD4U3200716G22, DDR4 16 GB desktop), R$ 699,99, status sent em 26/11 19:15:12 UTC; oferta conferida às 19:15:05 (7 s antes). Um único registro por produto/dia (sem duplicação). Recebimento na caixa de entrada depende de confirmação do proprietário.
+
 ## 2. Auditoria RTX 5060 EAGLE MAX (kabum-912220)
 - price_history: R$ 6.678,23 de 23/11 13h a 24/11 21h UTC (27 verificações horárias), R$ 4.199,99 desde 24/11 23h UTC. 6.678,23 = 85% de R$ 7.856,74 (preço "de"/cartão da KaBuM): era o preço à vista Pix real da página nessas ~33 h — preço elevado antes da Black Friday.
 - Score antigo: mediana de TODAS as verificações com mais de 24 h (34 amostras, 27 a 6.678) → "habitual" 6.678 → "boa, 37%". O gráfico usa o menor preço diário (6.678; 4.199; 4.199; 4.199) → mediana 4.199. Peso desproporcional de um dia com muitas verificações.
@@ -46,6 +48,10 @@
 - Actions: coletas a cada ~13 min (relay), verdes nas últimas horas. pg_cron: lote */15, recuperação */5, retry 2/17/32/47 ativos; pg_net 12×HTTP 200 em 3 h. Heartbeat do Actions 19:04 UTC.
 - Banco 109 MB (price_history 40 MB/208 mil linhas em ~3,5 dias; offers 40 MB/8.941 linhas; price_daily 2,6 MB). Risco: bruto pode chegar a ~340 MB com 21 dias se todo anúncio vivo gerar 24 linhas/dia. Como o preço habitual agora usa price_daily, o bruto só serve para a visão de 48 h e o máximo: avaliar retenção de 7–14 dias depois da Black Friday (decisão explícita).
 - Vercel: consumo não exposto pela CLI; o catálogo no servidor reduziu bytes por visita (~1 MB → ~25 KB) e chamadas por aba (9 → 0–1 por troca de filtro).
+
+- Correções de capacidade depois da medição: `due_rechecks` limitava a 200 por rodada mesmo com o workflow pedindo 380 (migration 20261126200000, aplicada; agora até 400). Rodada de 19:29:46 pulou a KaBuM (`skipped`) porque o lote Vercel das 19:30 segurava o lease por 4 s: rodadas longas agora esperam até 60 s pelo lease (9677dba).
+
+- Primeira rodada KaBuM com o teto novo: 19:43–19:53 UTC, 366 verificadas, 0 falhas (antes 200 em 5 min). Às 19:54 ainda 823 vivas, 680 devidas, 412 vencidas: capacidade ~28/min contra ~21/min de demanda, o atraso deve escoar em 1–2 h. **Conferir queue_health na próxima sessão.**
 
 ## 8. baixou.io (pesquisa só pública, robots respeitado, 22 requisições)
 - Laravel + Alpine, HTML no servidor (~15 KB/página), busca e paginação no servidor, sem API pública reaproveitável (rotas /api/ proibidas no robots; termos vedam coleta). ~60 lojas incluindo Amazon/Terabyte; meta Lomadee e links /link/{id} de afiliado; Amazon com imagens da própria Amazon e "Ver preço na loja" quando o preço envelhece (indica Associados/PA-API). Mesma separação "Visto há" × "Divulgado há". Logos próprios em /storage.
