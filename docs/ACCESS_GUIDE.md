@@ -1,5 +1,7 @@
 # Guia de acessos oficiais — custo zero (23/11/2026)
 
+**Diretriz atual (26/11/2026, Codex):** o proprietário descartou novas contas, credenciais, programas de afiliados, serviços pagos e etapas manuais para integrar Amazon. Os procedimentos de cadastro abaixo são históricos, não próximos passos autorizados. Investigar fontes públicas e comunitárias sem contorno; não voltar a solicitar esses acessos. Pichau/Terabyte já têm cobertura parcial por canais públicos; feeds continuam desligados. Pesquisa adicional em `MAJOR_STORES.md`.
+
 Regra: nada pago, nenhum depósito, nenhuma assinatura. Se algum painel pedir pagamento, pare e avise. Nenhum cadastro foi feito em seu nome.
 
 Credenciais nunca vão pelo chat. Grave cada uma você mesmo, num terminal já autenticado no GitHub (o valor é pedido sem aparecer na tela):

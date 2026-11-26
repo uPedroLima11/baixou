@@ -1,3 +1,25 @@
+# Amazon Brasil — continuidade Codex (26/11/2026)
+
+Condição atual do proprietário: nenhuma conta nova, chave, cadastro de Associados/desenvolvedor, pagamento ou ação manual para viabilizar Amazon. Prioridade continua Amazon, inclusive fontes não oficiais; não voltar a pedir essas opções. Nenhuma página bloqueada foi consultada nesta rodada.
+
+Novas alternativas examinadas, sem executar código de terceiros:
+
+| Fonte / código | Evidência | Resultado |
+| --- | --- | --- |
+| [timalts/amazon-price-api](https://github.com/timalts/amazon-price-api/blob/master/amazon.py) | `requests` + BeautifulSoup, header Chrome/Mac falso e seletor antigo `priceblock_ourprice`; repo atualizado em 2020, sem licença declarada | Não é API de dados independente; repete HTML restrito. Não executado. |
+| [kamil6708/amazon-price-api](https://github.com/kamil6708/amazon-price-api/blob/main/price_alert_api.py) | FastAPI recebe preços enviados pelo cliente em `/check-prices`; não busca produtos Amazon | Serviço de alertas, não fonte de preço. |
+| [zafarkhan200/amazon-product-data-api](https://github.com/zafarkhan200/amazon-product-data-api) | Código documenta proxy rotativo, ScraperAPI e fallback `UNBLOCKER_URL_TEMPLATE` após CAPTCHA/403 | Não atende acesso sem contorno nem infraestrutura gratuita independente. |
+| [EveryInfra/amazon-api](https://github.com/everyinfra/amazon-api) | Exemplos exigem `EVERYINFRA_API_KEY`; cobrança por chamada, teste com validade de 24 h | Sem conta Amazon, mas exige conta/chave do intermediário e pagamento recorrente. |
+| [Scavio](https://www.scavio.dev/pt/amazon-api) | Brasil/BRL documentados; preço/produto/vendedor exigem chave; créditos iniciais não recorrentes; só lista de países livre | Demonstração não é feed gratuito sustentável. Não usar endpoint de demo para evitar autenticação/cota. |
+| [ReefAPI](https://reefapi.com/pt/amazon-api) | Busca, detalhes e ofertas em créditos, botão para obter chave | Não oferece fonte sem cadastro comprovada. |
+| [GeckoAPI](https://geckoapi.com.br/) | Planos pagos; cadastro para começar | Fora do custo zero. |
+| [Keepa](https://keepa.com/api-docs/seller-finder.html) | Brasil agora documentado como domínio 12; [API exige assinatura mensal](https://keepa.com/api-docs/plans-tokens.html) | Há cobertura BR, mas a API não atende custo zero. Não confundir com ausência de Brasil do CamelCamelCamel. |
+| [Data Market/Cnova](https://datamarket.cnovatech.com.br/register) | Base de supermercados por EAN; teste de 14 dias com cadastro | Não fornece catálogo Amazon/hardware gratuito sem conta. |
+
+Resultado: **nenhuma integração Amazon funcional comprovada**. Busca em repositórios e serviços não oficiais foi realizada; as candidatas acima não satisfazem simultaneamente origem permitida, dados reais atuais, vendedor identificável, custo zero e ausência de conta. Isso é o resultado desta investigação, não prova de inexistência de qualquer alternativa. Não publicar amostras de documentação, dados fictícios de APIs de treino ou preços de demos como ofertas reais.
+
+Histórico anterior a 23/11: nenhuma fonte nova de histórico verificado com licença/cobertura adequada confirmada. O histórico próprio começa na data da coleta; `announced_daily` de Pichau/Terabyte continua separado e pode mostrar até 120 dias realmente importados, sem preencher lacunas.
+
 # Amazon Brasil — rodada de 26/11/2026 (Claude Code)
 
 - **robots.txt de amazon.com.br (HTTP 200, 368 linhas)** bloqueia por completo `Claude-User`, `ClaudeBot` e `Claude-SearchBot` (`Disallow: /`). Para `*` é permissivo (`/gp/goldbox`, `/s/`, `/*/dp/`), sem linha para `/gp/rss` e sem `Sitemap:`. As Condições de Uso continuam vedando robôs/mineração para qualquer agente. Consequência: nenhum teste adicional na Amazon deve ser feito por um agente Claude.

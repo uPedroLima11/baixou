@@ -1,3 +1,11 @@
+# CHECKPOINT — retomada Codex, Amazon e escopo confirmado (26/11/2026)
+
+- Entrada preservada: árvore limpa, main/origin/main em `6142d78`, fetch confirmou 0/0. CI `45894695999` success. Ciclos `45896139030` (KaBuM) e `45896112390` (demais) em execução na conferência inicial.
+- Produção anterior: Vercel `dpl_BdmvxpqqVAz2J8YWmEJ99P6GcZBF`, Ready, funções gru1; `/`, `/api/catalog` e `/api/announced` HTTP200. Conector Vercel sem escopo do time; CLI existente funciona. Nenhuma credencial exportada.
+- Proprietário confirmou: Amazon sem conta, sem chave, sem cadastro ou serviço pago e sem depender de ação dele. Não repetir pedidos de Associados/Creators. Novas candidatas comunitárias/código analisado em MAJOR_STORES.md; nenhuma fonte funcional permitida comprovada até aqui.
+- Escopo adicional: Estatísticas só DDR4/DDR5 desktop >=8 GB (módulos/kits separados) e GPU RTX/RX relevantes; tooltip de um ponto; histórico anunciado até 120 dias separado; favicon com logo; desempenho; descoberta direcionada Patoloco/iByte/ChipArt/Shopinfo; saúde operacional. Retenção só depois da Black Friday salvo risco imediato.
+- Auditoria inicial: Terabyte com 20 posts em ~7 min (129038–129057); parser não deve adivinhar título quando o post diz só “Produto”. Job `45894601305`: Terabyte 61 aceitos +20 históricos; Pichau 16 +4; ML 394, prazo compartilhado esgotado. Medir cobertura antes de aumentar orçamento.
+
 # CHECKPOINT — rodada 3: região, Estatísticas em painel, logotipos, consistência, descoberta direcionada, Amazon (Claude Code, 26/11/2026, ~21h UTC)
 
 ## Filas e coletas (20:53 UTC, queue_health)
