@@ -7,6 +7,7 @@
 // Canal só entra aqui depois de confirmado como da própria loja (link no site oficial). Ver docs/MAJOR_STORES.md.
 import * as cheerio from 'cheerio/slim';
 import type {Connector,ConnectorContext,MarketplaceListing} from './types';
+import {excludedCondition} from '../product-policy';
 export const ANNOUNCED_TTL_MINUTES=360,ANNOUNCED_LOOKBACK_HOURS=8;
 // 8 h na coleta regular: cada post é lido enquanto vale (6 h) com 2 h de folga; posts mais antigos já foram gravados
 // quando eram novos (ou pela importação telegram-backfill.yml). Ler 24 h a cada rodada custava ~75 chamadas extras e
@@ -47,7 +48,7 @@ export function postPrice(text:string):{price:number;original:number|null;instal
 }
 // Título = linha do post que mais coincide com o slug da URL do produto; corta chamadas de marketing após travessão.
 export function postTitle(text:string,url:string){
- const slug=decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).at(-1)??'').toLowerCase().split('-').filter(w=>w.length>1);
+ let slug:string[];try{slug=decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).at(-1)??'').toLowerCase().split('-').filter(w=>w.length>1);}catch{return null;}
  const norm=(s:string)=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
  let best='',score=0;
  for(const raw of text.split('\n')){const line=raw.replace(/^[^\p{L}\p{N}]+/u,'').split(/\s[—–]\s/)[0].trim();if(line.length<10||/R\$|https?:/.test(line))continue;const words=norm(line).split(/[^a-z0-9]+/).filter(Boolean),hit=slug.filter(w=>words.includes(w)).length/Math.max(1,slug.length);if(hit>score){score=hit;best=line;}}
@@ -59,19 +60,23 @@ const EXCLUDED=/\b(open\s*box|recondicionad[oa]|seminov[oa]|pr[eé]-?venda)\b/i,
 // Cupom que condiciona o preço ("com o cupom", "usando cupom") recusa o post; cupom em linha à parte vira dica não validada.
 const COUPON_CONDITION=/\b(com|usando|aplicando|utilizando)\s+(o\s+)?cupom\b/i;
 export type PostDecision={ok:true;listing:MarketplaceListing}|{ok:false;reason:string};
-export function postToListing(p:ChannelPost,cfg:ChannelConfig,resolvedUrl?:string):PostDecision{
+export function postToListing(p:ChannelPost,cfg:ChannelConfig,resolvedUrl?:string,knownTitles?:ReadonlyMap<string,string>):PostDecision{
  if(COUPON_CONDITION.test(p.text))return {ok:false,reason:'preço condicionado a cupom'};
  if(EXCLUDED.test(p.text))return {ok:false,reason:'condição diferente de novo'};
  const couponHint=p.text.split('\n').map(l=>l.trim()).find(l=>/cupom/i.test(l)&&!/R\$/.test(l))?.replace(/^[^\p{L}\p{N}]+/u,'').slice(0,120)??null;
  const raw=resolvedUrl??p.links.find(l=>{try{return new URL(l).hostname===cfg.productHost;}catch{return false;}});
  if(!raw)return {ok:false,reason:'sem link de produto da loja'};
  let url:URL;try{url=new URL(raw);}catch{return {ok:false,reason:'URL inválida'};}
- if(url.protocol!=='https:'||url.hostname!==cfg.productHost||!cfg.productPath.test(url.pathname))return {ok:false,reason:'link fora da loja'};
+ if(url.protocol!=='https:'||url.username||url.password||url.port||url.hostname!==cfg.productHost||!cfg.productPath.test(url.pathname))return {ok:false,reason:'link fora da loja'};
  const canonical='https://'+url.hostname+url.pathname.replace(/\/$/,'');
  if(cfg.minSlugParts&&(url.pathname.split('/').filter(Boolean).at(-1)??'').split('-').length<cfg.minSlugParts)return {ok:false,reason:'link não parece página de produto'};
  const price=postPrice(p.text);if(!price)return {ok:false,reason:'preço ausente ou ambíguo'};
- const title=postTitle(p.text,canonical);if(!title)return {ok:false,reason:'título não confere com o link'};
- if(EXCLUDED_TITLE.test(title))return {ok:false,reason:'condição diferente de novo'};
+ // Alguns posts reais da Terabyte dizem apenas “Produto”. Só recuperar o nome já publicado pela MESMA loja,
+ // no MESMO endereço canônico e cujo título anterior ainda confira com o slug; nunca criar nome a partir da URL.
+ const generic=p.text.split('\n').find(l=>l.trim())?.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,'').toLowerCase()==='produto';
+ const oldTitle=generic?knownTitles?.get(canonical):undefined;
+ const title=postTitle(p.text,canonical)??(oldTitle?postTitle(oldTitle,canonical):null);if(!title)return {ok:false,reason:'título não confere com o link'};
+ if(EXCLUDED_TITLE.test(title)||excludedCondition(title))return {ok:false,reason:'condição diferente de novo'};
  const externalId=cfg.productPath.exec(url.pathname)?.[1]??url.pathname;
  return {ok:true,listing:{source:cfg.source,externalId,url:canonical,title,price:price.price,originalPrice:price.original,currency:'BRL',available:true,condition:'new',paymentBasis:'cash',
   seller:{id:null,name:cfg.storeName,official:true,reputationLevel:null,positiveRate:null,completedSales:null},images:p.photo?[p.photo]:[],brand:null,mpn:null,gtin:null,couponHint,fetchedAt:new Date(p.date).toISOString(),
@@ -87,20 +92,26 @@ export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:strin
    // vencido e fica fora do catálogo); todos alimentam o histórico de preços anunciados.
    // A importação de publicações antigas (scripts/telegram-backfill.ts) amplia janela e páginas por variáveis.
    const lookback=Math.min(24*120,Number(ctx.env.TELEGRAM_LOOKBACK_HOURS)||ANNOUNCED_LOOKBACK_HOURS),maxPages=Math.min(1000,Number(ctx.env.TELEGRAM_MAX_PAGES)||12);
-   const since=Date.now()-lookback*3600000,seen=new Set<string>();let before:number|undefined,emitted=0,last=0;
+   const since=Date.now()-lookback*3600000,seen=new Set<string>(),reasons:Record<string,number>={};let before:number|undefined,emitted=0,last=0,pages=0,scanned=0,shortAt=0,windowComplete=false;
    for(let page=0;page<maxPages&&Date.now()<ctx.deadline;page++){
     const wait=last+1500-Date.now();if(wait>0)await sleep(wait);last=Date.now();
+    if(Date.now()>=ctx.deadline)break;
     const r=await ctx.fetch('https://t.me/s/'+cfg.channel+(before?'?before='+before:''),{headers:{'User-Agent':agent,Accept:'text/html'},redirect:'manual',signal:AbortSignal.timeout(10000)});
     if(!r.ok)throw new Error('Telegram HTTP '+r.status);
-    const posts=parseChannelPage(await r.text(),cfg.channel);if(!posts.length)break;
+    const posts=parseChannelPage(await r.text(),cfg.channel);pages++;scanned+=posts.length;if(!posts.length){windowComplete=true;break;}
     for(const p of posts){if(Date.parse(p.date)<since)continue;
-     let resolved:string|undefined;if(cfg.shortHosts?.length){for(const l of p.links){let host='';try{host=new URL(l).hostname;}catch{continue;}if(!cfg.shortHosts.includes(host))continue;await sleep(400);resolved=await resolveShort(ctx,l,cfg);if(resolved)break;}}
-     const d=postToListing(p,cfg,resolved);if(!d.ok)continue;
+     if(Date.now()>=ctx.deadline)break;
+     // Sem preço não é anúncio elegível; links de lives/matérias não precisam de requisição ao encurtador.
+     if(!postPrice(p.text)){reasons['preço ausente ou ambíguo']=(reasons['preço ausente ou ambíguo']??0)+1;continue;}
+     const direct=p.links.some(l=>{try{return new URL(l).hostname===cfg.productHost;}catch{return false;}});
+     let resolved:string|undefined;if(!direct&&cfg.shortHosts?.length){for(const l of p.links){let host='';try{host=new URL(l).hostname;}catch{continue;}if(!cfg.shortHosts.includes(host))continue;const pause=shortAt+1500-Date.now();if(pause>0)await sleep(pause);if(Date.now()>=ctx.deadline)break;shortAt=Date.now();resolved=await resolveShort(ctx,l,cfg);if(resolved)break;}}
+     const d=postToListing(p,cfg,resolved,ctx.announcementTitles);if(!d.ok){reasons[d.reason]=(reasons[d.reason]??0)+1;continue;}
      // Posts mais novos primeiro: o anúncio mais recente de cada produto vence; os anteriores só entram no histórico.
      d.listing.announcement!.latest=!seen.has(d.listing.externalId);seen.add(d.listing.externalId);
      yield d.listing;if(++emitted>=ctx.maxListings)return;}
-    const oldest=posts[posts.length-1];if(Date.parse(oldest.date)<since)break;before=oldest.id;
+    const oldest=posts[posts.length-1];if(Date.parse(oldest.date)<since){windowComplete=true;break;}if(before!==undefined&&oldest.id>=before)break;before=oldest.id;
    }
+   console.log(JSON.stringify({connector:cfg.id,pages,scanned,parsed:emitted,rejected:reasons,window_complete:windowComplete}));
   }};
 }
 // Terabyte: canal t.me/terabyteshopoficial está linkado no rodapé de www.terabyteshop.com.br (conferido em 24/11/2026).

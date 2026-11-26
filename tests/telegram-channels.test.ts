@@ -3,6 +3,16 @@ import {parseChannelPage,postToListing,postPrice,postTitle,type ChannelConfig} f
 import {brandInTitle,manufacturerCode} from '../lib/identity';
 const tera:ChannelConfig={channel:'terabyteshopoficial',source:'terabyte',storeName:'Terabyte',productHost:'www.terabyteshop.com.br',productPath:/^\/produto\/(\d+)\/[\w-]+\/?$/,channelLabel:'canal oficial da Terabyte no Telegram'};
 const pich:ChannelConfig={channel:'pichauofertas',source:'pichau',storeName:'Pichau',productHost:'www.pichau.com.br',productPath:/^\/([a-z0-9][a-z0-9-]{8,200})\/?$/,shortHosts:['pruuu.me'],minSlugParts:4,channelLabel:'canal da Pichau no Telegram'};
+test('generic store post reuses a previously published title only for its exact canonical URL',()=>{
+ const url='https://www.terabyteshop.com.br/produto/10712/fonte-pcyes-electro-v2-650w-80-plus-bronze-pfc-ativo';
+ const p={id:129047,date:'2026-11-26T20:58:00Z',text:'✨ Produto ✨\n💰 A partir de: R$ 249,99',links:[url+'?p=1798490']};
+ const titles=new Map([[url,'Fonte PCYes Electro V2 650W, 80 Plus Bronze, PFC Ativo']]);
+ assert.equal(postToListing(p,tera).ok,false);
+ const d=postToListing(p,tera,undefined,titles);assert.ok(d.ok);assert.equal(d.listing.price,249.99);assert.equal(d.listing.title,titles.get(url));
+ assert.equal(postToListing({...p,links:[url.replace('10712','10713')]},tera,undefined,titles).ok,false);
+ assert.equal(postToListing({...p,text:p.text.replace('Produto','Cadeira Azul')},tera,undefined,titles).ok,false,'conflicting explicit title never replaced');
+ assert.equal(postToListing(p,tera,undefined,new Map([[url,'Cadeira Azul Grande']])).ok,false);
+});
 
 test('parses real Terabyte channel posts into product listings (Pix price, canonical URL, post time)',()=>{
  const posts=parseChannelPage(readFileSync('tests/fixtures/telegram-terabyte.html','utf8'),'terabyteshopoficial');

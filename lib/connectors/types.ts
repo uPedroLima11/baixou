@@ -6,7 +6,7 @@ export type ListingSeller={id:string|null;name:string|null;official:boolean|null
 export type MarketplaceListing={paymentBasis?:'cash'|null;source:string;externalId:string;url:string;title:string;price:number;originalPrice:number|null;currency:string;available:boolean|null;condition:ListingCondition;seller:ListingSeller;images:string[];brand:string|null;mpn:string|null;gtin:string|null;couponHint:string|null;fetchedAt:string;
  // Anúncio publicado pela própria loja (ex.: canal oficial no Telegram): preço pontual, não conferido na página.
  announcement?:{channel:string;postId:number;postedAt:string;installmentTotal:number|null;label:string;latest?:boolean}};
-export type ConnectorContext={env:Record<string,string|undefined>;fetch:typeof fetch;deadline:number;maxListings:number};
+export type ConnectorContext={env:Record<string,string|undefined>;fetch:typeof fetch;deadline:number;maxListings:number;announcementTitles?:ReadonlyMap<string,string>};
 export type Connector={
  id:string;name:string;marketplace:boolean;
  // Nomes dos GitHub/Vercel Secrets exigidos. Sem todos presentes, o conector não roda.

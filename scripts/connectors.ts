@@ -22,7 +22,9 @@ for(const c of connectors){
  let store='',runId:number|undefined,accepted=0,rejected=0,errors=0,discounts=0,olderPosts=0,liveAnnounced=0;const reasons:Record<string,number>={};
  try{
   const own=Math.min(deadline,Date.now()+(c.budgetMs??Infinity));
-  for await(const listing of c.listings({env,fetch,deadline:own,maxListings:Number(env.CONNECTOR_MAX_LISTINGS)||600})){
+  const announcementTitles=new Map<string,string>();
+  if(c.id.endsWith('-telegram')){for(let from=0;from<10000;from+=1000){const r=await db.from('offers').select('url,title').eq('store',c.id.replace('-telegram','')).eq('verification_status','announced').order('id').range(from,from+999);if(r.error)throw r.error;for(const row of r.data??[])announcementTitles.set(row.url,row.title);if(r.data.length<1000)break;}}
+  for await(const listing of c.listings({env,fetch,deadline:own,maxListings:Number(env.CONNECTOR_MAX_LISTINGS)||600,announcementTitles})){
    if(Date.now()>own){console.log(JSON.stringify({connector:c.id,budget_exhausted:true}));break;}
    store=listing.source;
    if(runId===undefined){const run=await db.from('collection_runs').insert({store}).select('id').single();if(run.error)throw run.error;runId=run.data.id;}
