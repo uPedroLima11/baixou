@@ -11,6 +11,9 @@ import type {Alert,Offer} from '../lib/types';
 const site='https://baixouofertas.vercel.app',token='0f8fad5b-d9cb-469f-a165-70867728950e',now=Date.now();
 const base={id:'kabum-1',store:'kabum',url:'https://www.kabum.com.br/produto/520369/processador-amd-ryzen-7-7800x3d',title:'Processador AMD Ryzen 7 7800X3D, 5.0GHz Max Turbo, Cache 104MB, AM5, 8 Núcleos',category:'cpu',brand:'AMD',mpn:'100-100000910WOF',image:'https://images.kabum.com.br/produtos/fotos/520369/foto.jpg',images:[],price:1679.99,original_price:4235.28,available:true,seller:'KaBuM!',sold:null,rating:null,review_count:null,specs:{},checked_at:new Date(now-60000).toISOString(),expires_at:new Date(now+3600000).toISOString(),historical_median:null,historical_samples:0,historical_days:0,discount:60,evidence:'retailer',product_id:'p1'} as Offer;
 const priceAlert={category:'cpu',offer_id:null,product_id:null,max_price:1700,min_discount:null,min_drop_amount:null,enabled:true} as Alert;
+test('recertified products cannot trigger an otherwise matching price alert',()=>{
+ assert.equal(notificationReason({...base,title:base.title+' (RECERTIFICADO)'},{global_max_price:null,wishlist_email_enabled:true},[priceAlert],[]),null);
+});
 
 test('subject shows compact product and real verified price, fitting a phone preview',()=>{
  const s=notificationSubject(base,reasonForAlert(priceAlert,base));

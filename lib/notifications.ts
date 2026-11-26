@@ -3,6 +3,7 @@ import {cheapestPerProduct,notificationKey} from './identity';
 import {alertCovers,matchesAlert} from './alert-rules';
 import {buildNotificationEmail,offerEmailUrl,reasonForAlert,wishlistReason,type NotificationReason} from './email-templates';
 import type {Alert,Offer} from './types';
+import {excludedCondition} from './product-policy';
 
 type Profile={id:string;email_enabled:boolean;global_max_price:number|null;wishlist_email_enabled:boolean;wishlist_ignore_alert_limits?:boolean|null;unsubscribe_token:string};
 type WishItem={offer_id:string;offers:{product_id:string|null}|null};
@@ -13,7 +14,7 @@ type WishItem={offer_id:string;offers:{product_id:string|null}|null};
 // Caso real de 26/11: alerta RAM DDR4 16 GB desktop ≤ R$ 850 + Kingston KF432C16BB/16 favoritado → e-mail "wishlist"
 // a R$ 1.194,99. Com esta regra, o alerta define o limite e o e-mail não é enviado.
 export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wishlist_email_enabled'|'wishlist_ignore_alert_limits'>,rules:Alert[],wishlist:WishItem[],now=Date.now()):NotificationReason|null{
- if(!o.available||Date.parse(o.expires_at)<=now)return null;
+ if(!o.available||Date.parse(o.expires_at)<=now||excludedCondition(o.title))return null;
  if(p.global_max_price&&Number(o.price)>Number(p.global_max_price))return null;
  const rule=rules.find(a=>matchesAlert(a,o,now));if(rule)return reasonForAlert(rule,o);
  const saved=wishlist.some(w=>w.offer_id===o.id||(!!o.product_id&&w.offers?.product_id===o.product_id));

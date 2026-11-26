@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio/slim';
 import {createHash} from 'node:crypto';
 import {classify,normalize,type Offer} from '../lib/types';
+import {assertNewProduct} from '../lib/product-policy';
 export type ParsedProduct=Omit<Offer,'discount'|'evidence'|'historical_median'|'historical_samples'|'historical_days'>;
 const names:Record<string,string>={shopinfo:'Shopinfo',ibyte:'iByte',waz:'WAZ',oficinadosbits:'Oficina dos Bits',guerradigital:'Guerra Digital',patoloco:'Patoloco'};
 export class ConfirmedUnavailable extends Error {constructor(){super('Indisponibilidade explícita confirmada no produto');}}
@@ -75,6 +76,7 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
  if(o?.priceCurrency!=='BRL'||!Number.isFinite(price)||price<=0)throw Error('Preço BRL inválido');
  // Alguns schemas trazem entidades HTML literais no nome ("2,5&quot;"); decodifica como texto, nunca como HTML.
  const available=availability(o.availability),title=(/&[#a-z0-9]+;/i.test(String(p.name??''))?cheerio.load('<p></p>')('p').html(String(p.name)).text():String(p.name??'')).trim();if(!title||title.length>1000)throw Error('Nome inválido');
+ assertNewProduct(title);
  const specs=specificationData($,p,id);const images=[...new Set((Array.isArray(p.image)?p.image:[p.image]).map((x:any)=>typeof x==='string'?x:x?.url).filter((x:any)=>typeof x==='string'&&x.startsWith('https://'))) ] as string[];
  let brand=typeof p.brand==='string'?p.brand:p.brand?.name??null;if(brand&&['diversos','generico'].includes(normalize(brand)))brand=null;if(!brand&&specs.Marca)brand=specs.Marca;
  const now=new Date().toISOString();return {id:id+'-'+createHash('sha256').update(canonical).digest('hex').slice(0,20),store:id,url:canonical,title,category:classify(title),brand,mpn:manufacturerPart(p,title,specs),image:images[0]??null,images,price,original_price:original&&original>price?original:null,available,seller:names[id],sold:null,rating:Number(p.aggregateRating?.ratingValue)||null,review_count:Number(p.aggregateRating?.reviewCount)||null,specs,payment_note:payment,checked_at:now,expires_at:now};

@@ -1,4 +1,4 @@
-import {ExcludedProduct} from './product-policy';
+import {ExcludedProduct,assertNewProduct} from './product-policy';
 import robotsParser from 'robots-parser';import * as cheerio from 'cheerio/slim';import {createHash} from 'node:crypto';
 import {adminDb,safeUrl} from './server';import {evidenceFromStats,classify,kitComponents,type Offer} from './types';
 import {sources,candidateSourceIds,type Source} from '../scripts/sources';import {kabumDiscovery,kabumProduct,chipartLinks,chipartProduct} from '../scripts/parser';
@@ -79,7 +79,7 @@ export async function runCollector(options:Options={}){
     // Alertas exigem confirmação de até 5 min: o chamador pode enviar notificações durante a coleta longa.
     if(options.onProgress)await options.onProgress().catch(()=>console.error('Envio intermediário de alertas falhou'));
     if(Date.now()-started>deadline-10000)break;if(!allowed(url))continue;await pause();
-    try{const html=await get(url);const base:ParsedProduct=source.id==='kabum'?kabumProduct(html,url):source.id==='chipart'?chipartProduct(html,url):['terabyte','pichau'].includes(source.id)?generic(html,url,source):parseStoreProduct(source.id,html,url);
+    try{const html=await get(url);const base:ParsedProduct=source.id==='kabum'?kabumProduct(html,url):source.id==='chipart'?chipartProduct(html,url):['terabyte','pichau'].includes(source.id)?generic(html,url,source):parseStoreProduct(source.id,html,url);assertNewProduct(base.title);
      if(base.category==='kit')for(const [k,v] of Object.entries(kitComponents(base.title)))base.specs['Componente do kit: '+k]??=v;
      if(!db){console.log(JSON.stringify({store:source.id,title:base.title,price:base.price,available:base.available,mpn:base.mpn,category:base.category}));count++;continue;}
      const [stats,provenance]=await Promise.all([db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null;ref_median:number|null;ref_samples:number|null;ref_days:number|null;ref_min:number|null;ref_max:number|null}>(),db.from('discovery_events').select('source_id,coupon_hint,discovery_sources!inner(name,attribution_url,enabled)').eq('canonical_url',url).eq('discovery_sources.enabled',true)]);if(stats.error)throw stats.error;if(provenance.error)throw provenance.error;

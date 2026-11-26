@@ -1,4 +1,5 @@
 import type {MarketplaceListing} from './types';
+import {excludedCondition} from '../product-policy';
 export type ListingDecision={ok:true}|{ok:false;reason:string};
 // Regras mínimas antes de um anúncio vindo de API virar oferta pública. Marketplaces exigem vendedor confiável.
 // Níveis aceitos são valores das próprias APIs (ex.: Mercado Livre 5_green/4_light_green; lojas oficiais/indicadas).
@@ -9,6 +10,7 @@ export function acceptListing(l:MarketplaceListing,opts:{hosts:string[];marketpl
  if(l.currency!=='BRL')return {ok:false,reason:'moeda diferente de BRL'};
  if(l.available!==true)return {ok:false,reason:l.available===false?'indisponível':'disponibilidade não confirmada'};
  if(l.condition!=='new')return {ok:false,reason:'condição não confirmada como novo'};
+ if(excludedCondition(l.title))return {ok:false,reason:'condição diferente de novo no título'};
  let host='';
  try{const u=new URL(l.url);if(u.protocol!=='https:'||u.username||u.password)return {ok:false,reason:'URL insegura'};host=u.hostname;}catch{return {ok:false,reason:'URL inválida'};}
  if(!opts.hosts.includes(host))return {ok:false,reason:'host fora da lista permitida'};
