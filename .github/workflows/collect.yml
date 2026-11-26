@@ -17,13 +17,16 @@ jobs:
       matrix:
         store: [kabum, waz, guerradigital, patoloco, ibyte, chipart, shopinfo]
     runs-on: ubuntu-latest
-    timeout-minutes: 13
+    # KaBuM (26/11/2026): 838 ativos, 606 devidos, 400 vencidos, atraso máx. 47 min com 200 itens/330 s por rodada.
+    # Mesmo ritmo por requisição (>=1,5 s entre inícios), só por mais tempo: 380 itens/620 s (~25/min contra ~21/min
+    # necessários). O lease acompanha o prazo; as demais lojas continuam com 200/330 s (todas em dia).
+    timeout-minutes: ${{ matrix.store == 'kabum' && 18 || 13 }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       COLLECT_STORES: ${{ matrix.store }}
-      COLLECT_MAX_PRODUCTS: 200
-      COLLECT_DEADLINE_MS: 330000
+      COLLECT_MAX_PRODUCTS: ${{ matrix.store == 'kabum' && 380 || 200 }}
+      COLLECT_DEADLINE_MS: ${{ matrix.store == 'kabum' && 620000 || 330000 }}
       COLLECT_DISCOVERY_PAGES: 3
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}

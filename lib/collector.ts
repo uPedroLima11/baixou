@@ -24,10 +24,10 @@ export function infrastructureError(e:unknown){
 export function collectorRetryMinutes(error:unknown,priorFailures:number){return error instanceof RemovedProduct?24*60:retryMinutes(priorFailures);}
 function publicProductPath(url:string){const u=new URL(url);return u.origin+u.pathname;}
 export async function runCollector(options:Options={}){
- const check=options.check??false,max=Math.min(200,Math.max(1,options.max??(Number(process.env.COLLECT_MAX_PRODUCTS)||40)));
+ const check=options.check??false,max=Math.min(400,Math.max(1,options.max??(Number(process.env.COLLECT_MAX_PRODUCTS)||40)));
  const enabled=options.stores??(process.env.COLLECT_STORES??candidateSourceIds.join(',')).split(',');
  let knownCodes:Map<string,Set<string>>|undefined;
- const db=check?null:adminDb(),started=Date.now(),deadline=options.deadlineMs??(Math.min(420000,Number(process.env.COLLECT_DEADLINE_MS)||240000)),discoveryPages=options.deadlineMs?1:Math.min(4,Math.max(1,Number(process.env.COLLECT_DISCOVERY_PAGES)||1));let total=0,failures=0,discovered=0,ran=0,stockOnly=0,excluded=0;
+ const db=check?null:adminDb(),started=Date.now(),deadline=options.deadlineMs??(Math.min(660000,Number(process.env.COLLECT_DEADLINE_MS)||240000)),discoveryPages=options.deadlineMs?1:Math.min(4,Math.max(1,Number(process.env.COLLECT_DISCOVERY_PAGES)||1));let total=0,failures=0,discovered=0,ran=0,stockOnly=0,excluded=0;
  // Cortesia por domínio: pelo menos 1,5 s entre o início de duas requisições à mesma loja. O trabalho no banco
  // acontece durante esse intervalo, em vez de somar uma pausa fixa depois dele (mesma taxa máxima de requisições).
  let lastRequest=0;const pause=async()=>{const wait=lastRequest+1500-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));lastRequest=Date.now();};
