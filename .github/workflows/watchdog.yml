@@ -21,13 +21,15 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Conferir última coleta
+      - name: Conferir última coleta (ciclo comum e KaBuM)
         run: |
-          active=$(gh run list --workflow collect.yml --limit 10 --json status --jq '[.[]|select(.status=="in_progress" or .status=="queued" or .status=="pending" or .status=="waiting")]|length')
-          last=$(gh run list --workflow collect.yml --limit 1 --json createdAt --jq '.[0].createdAt // empty')
-          age=$(( $(date +%s) - $(date -d "${last:-1970-01-01T00:00:00Z}" +%s) ))
-          echo "Coletas ativas: $active; última iniciada há $((age/60)) min."
-          if [ "$active" -eq 0 ] && [ "$age" -gt 1500 ]; then
-            gh workflow run collect.yml --ref main
-            echo "Coleta parada: nova execução disparada às $(date -u +%H:%M:%S) UTC."
-          fi
+          for wf in collect.yml collect-kabum.yml; do
+            active=$(gh run list --workflow $wf --limit 10 --json status --jq '[.[]|select(.status=="in_progress" or .status=="queued" or .status=="pending" or .status=="waiting")]|length')
+            last=$(gh run list --workflow $wf --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+            age=$(( $(date +%s) - $(date -d "${last:-1970-01-01T00:00:00Z}" +%s) ))
+            echo "$wf: ativas $active; última iniciada há $((age/60)) min."
+            if [ "$active" -eq 0 ] && [ "$age" -gt 1500 ]; then
+              gh workflow run $wf --ref main
+              echo "$wf parada: nova execução disparada às $(date -u +%H:%M:%S) UTC."
+            fi
+          done

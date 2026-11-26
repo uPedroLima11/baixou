@@ -1,0 +1,65 @@
+name: Atualizar ofertas KaBuM
+# KaBuM tem o maior catálogo (~900 anúncios vivos em 26/11/2026) e precisava de ~22 rechecagens/min. No ciclo comum
+# o job longo dela esticava a rodada de TODAS as lojas para ~18 min (o revezamento só despacha a próxima depois do
+# job mais lento + 7 min) e a WAZ começou a atrasar. Aqui a KaBuM tem ciclo próprio, com o MESMO ritmo por requisição
+# (>=1,5 s entre inícios à loja): até 500 itens em 870 s por rodada e pausa curta antes da próxima (~28/min).
+# Lease por loja impede sobreposição com o lote da Vercel e com a recuperação. Parar: COLLECT_RELAY=off.
+on:
+  schedule:
+    # Reserva caso o revezamento pare (o GitHub entrega schedule de forma irregular neste repositório).
+    - cron: '11,41 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: baixou-collector-kabum
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      COLLECT_STORES: kabum
+      COLLECT_MAX_PRODUCTS: 500
+      COLLECT_DEADLINE_MS: 870000
+      COLLECT_DISCOVERY_PAGES: 3
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Resolver links candidatos
+        run: npm run discover || { echo "Nova tentativa em 45 s"; sleep 45; npm run discover; }
+      - name: Confirmar preços e estoque na KaBuM
+        # Mesmas novas tentativas do ciclo comum para 5xx transitório do gateway Supabase. Idempotente (lease).
+        run: npm run collect || { echo "Nova tentativa em 45 s"; sleep 45; npm run collect; } || { echo "Última tentativa em 90 s"; sleep 90; npm run collect; }
+      - name: Enviar alertas opt-in
+        run: npm run notifications
+
+  relay:
+    needs: collect
+    if: always() && github.ref == 'refs/heads/main' && vars.COLLECT_RELAY != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Despachar a próxima rodada da KaBuM
+        run: |
+          sleep 45
+          gh workflow run collect-kabum.yml --ref main
+          echo "Próxima rodada KaBuM despachada às $(date -u +%H:%M:%S) UTC."
