@@ -158,3 +158,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Nota do Score fica dentro da faixa da classe (excepcional 88–100, boa 70–87, competitivo 58–69, normal 38–57, acima 0–37).
 - Recuperação da coleta independente do GitHub: o Actions grava `infra_heartbeat('actions-collect')`; o pg_cron `baixou-collect-recovery` (*/5) chama `/api/jobs/collect?recovery=1` quando o batimento passa de 25 min. Não depende de nova credencial (segredo do Vault já existente).
 - Listagem do catálogo sem `images` (detalhe busca a galeria); cache de borda 5 min; atualização do cliente a cada 5 min. Filtros/paginação no servidor: reavaliar perto de 10 mil anúncios.
+
+## Black Friday — notificações, preço habitual e catálogo no servidor (Claude Code, 26/11/2026)
+
+- Alerta ATIVO que cobre o produto (categoria/produto/marcas/specs) define o limite de compra: favoritos não notificam fora dele sem `profiles.wishlist_ignore_alert_limits`. Alerta pausado não envia nem limita. Queda de favorito exige ≥5% abaixo do habitual.
+- Preço habitual = mediana dos MENORES preços diários (price_daily, dia de São Paulo) de dias completos anteriores a hoje, até 30 dias. Não voltar à mediana por verificação (um dia com muitas verificações dominava; caso RTX 5060 KaBuM).
+- Score: com mercado do mesmo modelo, a oportunidade vem dele; histórico só freia alta recente. Alternativas equivalentes (lib/groups.ts) são freio (≥10% acima → no máximo normal), nunca prova. Histórico próprio curto (<7 dias) sem confirmação → no máximo competitivo.
+- Formato de RAM só por texto/ficha ou esquema publicado do código (ramFormFromCode). Código desconhecido continua desconhecido.
+- Catálogo é consultado no servidor (lib/catalog-query.ts + lib/catalog-server.ts); não voltar a baixar o catálogo inteiro no navegador. Validade conferida na consulta e no cliente. Estado do catálogo na URL (lib/catalog-params.ts).
+- Produto abre em /produto/[id] (página própria). Voltar preserva o catálogo (URL + memória da sessão + rolagem).
+- KaBuM: 380 itens/620 s por rodada com o mesmo ritmo por requisição; medir queue_health antes de mudar.

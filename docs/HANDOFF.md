@@ -1,3 +1,61 @@
+# CHECKPOINT — Black Friday: notificações, Score, catálogo no servidor, página do produto (Claude Code, 26/11/2026, ~19h30 UTC)
+
+## 1. E-mail de 26/11 09h02 acima de R$ 850 (investigado no banco)
+- notification_log id 8: reason=`wishlist`, kabum-1029658 Kingston KF432C16BB/16, R$ 1.194,99, status sent 12:02:38 UTC.
+- Conta: 1 alerta ativo (RAM, ddr=4, total_gb=16, form_factor=desktop, máx. R$ 850); 4 favoritos (incluindo essa Kingston, salva em 23/11 19:40); `wishlist_email_enabled=true`.
+- Causa: a regra de favoritos era independente dos alertas e não olhava limites. O alerta NÃO disparou (1.194,99 > 850). Além disso a "queda" era falsa: o anúncio alterna 1.194,99/1.299,99 todos os dias (conferido hora a hora em price_history) e a mediana por verificação dava 1.299,99.
+- Correção: alerta ATIVO cujo escopo (categoria/produto/marcas/specs) cobre o produto define o limite; favoritos não avisam fora dele, salvo opt-in explícito `profiles.wishlist_ignore_alert_limits` (UI em Notificações, desligado por padrão). Alerta pausado não envia nem limita. Queda de favorito exige ≥5% abaixo do preço habitual. Testes com o caso real em tests/notifications.test.ts (pausado, especificação incompatível, SODIMM, AND de condições, vencida, <5%).
+- Homologação com dados reais (ensaio sem envio, conta real × 3.568 ofertas verificadas): Kingston → nenhum motivo; 0 disparos. Descoberto que a WAZ não informa formato: ADATA AD4U3200716G22 (DDR4 16 GB, R$ 699,99) ficava fora do alerta. `ramFormFromCode` decodifica só esquemas publicados (ADATA AD4U/AD4S, Kingston KF..C/S e KVR..N/S, Crucial G4DF/G4SF e U5/S5); Smart SMU4… continua desconhecida. Com isso o alerta real passa a cobrir a ADATA (disparo legítimo esperado quando a oferta for reconfirmada; conferir notification_log).
+
+## 2. Auditoria RTX 5060 EAGLE MAX (kabum-912220)
+- price_history: R$ 6.678,23 de 23/11 13h a 24/11 21h UTC (27 verificações horárias), R$ 4.199,99 desde 24/11 23h UTC. 6.678,23 = 85% de R$ 7.856,74 (preço "de"/cartão da KaBuM): era o preço à vista Pix real da página nessas ~33 h — preço elevado antes da Black Friday.
+- Score antigo: mediana de TODAS as verificações com mais de 24 h (34 amostras, 27 a 6.678) → "habitual" 6.678 → "boa, 37%". O gráfico usa o menor preço diário (6.678; 4.199; 4.199; 4.199) → mediana 4.199. Peso desproporcional de um dia com muitas verificações.
+- Mercado: mesmo modelo só na Pichau por anúncio de Telegram (R$ 2.959,99 em 25/10, não verificado, fora das regras) e ML oficial Gigabyte R$ 4.199 (sem MPN, não vinculado). 14 RTX 5060 8 GB equivalentes verificadas: mediana R$ 3.449,99, menor R$ 2.923,14 (MSI Ventus 2X, Guerra). Atual = 21,7% acima das alternativas.
+- Agora: preço habitual 4.199,99 (3 dias) → "Preço normal 50" com motivo "21,7% acima da mediana de 14 alternativas equivalentes".
+
+## 3. Preço habitual por dia (migration 20261126190000, aplicada e recalculada)
+- `price_history_stats.ref_*` = mediana dos MENORES preços diários (dia de São Paulo, price_daily) de dias completos anteriores a hoje, até 30 dias. Cada dia conta uma vez; preço já praticado nos dias anteriores não é queda; independe da retenção do bruto. Quedas comprovadas vivas 134 → 120 na troca.
+- Todas as ofertas recalculadas na migration (reference_*, historical_*, evidence, discount); preço/estoque/TTL intocados.
+
+## 4. Baixou Score (lib/score.ts, lib/groups.ts)
+- Grupos equivalentes (alternativas, não o mesmo modelo): RAM geração+uso+kit/divisão+capacidade+frequência; GPU modelo+VRAM; CPU modelo; SSD NVMe por geração PCIe+capacidade / SATA por formato+capacidade (externo fora). Mediana das OUTRAS ofertas vivas, ≥4 ofertas de ≥2 vendedores.
+- ≥10% acima das alternativas limita a "normal". Só histórico próprio com <7 dias e sem grupo que confirme limita a "competitivo". Com mercado do mesmo modelo, a oportunidade vem do mercado; histórico só freia alta recente (≤ −5%). "Menor preço registrado" só quando houve variação.
+- Frequência em MT/s reconhecida (Kingston). Ofertas com referência de grupo (amostra de 26/11): RAM 69, GPU 58, CPU 15, SSD 31.
+- Página do produto mostra "Leitura do preço": queda no anúncio, preço habitual, mesmo modelo em outras lojas, alternativas equivalentes e oportunidade.
+
+## 5. Desempenho (medido)
+| | Antes (26/11 ~18h50) | Depois |
+| --- | --- | --- |
+| Requisições do catálogo no carregamento | 9 (`/api/catalog?page=0..8`) | 0 (cards no HTML) |
+| Dados | 5,8 MB JSON (~1 MB br) | HTML 25 KB br (136 KB) com os primeiros cards |
+| Primeiros produtos (CDN quente) | após ~2,2 s + processamento de 3,5 mil ofertas no navegador | TTFB ~0,2 s, DOM pronto 0,66 s |
+| CDN fria | 11,8 s só de API (9 MISS) | 3,0 s de carga do índice na instância fria; consulta 31 ms |
+| JS | 284 KB | 157 KB |
+| Troca de filtro | local (após o download completo) | 1 requisição (~15 KB, 60 s de CDN), consulta 10–30 ms |
+- Arquitetura: lib/catalog-server.ts (índice por instância: carga completa a cada 30 min, deltas a cada 60 s por checked_at/last_attempt_at/market_checked_at), lib/catalog-query.ts (mesmo pipeline do cliente antigo: modalidade, busca, specs, contagens, ordenação, página), lib/catalog-params.ts (estado na URL). `/` com ISR 60 s; cliente descarta itens vencidos e atualiza se o HTML tiver >60 s. Formato antigo `?page=` mantido.
+- Montagem do índice: 120–140 ms para ~3,5 mil ofertas.
+
+## 6. Página do produto e lojas
+- /produto/[id] própria (ISR 60 s, metadados). Voltar: volta no histórico se veio do catálogo (URL com modo/categoria/filtros/ordem/n + memória da sessão + rolagem); link direto → catálogo. Botão do navegador também restaura (testado local: 96 itens, mesma rolagem, mesmo card visível).
+- StoreBadge: monograma próprio colorido (sem baixar logotipos nem usar serviço externo de favicon), nome, vendedor real no ML ("Loja oficial NVIDIA"), Verificado × Anunciado.
+- Histórico: 7 e 30 dias sempre disponíveis com eixo do período inteiro (dias sem dados vazios, "Monitoramento desde"); preço habitual, atual × habitual, maior observado − atual, dias monitorados, lojas consideradas.
+
+## 7. Operação (26/11 ~19h UTC)
+- Ativos: KaBuM 824, WAZ 624, Shopinfo 434, ML 395, iByte 389, ChipArt 325, Patoloco 243, Guerra 183, Terabyte 38 (anunciado), Pichau 11 (anunciado). Quedas comprovadas vivas 120. Oportunidades Baixou! 13 na produção.
+- queue_health: todas as lojas com atraso máx. 11–13 min, EXCETO KaBuM: 838 vivas, 606 devidas, 400 vencidas disponíveis, atraso máx. 47,5 min. Ajuste (613327a): KaBuM 380 itens/620 s por rodada (mesmo ritmo ≥1,5 s por requisição); demais 200/330 s. Conferir nas próximas rodadas.
+- Actions: coletas a cada ~13 min (relay), verdes nas últimas horas. pg_cron: lote */15, recuperação */5, retry 2/17/32/47 ativos; pg_net 12×HTTP 200 em 3 h. Heartbeat do Actions 19:04 UTC.
+- Banco 109 MB (price_history 40 MB/208 mil linhas em ~3,5 dias; offers 40 MB/8.941 linhas; price_daily 2,6 MB). Risco: bruto pode chegar a ~340 MB com 21 dias se todo anúncio vivo gerar 24 linhas/dia. Como o preço habitual agora usa price_daily, o bruto só serve para a visão de 48 h e o máximo: avaliar retenção de 7–14 dias depois da Black Friday (decisão explícita).
+- Vercel: consumo não exposto pela CLI; o catálogo no servidor reduziu bytes por visita (~1 MB → ~25 KB) e chamadas por aba (9 → 0–1 por troca de filtro).
+
+## 8. baixou.io (pesquisa só pública, robots respeitado, 22 requisições)
+- Laravel + Alpine, HTML no servidor (~15 KB/página), busca e paginação no servidor, sem API pública reaproveitável (rotas /api/ proibidas no robots; termos vedam coleta). ~60 lojas incluindo Amazon/Terabyte; meta Lomadee e links /link/{id} de afiliado; Amazon com imagens da própria Amazon e "Ver preço na loja" quando o preço envelhece (indica Associados/PA-API). Mesma separação "Visto há" × "Divulgado há". Logos próprios em /storage.
+- Conclusão: nenhuma fonte gratuita utilizável sem cadastro do proprietário. Amazon depende de Associados (+ vendas qualificadas para a API); Lomadee exige cadastro e conferência de termos. Terabyte/Pichau: nada novo além do Telegram já usado.
+
+## Pendências
+- Conferir envio real do alerta ADATA (notification_log) e o efeito da rodada KaBuM ampliada (queue_health).
+- Bruto: decidir retenção menor depois da Black Friday. Amazon/Pichau/Terabyte: sem caminho novo sem cadastro.
+- Modal de produto removido do catálogo; NotificationSettings usa os departamentos do servidor.
+
 # CHECKPOINT — identidade, coerência do Score, recuperação independente, histórico e custo (Claude Code, 24/11/2026, ~14h30 UTC)
 
 ## Identidade entre lojas (auditoria → correções)
