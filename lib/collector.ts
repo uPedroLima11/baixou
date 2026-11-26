@@ -36,7 +36,11 @@ export async function runCollector(options:Options={}){
   const lease='catalog:'+source.id;let claimed=false,count=0,errors=0,categoryErrors=0,newURLs=0,runId:number|undefined;
   const state=db?await db.from('collection_state').select('*').eq('store',source.id).maybeSingle():{data:null,error:null};if(state.error)throw state.error;
   if(state.data&&Date.parse(state.data.next_allowed_at)>Date.now())continue;
-  if(db){const claim=await db.rpc('claim_collector_lease',{lease_name:lease,ttl_seconds:Math.ceil(deadline/1000)+30});if(claim.error)throw claim.error;if(!claim.data)continue;claimed=true;const run=await db.from('collection_runs').insert({store:source.id}).select('id').single();if(run.error)throw run.error;runId=run.data.id;}ran++;
+  // Rodadas longas (Actions) esperam até 60 s pelo lease: o lote da Vercel (:00/:15/:30/:45) o segura por poucos
+  // segundos e, sem espera, a loja perdia a rodada inteira (KaBuM "skipped" em 26/11 19:30). Rodadas curtas não esperam.
+  if(db){const ttl=Math.ceil(deadline/1000)+30,waitUntil=Date.now()+(deadline>=300000?60000:0);let claim=await db.rpc('claim_collector_lease',{lease_name:lease,ttl_seconds:ttl});
+   while(!claim.error&&!claim.data&&Date.now()<waitUntil){await new Promise(r=>setTimeout(r,5000));claim=await db.rpc('claim_collector_lease',{lease_name:lease,ttl_seconds:ttl});}
+   if(claim.error)throw claim.error;if(!claim.data)continue;claimed=true;const run=await db.from('collection_runs').insert({store:source.id}).select('id').single();if(run.error)throw run.error;runId=run.data.id;}ran++;
   try{
    const rules=robotsParser(source.origin+'/robots.txt',await get(source.origin+'/robots.txt'));
    const allowed=(url:string)=>safeUrl(url)&&rules.isAllowed(url,agent)===true;
