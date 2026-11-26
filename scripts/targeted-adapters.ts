@@ -4,6 +4,7 @@ import {vtexLinkTexts,structuredProductLinks} from './store-adapters';
 import {sources} from './sources';
 import {productURL} from '../lib/collection-policy';
 export const TARGETED_STORES=['kabum','patoloco','ibyte','chipart','shopinfo'];
+export function replacementUrls(urls:string[],protectedUrls:Set<string>,exact:string[],limit:number){return urls.filter(u=>!protectedUrls.has(u)&&!exact.includes(u)).slice(0,Math.max(0,Math.min(3,limit)));}
 export function targetedSearchUrl(id:string,mpn:string){
  const origin=sources.find(s=>s.id===id)?.origin;if(!origin)return null;
  if(id==='kabum')return origin+'/busca/'+encodeURIComponent(mpn.toLowerCase().replace(/[^a-z0-9]/g,''));

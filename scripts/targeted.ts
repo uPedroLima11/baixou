@@ -4,7 +4,7 @@ import robotsParser from 'robots-parser';
 import {adminDb} from '../lib/server';
 import {candidateCategory} from '../lib/collection-policy';
 import {sources} from './sources';
-import {TARGETED_STORES,targetedSearchUrl,targetedProductLinks} from './targeted-adapters';
+import {TARGETED_STORES,targetedSearchUrl,targetedProductLinks,replacementUrls} from './targeted-adapters';
 const UA='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)',PRIORITY=['ram','gpu','cpu','ssd'];
 export const compact=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 export function searchableCode(mpn:string|null|undefined){const c=compact(mpn??'');return c.length>=6&&c.length<=30&&/[a-z]/.test(c)&&/\d/.test(c)?c:null;}
@@ -29,23 +29,34 @@ async function main(){
   const source=sources.find(s=>s.id===store)!,lease='catalog:'+store,claim=await db.rpc('claim_collector_lease',{lease_name:lease,ttl_seconds:Math.ceil(budget/1000)+30});if(claim.error)throw claim.error;if(!claim.data){console.log(JSON.stringify({store,targeted:'lease ocupado'}));continue;}
   try{
    const until=Date.now()+budget,pool=await db.from('product_candidates').select('url',{count:'exact',head:true}).eq('store',store);if(pool.error)throw pool.error;let remaining=Math.max(0,2000-(pool.count??2000));
-   if(!remaining){console.log(JSON.stringify({store,targeted:'fila de candidatos cheia'}));continue;}
    const targets=[...products.entries()].filter(([,e])=>!e.stores.has(store)&&e.codes.size===1).map(([pid,e])=>({mpn:e.mpn,code:[...e.codes][0],category:e.category,watched:watched.has(pid),url:targetedSearchUrl(store,e.mpn)!})).sort((a,b)=>Number(b.watched)-Number(a.watched)||PRIORITY.indexOf(a.category)-PRIORITY.indexOf(b.category));
    const recent=await db.from('collection_pages').select('url').eq('store',store).gt('next_attempt_at',now).limit(5000);if(recent.error)throw recent.error;const skip=new Set((recent.data??[]).map(r=>r.url.replace(/#targeted$/,'')));
    let last=0;const get=async(url:string)=>{const wait=last+1500-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));if(Date.now()>=until)throw Error('Prazo da descoberta atingido');last=Date.now();return fetch(url,{headers:{'User-Agent':UA},redirect:'manual',signal:AbortSignal.timeout(Math.max(1,Math.min(8000,until-Date.now())))});};
    const rr=await get(source.origin+'/robots.txt');if(!rr.ok)throw Error('robots HTTP '+rr.status);const rules=robotsParser(source.origin+'/robots.txt',await body(rr));
-   let searched=0,found=0,errors=0,added=0;
-   for(const t of targets){if(searched>=max||Date.now()>=until-1000||!remaining)break;if(skip.has(t.url)||rules.isAllowed(t.url,UA)!==true)continue;
+   let searched=0,found=0,errors=0,added=0,replaced=0;
+   for(const t of targets){if(searched>=max||Date.now()>=until-1000)break;if(skip.has(t.url)||rules.isAllowed(t.url,UA)!==true)continue;
     searched++;let status=0,links:string[]=[];
     try{const r=await get(t.url);status=r.status;if(r.ok)links=targetedProductLinks(store,await body(r));else{errors++;console.error(store,'busca HTTP',status);}}catch(e){errors++;console.error(store,'busca',e instanceof Error?e.message:'erro');}
-    const hits=links.filter(u=>sameCodeUrl(u,t.code)&&rules.isAllowed(u,UA)===true).slice(0,remaining);found+=hits.length;
+    const exact=links.filter(u=>sameCodeUrl(u,t.code)&&rules.isAllowed(u,UA)===true);found+=exact.length;
+    let newLinks=exact;
+    if(exact.length&&!remaining){const present=await db.from('product_candidates').select('url').eq('store',store).in('url',exact);if(present.error)throw present.error;const known=new Set((present.data??[]).map(r=>r.url));newLinks=exact.filter(u=>!known.has(u));}
+    if(newLinks.length&&!remaining&&replaced<3){
+     // Só substituir candidatos antigos com falhas repetidas e SEM oferta. Histórico/favoritos/alertas
+     // referenciam offers, nunca são removidos. Não liberar vagas sem resultado exato para ocupá-las.
+     const cutoff=new Date(Date.now()-86400000).toISOString(),old=await db.from('product_candidates').select('url').eq('store',store).gte('failures',3).lt('last_attempt_at',cutoff).order('last_attempt_at').limit(30);if(old.error)throw old.error;
+     if(old.data?.length){const urls=old.data.map(r=>r.url),protectedRows=await db.from('offers').select('url').eq('store',store).in('url',urls);if(protectedRows.error)throw protectedRows.error;
+      const protectedUrls=new Set((protectedRows.data??[]).map(r=>r.url)),remove=replacementUrls(urls,protectedUrls,exact,Math.min(3-replaced,newLinks.length));
+      if(remove.length){const del=await db.from('product_candidates').delete().eq('store',store).in('url',remove).gte('failures',3).lt('last_attempt_at',cutoff).select('url');if(del.error)throw del.error;const n=del.data?.length??0;remaining+=n;replaced+=n;}
+     }
+    }
+    const hits=newLinks.slice(0,remaining);
     if(hits.length){const ins=await db.from('product_candidates').upsert(hits.map(url=>({store,url,category:candidateCategory(url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(ins.error)throw ins.error;added+=ins.data?.length??0;remaining-=ins.data?.length??0;}
     const retry=status===200?7*86400000:86400000;
     // Fragmento só no registro de cooldown; nunca enviado à loja. Não vira página de categoria na coleta comum.
     const mark=await db.from('collection_pages').upsert({store,url:t.url+'#targeted',last_attempt_at:new Date().toISOString(),next_attempt_at:new Date(Date.now()+retry).toISOString()},{onConflict:'store,url'});if(mark.error)throw mark.error;
     if([301,302,303,307,308,401,403,429].includes(status))break;
    }
-   console.log(JSON.stringify({store,targets:targets.length,watched:targets.filter(t=>t.watched).length,searched,found,newCandidates:added,errors}));
+   console.log(JSON.stringify({store,targets:targets.length,watched:targets.filter(t=>t.watched).length,searched,found,newCandidates:added,replacedFailedCandidates:replaced,errors}));
    if(errors)process.exitCode=1;
   }finally{const r=await db.rpc('release_collector_lease',{lease_name:lease});if(r.error)throw r.error;}
  }
