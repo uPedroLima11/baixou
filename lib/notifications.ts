@@ -1,18 +1,26 @@
 import nodemailer from 'nodemailer';import {adminDb} from './server';
 import {cheapestPerProduct,notificationKey} from './identity';
-import {matchesAlert} from './alert-rules';
+import {alertCovers,matchesAlert} from './alert-rules';
 import {buildNotificationEmail,offerEmailUrl,reasonForAlert,wishlistReason,type NotificationReason} from './email-templates';
 import type {Alert,Offer} from './types';
 
-type Profile={id:string;email_enabled:boolean;global_max_price:number|null;wishlist_email_enabled:boolean;unsubscribe_token:string};
+type Profile={id:string;email_enabled:boolean;global_max_price:number|null;wishlist_email_enabled:boolean;wishlist_ignore_alert_limits?:boolean|null;unsubscribe_token:string};
 type WishItem={offer_id:string;offers:{product_id:string|null}|null};
 
 // Motivo da notificação: primeiro alerta que casa; senão, lista de desejos com queda histórica comprovada.
-export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wishlist_email_enabled'>,rules:Alert[],wishlist:WishItem[],now=Date.now()):NotificationReason|null{
+// Limites do usuário prevalecem: se um alerta ATIVO cobre o produto (categoria/produto/marca/specs) e suas condições
+// NÃO são atendidas, a lista de desejos não avisa — salvo opt-in explícito (wishlist_ignore_alert_limits).
+// Caso real de 26/11: alerta RAM DDR4 16 GB desktop ≤ R$ 850 + Kingston KF432C16BB/16 favoritado → e-mail "wishlist"
+// a R$ 1.194,99. Com esta regra, o alerta define o limite e o e-mail não é enviado.
+export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wishlist_email_enabled'|'wishlist_ignore_alert_limits'>,rules:Alert[],wishlist:WishItem[],now=Date.now()):NotificationReason|null{
+ if(!o.available||Date.parse(o.expires_at)<=now)return null;
  if(p.global_max_price&&Number(o.price)>Number(p.global_max_price))return null;
  const rule=rules.find(a=>matchesAlert(a,o,now));if(rule)return reasonForAlert(rule,o);
  const saved=wishlist.some(w=>w.offer_id===o.id||(!!o.product_id&&w.offers?.product_id===o.product_id));
- if(p.wishlist_email_enabled&&saved&&o.evidence==='history'&&o.historical_samples>=5&&o.historical_days>=3&&Number(o.historical_median)>Number(o.price))return wishlistReason();
+ if(!p.wishlist_email_enabled||!saved)return null;
+ if(!p.wishlist_ignore_alert_limits&&rules.some(a=>alertCovers(a,o)))return null;
+ // Queda comprovada: ≥5% abaixo do preço habitual diário (dias completos anteriores; ver price_history_stats).
+ if(o.evidence==='history'&&o.historical_samples>=5&&o.historical_days>=3&&Number(o.historical_median)*0.95>=Number(o.price))return wishlistReason();
  return null;
 }
 // Falha permanente: destinatário/conteúdo recusado (5xx). Temporária: rede, timeout, 4xx do SMTP.
@@ -24,7 +32,7 @@ export async function sendNotifications(options:{budgetMs?:number;maxEmails?:num
  const db=adminDb();const port=Number(process.env.SMTP_PORT)||465;
  const transport=nodemailer.createTransport({host:process.env.SMTP_HOST,port,secure:port===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},connectionTimeout:Math.min(10000,options.budgetMs??10000),socketTimeout:Math.min(15000,options.budgetMs??15000)});
  try{
- const {data:profiles,error}=await db.from('profiles').select('id,email_enabled,global_max_price,wishlist_email_enabled,unsubscribe_token').eq('email_enabled',true).limit(500);if(error)throw error;
+ const {data:profiles,error}=await db.from('profiles').select('id,email_enabled,global_max_price,wishlist_email_enabled,wishlist_ignore_alert_limits,unsubscribe_token').eq('email_enabled',true).limit(500);if(error)throw error;
  if(!profiles?.length)return {sent:0,configured:true,failed:0,skipped:0};
  // Somente ofertas confirmadas nos últimos 5 minutos e dentro do TTL.
  const {data:offers,error:oe}=await db.from('offers').select('*').eq('available',true).eq('verification_status','verified').gt('checked_at',new Date(Date.now()-5*60000).toISOString()).gt('expires_at',new Date().toISOString()).order('checked_at',{ascending:false}).limit(1000);if(oe)throw oe;

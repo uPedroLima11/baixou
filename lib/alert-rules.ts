@@ -15,14 +15,19 @@ export const specFields:Record<string,{key:string;label:string;unit?:string}[]>=
 };
 // Mesmo extrator e comparador dos filtros do catálogo (lib/specs.ts): normalização e correspondência compatíveis.
 export function offerSpecs(o:Offer){return offerFacets(o);}
-export function matchesAlert(a:Alert,o:Offer,now=Date.now()){
- if(!a.enabled||!o.available||Date.parse(o.expires_at)<=now)return false;
+// Escopo do alerta = tudo menos as condições de preço: categoria, produto, marcas e filtros técnicos.
+// Um alerta ATIVO cujo escopo cobre o produto define o limite de compra do usuário para ele (ver notificationReason).
+export function alertCovers(a:Alert,o:Offer){
+ if(!a.enabled)return false;
  if(a.category!=='all'&&a.category!==o.category)return false;
  if((a.offer_id||a.product_id)&&!matchesProductAlert(a,o))return false;
  if(a.brands?.length&&!a.brands.some(b=>canonicalBrand(b)===canonicalBrand(o.brand??'')))return false;
- const specs=offerSpecs(o);
  // Listas = qualquer um dos valores; "<chave>_min" = mínimo numérico; especificação desconhecida nunca casa.
- if(!matchesSpecFilter(specs,(a.spec_filters??{}) as SpecFilter))return false;
+ return matchesSpecFilter(offerSpecs(o),(a.spec_filters??{}) as SpecFilter);
+}
+export function matchesAlert(a:Alert,o:Offer,now=Date.now()){
+ if(!a.enabled||!o.available||Date.parse(o.expires_at)<=now)return false;
+ if(!alertCovers(a,o))return false;
  if(a.max_price!=null&&Number(o.price)>a.max_price)return false;
  const historical=(a.min_drop_amount??0)>0||(a.min_discount??0)>0;
  if(historical){

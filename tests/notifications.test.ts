@@ -98,3 +98,34 @@ test('Supabase gateway 522 / network errors are infrastructure, not a store bloc
  assert.equal(infrastructureError(new Error('Sem produtos verificáveis nesta fonte; consultar erros de categoria/produto')),false);
  assert.equal(infrastructureError(new RemovedProduct(302)),false);
 });
+
+// Caso real de 26/11/2026 09h02: alerta RAM DDR4 + 16 GB + desktop ≤ R$ 850 e Kingston KF432C16BB/16 favoritada.
+// O e-mail saiu pela regra de favoritos (reason=wishlist) a R$ 1.194,99, ignorando o limite do alerta.
+test('active alert covering the product limits wishlist e-mails unless the user opts in',()=>{
+ const ram={...base,id:'kabum-1029658',category:'ram',brand:'Kingston',mpn:'KF432C16BB/16',product_id:'p-ram',price:1194.99,original_price:1444.43,
+  title:'Memoria RAM Kingston Fury  Beast, 16GB, 3200MT/s, DDR4, CL16, DIMM,  Preto - KF432C16BB/16',specs:{},variant:{},
+  historical_median:1299.99,historical_samples:48,historical_days:3,evidence:'history'} as unknown as Offer;
+ const alert={category:'ram',offer_id:null,product_id:null,brands:[],spec_filters:{ddr:['4'],total_gb:['16'],form_factor:['desktop']},max_price:850,min_discount:null,min_drop_amount:null,enabled:true} as unknown as Alert;
+ const wl=[{offer_id:'kabum-1029658',offers:{product_id:'p-ram'}}],p={global_max_price:null,wishlist_email_enabled:true};
+ assert.equal(notificationReason(ram,p,[alert],wl,now),null,'acima de R$ 850: nem alerta nem favorito');
+ assert.equal(notificationReason(ram,{...p,wishlist_ignore_alert_limits:true},[alert],wl,now)?.kind,'wishlist','opt-in explícito');
+ assert.equal(notificationReason({...ram,price:849.99} as Offer,p,[alert],wl,now)?.kind,'price','dentro do limite: alerta dispara');
+ // Alerta pausado não envia e não define limite; alerta de outra especificação (DDR5) não cobre este produto.
+ assert.equal(notificationReason(ram,p,[{...alert,enabled:false}],wl,now)?.kind,'wishlist');
+ assert.equal(notificationReason(ram,p,[{...alert,spec_filters:{ddr:['5']}} as unknown as Alert],wl,now)?.kind,'wishlist');
+ // Produto incompatível (notebook SODIMM) nunca dispara o alerta desktop.
+ const sodimm={...ram,title:'Memória Kingston Fury Impact 16GB 3200MHz DDR4 SODIMM - KF432S20IB/16',price:300} as Offer;
+ assert.equal(notificationReason(sodimm,p,[alert],[],now),null);
+ // Queda pequena (<5% do preço habitual diário) não é queda para favoritos; oferta vencida nunca notifica.
+ assert.equal(notificationReason({...ram,historical_median:1220} as Offer,p,[],wl,now),null);
+ assert.equal(notificationReason({...ram,expires_at:new Date(now-1000).toISOString()} as Offer,p,[],wl,now),null);
+});
+test('combined conditions: max price AND absolute AND percent drop',()=>{
+ const p={global_max_price:null,wishlist_email_enabled:false};
+ const h={...base,historical_median:2000,historical_samples:10,historical_days:5,evidence:'history'} as Offer;// queda 320,01 = 16,0%
+ const a={...priceAlert,max_price:1700,min_drop_amount:300,min_discount:16} as Alert;
+ assert.equal(notificationReason(h,p,[a],[],now)?.kind!==undefined,true);
+ assert.equal(notificationReason(h,p,[{...a,min_discount:16.1} as Alert],[],now),null);
+ assert.equal(notificationReason(h,p,[{...a,min_drop_amount:320.02} as Alert],[],now),null);
+ assert.equal(notificationReason(h,p,[{...a,max_price:1679.98} as Alert],[],now),null);
+});
