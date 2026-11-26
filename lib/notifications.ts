@@ -4,6 +4,7 @@ import {alertCovers,matchesAlert} from './alert-rules';
 import {buildNotificationEmail,offerEmailUrl,reasonForAlert,wishlistReason,type NotificationReason} from './email-templates';
 import type {Alert,Offer} from './types';
 import {excludedCondition} from './product-policy';
+import {buildWhatsAppMessage,sendWhatsApp,whatsappAllowed,whatsappMode} from './whatsapp';
 
 type Profile={id:string;email_enabled:boolean;global_max_price:number|null;wishlist_email_enabled:boolean;wishlist_ignore_alert_limits?:boolean|null;unsubscribe_token:string};
 type WishItem={offer_id:string;offers:{product_id:string|null}|null};
@@ -27,38 +28,74 @@ export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wi
 // Falha permanente: destinatário/conteúdo recusado (5xx). Temporária: rede, timeout, 4xx do SMTP.
 export function permanentSmtpFailure(e:unknown){const code=Number((e as {responseCode?:number})?.responseCode);return Number.isFinite(code)&&code>=500&&code<600;}
 
-export async function sendNotifications(options:{budgetMs?:number;maxEmails?:number}={}){
- if(!process.env.SMTP_HOST||!process.env.SMTP_USER||!process.env.SMTP_PASS){return {sent:0,configured:false}}
+type Contact={user_id:string;phone:string;api_key:string;failures:number};
+type Channel='email'|'whatsapp';
+const pause=(ms:number)=>new Promise(r=>setTimeout(r,ms));
+
+// Canais independentes sobre a MESMA decisão (notificationReason): falha ou limite de um canal nunca impede o outro.
+// Reserva/deduplicação por canal no banco (claim_notification/finish_notification com p_channel).
+export async function sendNotifications(options:{budgetMs?:number;maxEmails?:number;maxWhatsApp?:number}={}){
+ const smtp=!!(process.env.SMTP_HOST&&process.env.SMTP_USER&&process.env.SMTP_PASS),wa=whatsappMode()!=='off';
+ if(!smtp&&!wa)return {sent:0,configured:false};
  const site=process.env.NEXT_PUBLIC_SITE_URL;if(!site?.startsWith('https://'))throw Error('SITE_URL ausente');
  const db=adminDb();const port=Number(process.env.SMTP_PORT)||465;
- const transport=nodemailer.createTransport({host:process.env.SMTP_HOST,port,secure:port===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},connectionTimeout:Math.min(10000,options.budgetMs??10000),socketTimeout:Math.min(15000,options.budgetMs??15000)});
+ const transport=smtp?nodemailer.createTransport({host:process.env.SMTP_HOST,port,secure:port===465,auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},connectionTimeout:Math.min(10000,options.budgetMs??10000),socketTimeout:Math.min(15000,options.budgetMs??15000)}):null;
  try{
- const {data:profiles,error}=await db.from('profiles').select('id,email_enabled,global_max_price,wishlist_email_enabled,wishlist_ignore_alert_limits,unsubscribe_token').eq('email_enabled',true).limit(500);if(error)throw error;
- if(!profiles?.length)return {sent:0,configured:true,failed:0,skipped:0};
+ const contacts=new Map<string,Contact>();
+ if(wa){const {data,error}=await db.from('whatsapp_contacts').select('user_id,phone,api_key,failures').eq('status','confirmed').eq('enabled',true).limit(500);if(error)throw error;for(const c of (data??[]) as Contact[])if(whatsappAllowed(c.user_id))contacts.set(c.user_id,c);}
+ const fields='id,email_enabled,global_max_price,wishlist_email_enabled,wishlist_ignore_alert_limits,unsubscribe_token';
+ const byId=new Map<string,Profile>();
+ if(transport){const {data,error}=await db.from('profiles').select(fields).eq('email_enabled',true).limit(500);if(error)throw error;for(const p of (data??[]) as Profile[])byId.set(p.id,p);}
+ const missing=[...contacts.keys()].filter(id=>!byId.has(id));
+ if(missing.length){const {data,error}=await db.from('profiles').select(fields).in('id',missing);if(error)throw error;for(const p of (data??[]) as Profile[])byId.set(p.id,p);}
+ const profiles=[...byId.values()];
+ if(!profiles.length)return {sent:0,configured:true,failed:0,skipped:0,whatsapp:{accepted:0,failed:0}};
  // Somente ofertas confirmadas nos últimos 5 minutos e dentro do TTL.
  const {data:offers,error:oe}=await db.from('offers').select('*').eq('available',true).eq('verification_status','verified').gt('checked_at',new Date(Date.now()-5*60000).toISOString()).gt('expires_at',new Date().toISOString()).order('checked_at',{ascending:false}).limit(1000);if(oe)throw oe;
- const started=Date.now(),cap=Math.min(options.maxEmails??10,Number(process.env.NOTIFY_MAX_EMAILS)||10),budget=options.budgetMs??40000;let sent=0,failed=0,skipped=0;
- for(const p of profiles as Profile[]){if(sent>=cap||Date.now()-started>budget)break;
+ const started=Date.now(),cap=Math.min(options.maxEmails??10,Number(process.env.NOTIFY_MAX_EMAILS)||10),waCap=Math.min(options.maxWhatsApp??options.maxEmails??10,Number(process.env.NOTIFY_MAX_WHATSAPP)||10),budget=options.budgetMs??40000;
+ let sent=0,failed=0,skipped=0,waAccepted=0,waFailed=0,lastWa=0;
+ for(const p of profiles){if((sent>=cap&&waAccepted>=waCap)||Date.now()-started>budget)break;
+  const contact=contacts.get(p.id);const emailOn=!!transport&&p.email_enabled;if(!emailOn&&!contact)continue;
   const {data:rules,error:re}=await db.from('alerts').select('*').eq('user_id',p.id).eq('enabled',true);if(re)throw re;
   const {data:wishlist,error:we}=await db.from('wishlist').select('offer_id,offers(product_id)').eq('user_id',p.id);if(we)throw we;
   const reasons=new Map<string,NotificationReason>();
   for(const o of (offers??[]) as Offer[]){const r=notificationReason(o,p,(rules??[]) as Alert[],(wishlist??[]) as unknown as WishItem[]);if(r)reasons.set(o.id,r);}
   const matches=cheapestPerProduct(((offers??[]) as Offer[]).filter(o=>reasons.has(o.id))).slice(0,5);
-  if(!matches.length)continue;const {data:{user}}=await db.auth.admin.getUserById(p.id);if(!user?.email||!user.email_confirmed_at)continue;
-  for(const o of matches){if(sent>=cap||Date.now()-started>budget)break;if(!offerEmailUrl(o.url)){skipped++;continue;}
+  if(!matches.length)continue;
+  let email:string|null=null;if(emailOn){const {data:{user}}=await db.auth.admin.getUserById(p.id);if(user?.email&&user.email_confirmed_at)email=user.email;}
+  const channels:Channel[]=[...(email?['email' as const]:[]),...(contact?['whatsapp' as const]:[])];
+  let contactBroken=false;
+  for(const o of matches){if(Date.now()-started>budget)break;if(!offerEmailUrl(o.url)){skipped++;continue;}
    const key=notificationKey(o),reason=reasons.get(o.id)!;
-   // Deduplicação por produto: só avisa de novo se o preço ficar abaixo do último aviso.
-   const {data:state,error:se}=await db.from('notification_state').select('last_price').eq('user_id',p.id).eq('notification_key',key).maybeSingle();if(se)throw se;if(state&&Number(o.price)>=Number(state.last_price))continue;
-   let message;try{message=buildNotificationEmail({offer:o,reason,siteUrl:site,unsubscribeToken:p.unsubscribe_token});}catch(e){skipped++;console.error('Notificação ignorada:',e instanceof Error?e.message:'conteúdo inválido');continue;}
-   const {data:claim,error:ce}=await db.rpc('claim_notification',{p_user:p.id,p_key:key,p_offer:o.id,p_price:o.price,p_reason:reason.kind});if(ce)throw ce;if(!claim)continue;
-   try{const info=await transport.sendMail({from:{name:'Baixou!',address:process.env.SMTP_FROM||process.env.SMTP_USER!},to:user.email,subject:message.subject,text:message.text,html:message.html,headers:{'List-Unsubscribe':'<'+message.oneClick+'>','List-Unsubscribe-Post':'List-Unsubscribe=One-Click'}});
-    const {error:fe}=await db.rpc('finish_notification',{p_id:claim,p_ok:true,p_message_id:info.messageId??null});if(fe)throw fe;sent++;}
-   catch(e){failed++;await db.rpc('finish_notification',{p_id:claim,p_ok:false,p_permanent:permanentSmtpFailure(e),p_error:'SMTP '+(Number((e as {responseCode?:number})?.responseCode)||'sem código')});console.error('Envio falhou; conferir SMTP (sem expor destinatário ou credenciais).');}
+   for(const channel of channels){
+    if(channel==='email'&&sent>=cap)continue;if(channel==='whatsapp'&&(waAccepted>=waCap||contactBroken))continue;
+    // Deduplicação por produto e canal: só avisa de novo se o preço ficar abaixo do último aviso deste canal.
+    const {data:state,error:se}=await db.from('notification_state').select('last_price').eq('user_id',p.id).eq('notification_key',key).eq('channel',channel).maybeSingle();if(se)throw se;if(state&&Number(o.price)>=Number(state.last_price))continue;
+    if(channel==='email'){
+     let message;try{message=buildNotificationEmail({offer:o,reason,siteUrl:site,unsubscribeToken:p.unsubscribe_token});}catch(e){skipped++;console.error('Notificação ignorada:',e instanceof Error?e.message:'conteúdo inválido');continue;}
+     const {data:claim,error:ce}=await db.rpc('claim_notification',{p_user:p.id,p_key:key,p_offer:o.id,p_price:o.price,p_reason:reason.kind,p_channel:'email'});if(ce)throw ce;if(!claim)continue;
+     try{const info=await transport!.sendMail({from:{name:'Baixou!',address:process.env.SMTP_FROM||process.env.SMTP_USER!},to:email!,subject:message.subject,text:message.text,html:message.html,headers:{'List-Unsubscribe':'<'+message.oneClick+'>','List-Unsubscribe-Post':'List-Unsubscribe=One-Click'}});
+      const {error:fe}=await db.rpc('finish_notification',{p_id:claim,p_ok:true,p_message_id:info.messageId??null});if(fe)throw fe;sent++;}
+     catch(e){failed++;await db.rpc('finish_notification',{p_id:claim,p_ok:false,p_permanent:permanentSmtpFailure(e),p_error:'SMTP '+(Number((e as {responseCode?:number})?.responseCode)||'sem código')});console.error('Envio falhou; conferir SMTP (sem expor destinatário ou credenciais).');}
+    }else{
+     let text;try{text=buildWhatsAppMessage({offer:o,reason,siteUrl:site});}catch(e){skipped++;console.error('WhatsApp ignorado:',e instanceof Error?e.message:'conteúdo inválido');continue;}
+     const {data:claim,error:ce}=await db.rpc('claim_notification',{p_user:p.id,p_key:key,p_offer:o.id,p_price:o.price,p_reason:reason.kind,p_channel:'whatsapp'});if(ce)throw ce;if(!claim)continue;
+     const wait=lastWa+2500-Date.now();if(wait>0)await pause(wait);lastWa=Date.now(); // ritmo do provedor gratuito
+     const r=await sendWhatsApp(contact!.phone,contact!.api_key,text,Math.max(3000,Math.min(12000,budget-(Date.now()-started))));
+     if(r.ok){const {error:fe}=await db.rpc('finish_notification',{p_id:claim,p_ok:true,p_message_id:'callmebot:accepted',p_accepted_only:true});if(fe)throw fe;waAccepted++;
+      if(contact!.failures){await db.from('whatsapp_contacts').update({failures:0,last_error:null,updated_at:new Date().toISOString()}).eq('user_id',p.id);contact!.failures=0;}}
+     else{waFailed++;await db.rpc('finish_notification',{p_id:claim,p_ok:false,p_permanent:r.permanent,p_error:'WhatsApp '+r.error});
+      // Chave/número recusados ou 5 falhas seguidas: suspende o canal (status 'error') até o usuário reconfirmar. E-mail segue normal.
+      const failures=contact!.failures+1,broken=r.permanent||failures>=5;contact!.failures=failures;contactBroken=broken;
+      await db.from('whatsapp_contacts').update({failures,last_error:r.error,...(broken?{status:'error'}:{}),updated_at:new Date().toISOString()}).eq('user_id',p.id);
+      console.error('WhatsApp não aceito:',r.error);}
+    }
+   }
   }
  }
- console.log(sent+' alertas enviados.');
- return {sent,configured:true,failed,skipped};
- }finally{transport.close();}
+ console.log(sent+' e-mails e '+waAccepted+' WhatsApp aceitos pelo provedor.');
+ return {sent,configured:true,failed,skipped,whatsapp:{accepted:waAccepted,failed:waFailed}};
+ }finally{transport?.close();}
 }
 
 // Diagnóstico: renderiza o modelo real com uma oferta verificada e envia SOMENTE ao endereço do próprio remetente (proprietário),

@@ -30,6 +30,9 @@ jobs:
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASS: ${{ secrets.SMTP_PASS }}
       SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      # Canal WhatsApp (lib/whatsapp.ts): off por padrão; test = só WHATSAPP_TEST_USERS; on = todos. Sem segredo novo.
+      WHATSAPP_MODE: ${{ vars.WHATSAPP_MODE }}
+      WHATSAPP_TEST_USERS: ${{ vars.WHATSAPP_TEST_USERS }}
       NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
     steps:
       - uses: actions/checkout@v4
