@@ -1,6 +1,9 @@
 import {candidateSourceIds} from '@/scripts/sources';
 import {sendNotifications} from '@/lib/notifications';
-import {NextResponse} from 'next/server';
+import {NextResponse,after} from 'next/server';
+import {whatsappMode} from '@/lib/whatsapp';
+import {whatsappPulse} from '@/lib/whatsapp-session';
+import {adminDb} from '@/lib/server';
 import {createHash,timingSafeEqual} from 'node:crypto';
 import {runCollector} from '@/lib/collector';
 export const runtime='nodejs';
@@ -23,6 +26,8 @@ export async function POST(req:Request){
  }));
  let notifications:unknown=null;
  if(results.some(r=>r.total>0)){try{notifications=await sendNotifications({budgetMs:7000,maxEmails:1});}catch{notifications={error:'notification_failed'};}}
+ // Remetente central do WhatsApp também pelo agendador do Supabase (independe do GitHub), só com folga de tempo.
+ const left=55000-(Date.now()-started);if(whatsappMode()!=='off'&&left>22000)after(async()=>{try{await whatsappPulse(adminDb(),{siteUrl:process.env.NEXT_PUBLIC_SITE_URL??'https://baixouofertas.vercel.app',deadlineMs:left-7000});}catch(e){console.error('WhatsApp:',e instanceof Error?e.message.slice(0,200):'erro');}});
  const usage=process.cpuUsage(cpu);
  return NextResponse.json({total:results.reduce((n,r)=>n+r.total,0),failures:results.reduce((n,r)=>n+r.failures,0),discovered:results.reduce((n,r)=>n+r.discovered,0),skipped:results.every(r=>r.skipped),results,notifications,elapsed_ms:Date.now()-started,cpu_ms:Math.round((usage.user+usage.system)/1000)});
 }

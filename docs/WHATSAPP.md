@@ -1,44 +1,43 @@
-# Alertas pelo WhatsApp (Claude Code, 26/11/2026)
+# Alertas pelo WhatsApp — remetente central (Claude Code, 27/11/2026)
 
-## Decisão: CallMeBot com chave de cada usuário
+O proprietário recusou o CallMeBot (cada usuário teria de criar uma chave). Ele foi **removido**. Modelo atual: um número remetente do Baixou!, pareado uma única vez pelo proprietário; o usuário só informa o número e confirma.
 
-Pesquisa de 26/11/2026 (fontes conferidas nesta data):
+## Comparação (27/11/2026)
 
-| Opção | Custo / infraestrutura | Manutenção | Situação |
+| Opção | Centralizado | Custo / onde roda | Situação |
 | --- | --- | --- | --- |
-| API oficial (Meta Cloud API) | Cobrança por mensagem; templates utility também cobrados desde 01/10/2026; exige forma de pagamento | Baixa | **Descartada** (custo) |
-| Baileys / WAHA / Evolution API / WPPConnect | Processo ligado 24/7 com sessão (sem hospedagem gratuita sem cartão: Render dorme, Koyeb/Fly pedem cartão, HF Docker pago) ou job curto no Actions com sessão no banco | Chip dedicado; celular remetente precisa abrir o WhatsApp a cada 14 dias; risco de banimento (cliente não oficial, IP de datacenter variável) | **Descartada** (viola regras da plataforma, chip, manutenção) |
-| n8n Community | Precisa de servidor e, por baixo, de um dos gateways acima | Alta | **Descartada** |
-| TextMeBot / Whapi sandbox / Green-API Developer | Pago após teste, ou 3–5 conversas/mês | — | **Descartadas** |
-| **CallMeBot (chave por usuário)** | Gratuito; um GET HTTPS por alerta, feito pela Vercel/Actions que já existem | Nenhum servidor, nenhum número remetente, nenhum QR Code | **Implementada** (experimental) |
+| Meta Cloud API (oficial) | Sim | Cobrança por mensagem (templates utility cobrados desde 01/10/2026), exige forma de pagamento | Descartada (custo) |
+| Evolution API / WAHA / WPPConnect | Sim | Precisam de processo ligado 24/7 com sessão persistente; não há hospedagem gratuita sem cartão (Render dorme/disco efêmero, Koyeb/Fly pedem cartão, HF Docker pago) | Descartadas (infraestrutura) |
+| n8n Community | — | Só orquestra; precisaria de um dos gateways acima e de servidor | Descartado |
+| Whapi / Green-API / TextMeBot | Sim | 3–5 conversas/mês grátis ou pagos | Descartados |
+| CallMeBot | **Não** (chave por usuário) | Grátis | Removido a pedido do proprietário |
+| **Baileys (biblioteca oficial da WhiskeySockets, v7.0.0-rc14) em ciclos curtos na Vercel** | **Sim** | Grátis: funções que já rodam a cada ~15 min (pg_cron do Supabase e Actions) abrem a sessão por segundos, enviam e fecham; sessão criptografada no Supabase | **Implementado** |
 
-Por que é a mais simples: o próprio usuário ativa o bot no WhatsApp dele (mensagem `I allow callmebot to send me messages`) e recebe uma chave. A chave só envia para o número que a ativou — consentimento e posse comprovados pelo provedor. O Baixou! ainda confirma com um código de 6 dígitos.
+Evolution/WAHA usam o mesmo protocolo de "aparelho conectado" por baixo; usar a biblioteca diretamente elimina o servidor.
 
-Riscos conhecidos (não esconder do usuário):
-- Termos do CallMeBot dizem "Free API only for personal use" e "send messages to yourself". Cada usuário envia para si mesmo com a própria chave, mas o uso por um app multiusuário é zona cinzenta. Recomenda-se que o proprietário pergunte ao autor (Telegram @callmebot_com) antes de liberar para todos. Nenhuma mensagem foi enviada ao CallMeBot em nome do proprietário.
-- A página do CallMeBot pode informar que o bot está lotado para ativações novas (espera de dias).
-- Serviço de uma pessoa, sem SLA; o número do bot pode mudar ou ser banido. Só texto (sem imagem do produto).
-- Terceiro recebe o número e o texto do alerta (consentimento explícito na tela).
+## Requisitos e riscos reais (explicados ao proprietário antes de parear)
+
+1. **Número remetente**: um WhatsApp ativo em um celular. Recomendado um **número dedicado** (chip pré-pago/eSIM) com WhatsApp ou WhatsApp Business. Usar o número pessoal funciona, mas um eventual bloqueio atingiria o número pessoal.
+2. **Celular do remetente**: precisa abrir o WhatsApp com internet pelo menos a cada ~14 dias; senão o WhatsApp desconecta os aparelhos conectados. A tela de administração mostra "Desconectado pelo celular" e basta parear de novo.
+3. **Regras do WhatsApp**: clientes não oficiais e automação não são permitidos pelos termos; existe risco de bloqueio do número. Mitigações: só escrevemos para quem nos escreveu primeiro (confirmação "BAIXOU código"), volume baixo, 2–4 s entre mensagens, sem grupos, sem mídia, "PARAR" atendido na hora.
+4. **Latência**: sem servidor ligado, a entrega acontece no próximo ciclo (normalmente até ~15 min; mensagens com mais de 60 min na fila vencem para não avisar preço velho). Confirmação do número: na hora em que o usuário toca "Já enviei, conferir".
+5. **Biblioteca**: Baileys segue em release candidate (rc14, julho/2026); mudanças do WhatsApp podem exigir atualizar a dependência.
+
+## Fluxo
+
+- **Proprietário (uma vez)**: Conta → Notificações → "Remetente do Baixou! no WhatsApp" → número remetente → "Gerar código de pareamento" → no celular remetente: Aparelhos conectados → Conectar aparelho → Conectar com número de telefone → digitar o código (≈2 min). O código só aparece nessa resposta autenticada (nunca em log, banco ou Actions público).
+- **Usuário**: informa o celular com DDD e marca a autorização → toca "Abrir o WhatsApp e enviar" (link `wa.me` com `BAIXOU <código>`) → envia → "Já enviei, conferir". O código vale 30 min, 5 tentativas, 3 códigos/h e 6/dia. A mensagem precisa vir **do número informado** (PN do WhatsApp; LID resolvido pela própria sessão; 9º dígito tratado). Depois: pausar, alterar, remover; responder PARAR desativa na hora.
 
 ## Arquitetura
 
-- `lib/whatsapp.ts`: normalização de celular BR com DDD, máscara, código (hash SHA-256 por usuário, 10 min, 5 tentativas, 3 códigos/h e 6/dia), mensagem curta e classificação da resposta do provedor. A URL do provedor contém a chave e nunca é registrada.
-- `lib/notifications.ts`: **mesma decisão** (`notificationReason`: preço máximo, queda R$/%, categoria, marcas, specs, favoritos limitados por alertas ativos, alerta pausado não carregado, oferta verificada há ≤5 min e no TTL). Depois da decisão, um laço por canal: e-mail e WhatsApp têm reserva (`claim_notification(..., p_channel)`), deduplicação (`notification_state` por canal) e falhas independentes. Falha/limite do WhatsApp nunca bloqueia o e-mail e vice-versa; o WhatsApp funciona mesmo sem SMTP.
-- `notification_log.status='accepted'`: o provedor só confirma que aceitou a mensagem, nunca a entrega. Não tratar como entregue.
-- Falha permanente (chave/número recusados) ou 5 falhas seguidas → contato `status='error'`, canal suspenso até o usuário reconfirmar. Falha temporária → mesma política de nova tentativa do e-mail (até 3, espera crescente); envio interrompido vira `unknown` e não é reenviado.
-- Ritmo: ≥2,5 s entre mensagens; teto por execução `NOTIFY_MAX_WHATSAPP` (padrão 10; lote Vercel = 1); um aviso por usuário/produto/dia/canal e só novo aviso abaixo do último preço avisado nesse canal.
-- `whatsapp_contacts`: RLS ligado e **nenhuma** política/privilégio para anon/authenticated. A tela usa `/api/whatsapp` (JWT conferido no servidor), que devolve só o número mascarado e nunca a chave. Remover apaga número e chave na hora.
-- UI: Notificações → "Alertas pelo WhatsApp" (cadastrar, confirmar, pausar, alterar, remover). Lista de desejos/limites valem para os dois canais.
+- `lib/notifications.ts`: **mesma decisão** do e-mail (`notificationReason`). Para o WhatsApp, reserva (`claim_notification(..., 'whatsapp')`) e coloca a mensagem pronta na fila (`notification_log.status='queued'`, `body`). E-mail e WhatsApp têm reserva, deduplicação e falhas independentes.
+- `lib/whatsapp-session.ts`: `withWhatsApp` (lease exclusivo `whatsapp`, abre, aguarda 2,5 s por mensagens pendentes, executa, fecha), `processInbox` (BAIXOU/PARAR), `deliverQueue` (até 15 por ciclo, `accepted` com aceite do servidor, `delivered` só com recibo observado, `sending` antigo → `unknown` sem reenvio, fila >60 min → vencida), `whatsappPulse` (só conecta com fila, confirmação aguardando, ou a cada 6 h para manter a sessão e receber PARAR), `startPairing`, `unlinkSender`.
+- Chamado por `/api/jobs/notifications` (Actions, após cada coleta) e `/api/jobs/collect` (pg_cron do Supabase, independe do GitHub) no tempo que sobrar.
+- Sessão: `whatsapp_auth` com valores AES-256-GCM (chave `WHATSAPP_STATE_KEY`, só na Vercel, sensível) e ids HMAC (sem número em texto claro). `whatsapp_sender`, `whatsapp_auth` e `whatsapp_contacts`: RLS ligado, sem privilégio para anon/authenticated.
+- Desconexão pelo celular (401) apaga a sessão e marca `logged_out`; e-mail segue normal.
 
-## Liberação (`WHATSAPP_MODE`)
+## Configuração
 
-- `off` (padrão, também se ausente): nenhum envio e a seção não aparece.
-- `test`: só os IDs de usuário em `WHATSAPP_TEST_USERS` (separados por vírgula) veem a seção e recebem.
-- `on`: todos os usuários.
-- Configurar igual na Vercel (Production) e nas variáveis do repositório (`vars.WHATSAPP_MODE`, `vars.WHATSAPP_TEST_USERS`), porque os alertas saem dos dois lugares. Não há segredo novo.
-
-## Homologação
-
-- Sem envio externo: `tests/whatsapp.test.ts` (telefone, código, liberação, classificação aceito/recusado, mensagem com valores reais, RAM DDR4 16 GB ≤ R$ 850 dispara a 799,99 e não a 850,01, título malicioso sem formatação/link extra) e o teste SQL em transação revertida (`work/channel-isolation.sql`, local): reserva de e-mail e WhatsApp do mesmo produto independentes, duplicata bloqueada, falha só no WhatsApp com e-mail `sent`, nova tentativa e status final `accepted`, estado de deduplicação por canal.
-- Envio controlado real: **depende do proprietário** ativar o CallMeBot no próprio número (passos acima) e confirmar o código na tela. Ver HANDOFF para o estado atual.
-- Custo recorrente: nenhum (sem conta, plano, servidor ou chip).
+- Vercel (Production): `WHATSAPP_MODE` (off/test/on), `WHATSAPP_TEST_USERS`, `WHATSAPP_ADMIN_USERS` (proprietário), `WHATSAPP_STATE_KEY` (sensível; se perdida, basta parear de novo). Repositório: `vars.WHATSAPP_MODE`/`WHATSAPP_TEST_USERS` (os jobs do Actions só chamam a rota da Vercel).
+- Diagnóstico sem conexão: `POST /api/jobs/notifications?check=whatsapp` com a mesma assinatura HMAC das demais ações (escopo `whatsapp:`).
+- Liberar `on` só depois do envio controlado documentado no HANDOFF.

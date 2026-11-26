@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildWhatsAppMessage,canSendCode,classifyCallMeBot,codeMatches,hashCode,maskPhone,normalizeBrazilPhone,validApiKey,whatsappAllowed,sendWhatsApp} from '../lib/whatsapp';
+import {buildWhatsAppMessage,canSendCode,codeMatches,confirmationLink,extractConfirmationCode,hashCode,isStopCommand,maskPhone,normalizeBrazilPhone,phoneVariants,whatsappAllowed} from '../lib/whatsapp';
+import {rowId,seal,unseal} from '../lib/whatsapp-session';
+import {randomBytes} from 'node:crypto';
 import {reasonForAlert,wishlistReason} from '../lib/email-templates';
 import {notificationReason} from '../lib/notifications';
 import type {Alert,Offer} from '../lib/types';
@@ -16,7 +18,6 @@ test('telefone: só celular/fixo brasileiro com DDD, normalizado para 55+DDD',()
  assert.equal(normalizeBrazilPhone('005511912345678'),'5511912345678');
  for(const bad of ['912345678','(11) 81234-5678','(01) 91234-5678','+1 415 555 0100','abc',''])assert.equal(normalizeBrazilPhone(bad),null,bad);
  assert.equal(maskPhone('5511912345678'),'+55 (11) •••••-5678');
- assert.ok(validApiKey('123456'));assert.ok(!validApiKey('12 34'));assert.ok(!validApiKey('a&b=c'));
 });
 
 test('código de confirmação: hash por usuário, comparação exata e limite de envios',()=>{
@@ -33,16 +34,25 @@ test('liberação: off por padrão; test só para usuários listados; on para to
  finally{if(prev.m===undefined)delete process.env.WHATSAPP_MODE;else process.env.WHATSAPP_MODE=prev.m;if(prev.u===undefined)delete process.env.WHATSAPP_TEST_USERS;else process.env.WHATSAPP_TEST_USERS=prev.u;}
 });
 
-test('resposta do provedor: aceito ≠ entregue; chave inválida é permanente; demais temporárias',()=>{
- assert.deepEqual(classifyCallMeBot(200,'<p>Message queued. You will receive it in a few seconds.</p>'),{ok:true,accepted:true});
- assert.equal(classifyCallMeBot(200,'APIKey is invalid. Please check').ok,false);
- const inv=classifyCallMeBot(200,'APIKey is invalid');assert.ok(!inv.ok&&inv.permanent);
- const busy=classifyCallMeBot(503,'Service Unavailable');assert.ok(!busy.ok&&!busy.permanent);
- const empty=classifyCallMeBot(200,'');assert.ok(!empty.ok&&!empty.permanent);
+test('confirmação pelo próprio WhatsApp: código BAIXOU, PARAR, link e 9º dígito',()=>{
+ assert.equal(extractConfirmationCode('BAIXOU 123456'),'123456');assert.equal(extractConfirmationCode('  baixou: 004211 '),'004211');
+ assert.equal(extractConfirmationCode('BAIXOU 1234567'),null);assert.equal(extractConfirmationCode('123456'),null);
+ assert.ok(isStopCommand('PARAR'));assert.ok(isStopCommand(' parar! '));assert.ok(!isStopCommand('não quero parar agora'));
+ assert.equal(confirmationLink('5511987654321','042100'),'https://wa.me/5511987654321?text=BAIXOU%20042100');
+ assert.deepEqual(phoneVariants('5511912345678').sort(),['551112345678','5511912345678'].sort());
+ assert.deepEqual(phoneVariants('551182345678').sort(),['551182345678','5511982345678'].sort());
+ assert.deepEqual(phoneVariants('552134567890'),['552134567890']); // fixo não ganha 9
 });
 
-test('contato inválido nunca chega a fazer requisição',async()=>{
- const r=await sendWhatsApp('5511912345678','chave inválida!','x');assert.deepEqual(r,{ok:false,permanent:true,error:'contato inválido'});
+test('sessão do remetente: criptografia autenticada e ids sem número em texto claro',()=>{
+ const key=randomBytes(32),other=randomBytes(32),plain=JSON.stringify({noiseKey:'segredo',me:{id:'5511912345678@s.whatsapp.net'}});
+ const box=seal(key,plain);assert.ok(box.startsWith('v1.'));assert.ok(!box.includes('segredo'));assert.equal(unseal(key,box),plain);
+ assert.throws(()=>unseal(other,box));const parts=box.split('.');parts[3]=Buffer.from('x').toString('base64');assert.throws(()=>unseal(key,parts.join('.')));
+ const id=rowId(key,'session-5511912345678.0');assert.match(id,/^k_[a-f0-9]{64}$/);assert.ok(!id.includes('5511'));assert.equal(rowId(key,'creds'),'creds');
+});
+
+test('mensagem não depende de provedor externo e pede PARAR para sair',()=>{
+ const m=buildWhatsAppMessage({offer:ram,reason:reasonForAlert(ramAlert,ram),siteUrl:site});assert.match(m,/Para parar, responda PARAR./);assert.ok(!/callmebot/i.test(m));
 });
 
 test('mesma decisão do e-mail: RAM DDR4 16 GB até R$ 850 dispara a R$ 799,99 e não a R$ 850,01',()=>{

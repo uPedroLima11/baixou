@@ -4,11 +4,9 @@ import {storeNames} from './stores';
 import type {NotificationReason} from './email-templates';
 import {notificationProductName} from './email-templates';
 
-// Canal WhatsApp via CallMeBot (escolha e riscos em docs/WHATSAPP.md):
-// - sem número remetente próprio, sem sessão nem servidor: cada usuário ativa o bot no PRÓPRIO WhatsApp e cola a chave;
-// - a chave só envia para o número que a ativou (consentimento e posse comprovados pelo próprio provedor);
-// - o provedor só confirma que ACEITOU a mensagem, nunca a entrega: o log grava 'accepted'.
-// Liberação: WHATSAPP_MODE=off (padrão) | test (somente WHATSAPP_TEST_USERS) | on.
+// Canal WhatsApp com REMETENTE CENTRAL do Baixou! (sessão em lib/whatsapp-session.ts; decisão em docs/WHATSAPP.md).
+// O usuário só informa o número e envia "BAIXOU <código>" ao remetente: isso comprova a posse do número e o consentimento,
+// e o Baixou! só escreve para quem escreveu primeiro. Liberação: WHATSAPP_MODE=off (padrão) | test (WHATSAPP_TEST_USERS) | on.
 
 export type WhatsAppMode='off'|'test'|'on';
 export function whatsappMode():WhatsAppMode{const m=process.env.WHATSAPP_MODE;return m==='on'||m==='test'?m:'off';}
@@ -22,12 +20,11 @@ export function normalizeBrazilPhone(raw:string){
  return '55'+d;
 }
 export const maskPhone=(phone:string)=>'+'+phone.slice(0,2)+' ('+phone.slice(2,4)+') •••••-'+phone.slice(-4);
-export const validApiKey=(key:string)=>/^[A-Za-z0-9]{4,64}$/.test(String(key??'').trim());
 
 export const newConfirmationCode=()=>String(randomInt(0,1000000)).padStart(6,'0');
 export const hashCode=(userId:string,code:string)=>createHash('sha256').update('baixou-whatsapp:'+userId+':'+code).digest('hex');
 export function codeMatches(userId:string,code:string,hash:string|null){if(!hash||!/^\d{6}$/.test(code))return false;const a=Buffer.from(hashCode(userId,code)),b=Buffer.from(hash);return a.length===b.length&&timingSafeEqual(a,b);}
-// Limite de códigos: 3 por hora e 6 por dia por usuário (o provedor também limita; evita usar o bot como canal de spam).
+// Limite de códigos: 3 por hora e 6 por dia por usuário.
 export function canSendCode(sent:string[],now=Date.now()){const t=sent.map(Date.parse).filter(Number.isFinite);return t.filter(x=>now-x<3600000).length<3&&t.filter(x=>now-x<86400000).length<6;}
 
 const clean=(v:string)=>String(v??'').replace(/[\r\n\u0000-\u001f]+/g,' ').replace(/[*_~`]/g,'').replace(/\s+/g,' ').trim();
@@ -50,23 +47,15 @@ export function buildWhatsAppMessage({offer:o,reason,siteUrl}:{offer:Offer;reaso
   '🎯 '+reason.short,'',
   '🔗 Ver oferta no Baixou!',site.origin+'/produto/'+encodeURIComponent(o.id),'',
   '_Preço verificado às '+checked+'. Consulte disponibilidade na loja._',
-  'Parar avisos: '+site.origin+'/?conta=notificacoes'];
+  'Para parar, responda PARAR.'];
  return lines.join('\n').slice(0,1500);
 }
 
-export type SendResult={ok:true;accepted:true}|{ok:false;permanent:boolean;error:string};
-// CallMeBot devolve HTML 200 também em erro; classificar pelo texto. Nunca registrar a URL (contém a chave).
-export function classifyCallMeBot(status:number,body:string):SendResult{
- const t=body.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').toLowerCase();
- if(status===200&&/message (queued|sent)|mensagem (enviada|na fila)/.test(t))return {ok:true,accepted:true};
- if(/apikey is invalid|invalid apikey|api ?key.*(invalid|incorrect|not valid)|phone.*not.*(activated|registered)|activate/.test(t))return {ok:false,permanent:true,error:'chave/número não ativados no provedor'};
- if(status===429||/too many|rate limit|wait/.test(t))return {ok:false,permanent:false,error:'limite do provedor'};
- return {ok:false,permanent:false,error:'provedor HTTP '+status};
-}
-export async function sendWhatsApp(phone:string,apiKey:string,text:string,timeoutMs=12000):Promise<SendResult>{
- if(!/^55\d{10,11}$/.test(phone)||!validApiKey(apiKey))return {ok:false,permanent:true,error:'contato inválido'};
- const url='https://api.callmebot.com/whatsapp.php?phone=%2B'+phone+'&text='+encodeURIComponent(text)+'&apikey='+encodeURIComponent(apiKey.trim());
- try{const r=await fetch(url,{headers:{'User-Agent':'BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)'},redirect:'error',signal:AbortSignal.timeout(timeoutMs)});
-  const body=(await r.text()).slice(0,4000);return classifyCallMeBot(r.status,body);}
- catch(e){return {ok:false,permanent:false,error:e instanceof Error&&e.name==='TimeoutError'?'tempo esgotado':'rede'};}
-}
+// Brasil: contas antigas podem estar registradas sem o 9º dígito do celular. Variantes só para comparar o remetente da mensagem.
+export function phoneVariants(pn:string){const d=String(pn??'').replace(/\D/g,'');const out=new Set([d]);
+ if(/^55\d{2}9\d{8}$/.test(d))out.add(d.slice(0,4)+d.slice(5));
+ if(/^55\d{2}[6-9]\d{7}$/.test(d))out.add(d.slice(0,4)+'9'+d.slice(4));
+ return [...out];}
+export const extractConfirmationCode=(text:string)=>String(text??'').match(/\bBAIXOU\s*[:#-]?\s*(\d{6})\b/i)?.[1]??null;
+export const isStopCommand=(text:string)=>/^\s*(parar|sair|stop|cancelar|descadastrar)[\s.!]*$/i.test(String(text??''));
+export function confirmationLink(senderPhone:string,code:string){return 'https://wa.me/'+senderPhone.replace(/\D/g,'')+'?text='+encodeURIComponent('BAIXOU '+code);}
