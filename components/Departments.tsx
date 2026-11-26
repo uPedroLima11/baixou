@@ -1,12 +1,12 @@
 'use client';
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Menu,ChevronDown,X} from 'lucide-react';
-import {departmentOptions} from '@/lib/departments';
-import type {Offer} from '@/lib/types';
-export default function Departments({offers,now,onChoose}:{offers:Offer[];now:number;onChoose:(category:string,key?:string,value?:string)=>void}){
+import type {departmentOptions} from '@/lib/departments';
+// Opções calculadas no servidor (índice do catálogo, só ofertas válidas): o navegador não processa o catálogo inteiro.
+export type DepartmentList=ReturnType<typeof departmentOptions>;
+export default function Departments({departments,onChoose}:{departments:DepartmentList;onChoose:(category:string,key?:string,value?:string)=>void}){
  const [open,setOpen]=useState(false),[active,setActive]=useState('');
  const root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null);
- const departments=useMemo(()=>departmentOptions(offers,now),[offers,now]);
  const selected=departments.find(d=>d.id===active)??departments[0];
  useEffect(()=>{if(!open)return;const outside=(e:PointerEvent)=>{if(!root.current?.contains(e.target as Node))setOpen(false);};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[open]);
  function enterCategory(id:string){setActive(id);requestAnimationFrame(()=>root.current?.querySelector<HTMLButtonElement>('.department-all')?.focus());}
