@@ -7,16 +7,17 @@
 import {publicDb} from './supabase';
 import {buildIndex,type CatalogIndex} from './catalog-query';
 import type {Offer,SourceStatus,StoreCoverage} from './types';
+import {offerForPayment,type Payment} from './payment';
 import type {StoreRecord} from './stores';
 import {unstable_cache} from 'next/cache';
 import {encodeSnapshot,decodeSnapshot,type CatalogSnapshot} from './catalog-snapshot';
 
-export const LIST_FIELDS='id,store,url,title,category,brand,mpn,image,price,original_price,available,seller,sold,rating,review_count,specs,checked_at,expires_at,historical_median,historical_samples,historical_days,discount,evidence,discoveries,coupon_hint,coupon_validated,payment_note,product_id,gtin,variant,last_attempt_at,verification_status,market_median,market_lowest,market_stores,market_highest,market_expires_at,market_checked_at,seller_key,payment_basis,historical_max,reference_median,reference_samples,reference_days,reference_min,reference_max';
+export const LIST_FIELDS='id,store,url,title,category,brand,mpn,image,price,original_price,available,seller,sold,rating,review_count,specs,checked_at,expires_at,historical_median,historical_samples,historical_days,discount,evidence,discoveries,coupon_hint,coupon_validated,payment_note,product_id,gtin,variant,last_attempt_at,verification_status,market_median,market_lowest,market_stores,market_highest,market_expires_at,market_checked_at,seller_key,payment_basis,historical_max,reference_median,reference_samples,reference_days,reference_min,reference_max,card_price,card_installments,card_installment_value,card_interest_free,card_reference_median,card_reference_samples,card_reference_days,card_reference_min,card_reference_max,card_historical_max,card_market_median,card_market_lowest,card_market_highest,card_market_stores,card_market_expires_at';
 // Egress (cota gratuita 5 GB/mês): carga completa ~5,8 MB sem compressão; delta traz só as linhas alteradas desde a
 // leitura anterior (margem de 45 s para relógio/réplica). Atualização sob demanda: sem visitas, nada é lido.
 const FULL_MS=60*60000,DELTA_MS=120000,META_MS=120000,PAGE=1000,MARGIN_MS=45000;
 type Meta={sources:SourceStatus[];stores:StoreRecord[];coverage:{generated_at:string;stores:StoreCoverage[]}|null};
-type State={offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
+type State={cardIndex?:CatalogIndex;offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
 let state:State|null=null,inflight:Promise<State>|null=null,metaInflight:Promise<Meta|null>|null=null;
 
 async function fetchSnapshot():Promise<CatalogSnapshot>{
@@ -46,13 +47,18 @@ async function deltaLoad(s:State):Promise<State>{
  if(r.error)throw r.error;
  const offers=new Map(s.offers);for(const o of r.data as unknown as Offer[]){if(o.available)offers.set(o.id,o);else offers.delete(o.id);}
  const at=Date.now();
- return {...s,offers,deltaAt:at,since:next,index:buildIndex([...offers.values()],at),stats:{...s.stats,deltaMs:Math.round(performance.now()-t),deltaRows:r.data.length}};
+ return {...s,cardIndex:undefined,offers,deltaAt:at,since:next,index:buildIndex([...offers.values()],at),stats:{...s.stats,deltaMs:Math.round(performance.now()-t),deltaRows:r.data.length}};
 }
-export async function catalogIndex():Promise<CatalogIndex>{
+// Índice por modalidade: o do cartão é montado sob demanda a partir das ofertas projetadas no cartão (preço total no
+// cartão, habitual e lojas comparadas no cartão) e só contém ofertas com preço no cartão informado pela loja.
+function indexFor(s:State,pay:Payment):CatalogIndex{if(pay==='pix')return s.index;
+ if(!s.cardIndex){const projected=[...s.offers.values()].map(o=>offerForPayment(o,'card')).filter((o):o is Offer=>!!o);s.cardIndex={...buildIndex(projected,s.deltaAt),withoutCard:s.offers.size-projected.length};}
+ return s.cardIndex;}
+export async function catalogIndex(pay:Payment='pix'):Promise<CatalogIndex>{
  const now=Date.now();
- if(state&&now-state.fullAt<FULL_MS&&now-state.deltaAt<DELTA_MS)return state.index;
+ if(state&&now-state.fullAt<FULL_MS&&now-state.deltaAt<DELTA_MS)return indexFor(state,pay);
  inflight??=(async()=>{try{state=!state||now-state.fullAt>=FULL_MS?await fullLoad():await deltaLoad(state).catch(()=>fullLoad());return state;}finally{inflight=null;}})();
- try{return (await inflight).index;}catch(e){if(state)return state.index;throw e;}// falha de leitura: mantém o índice anterior (a validade continua sendo conferida na consulta)
+ try{return indexFor(await inflight,pay);}catch(e){if(state)return indexFor(state,pay);throw e;}// falha de leitura: mantém o índice anterior (a validade continua sendo conferida na consulta)
 }
 export async function catalogMeta():Promise<Meta|null>{
  if(state?.meta&&Date.now()-state.metaAt<META_MS)return state.meta;

@@ -2,6 +2,9 @@ import * as cheerio from 'cheerio/slim';
 import {createHash} from 'node:crypto';
 import {classify,normalize,type Offer} from '../lib/types';
 import {assertNewProduct} from '../lib/product-policy';
+import {cardTerms,installmentRows,NO_CARD,type CardTerms} from '../lib/payment';
+// Trecho do texto da página a partir de um marcador (bloco de parcelamento do próprio produto), para não ler parcelas de vitrines.
+function region(text:string,marker:RegExp,len=2500){const m=marker.exec(text);return m?text.slice(m.index,m.index+len):'';}
 export type ParsedProduct=Omit<Offer,'discount'|'evidence'|'historical_median'|'historical_samples'|'historical_days'>;
 const names:Record<string,string>={shopinfo:'Shopinfo',ibyte:'iByte',waz:'WAZ',oficinadosbits:'Oficina dos Bits',guerradigital:'Guerra Digital',patoloco:'Patoloco'};
 export class ConfirmedUnavailable extends Error {constructor(){super('Indisponibilidade explícita confirmada no produto');}}
@@ -29,7 +32,7 @@ function specificationData($:cheerio.CheerioAPI,p:any,id:string){const specs:Rec
  return specs;}
 export function parseStoreProduct(id:string,html:string,url:string):ParsedProduct{
  const $=cheerio.load(html),canonical=$('link[rel="canonical"]').attr('href');if(!canonical||!equalURL(canonical,url))throw Error('URL canônica diverge do produto');
- let p:any,o:any,price:number,original:number|null=null,payment='Preço informado pela loja; confirmar pagamento e frete na origem.';
+ let p:any,o:any,price:number,original:number|null=null,payment='Preço informado pela loja; confirmar pagamento e frete na origem.',card:CardTerms=NO_CARD;const text=clean(html);
  if(id==='patoloco'){
   const root=$('[itemtype$="/Product"]').first(),offers=root.find('[itemprop="offers"]').first();
   if(!root.length||normalize($('meta[property="og:site_name"]').attr('content')??'')!=='patoloco'||!$('footer').text().includes('29.823.090/0001-00'))throw Error('Identidade de loja própria não confirmada');
@@ -37,6 +40,7 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
   p={name:root.find('[itemprop="name"]').first().text().trim(),brand:root.find('[itemprop="brand"]').first().text().trim(),image:root.find('[itemprop="image"]').toArray().map(e=>$(e).attr('src')??$(e).attr('href')).filter(Boolean)};
   o={priceCurrency:offers.find('[itemprop="priceCurrency"]').attr('content'),availability:offers.find('[itemprop="availability"]').attr('href')??offers.find('[itemprop="availability"]').attr('content')};
   price=brl(offers.find('[itemprop="price"]').attr('content'));original=brl(offers.find('s').first().text())||null;payment='À vista no Pix ou boleto, conforme informado no produto.';
+  card=cardTerms({pix:price,rows:installmentRows(region(text,/Op[çc][õo]es de Parcelamento/i))});
  }else if(id==='shopinfo'){
   // Shopify da própria loja (SHP Brasil). O schema traz o preço de CARTÃO; o Pix vem do bloco de preço do produto.
   // Preço de cartão não é preço antigo: original fica nulo. Variantes múltiplas são recusadas (preço ambíguo).
@@ -44,16 +48,18 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
   if($('meta[property="og:site_name"]').attr('content')!=='Shopinfo'||new URL(canonical).hostname!=='shopinfo.com.br'||!html.includes('03.482.370/0001-09'))throw Error('Identidade de loja própria não confirmada');
   const products=structuredNodes($).filter(n=>isType(n,'Product'));if(products.length!==1)throw Error('Produto principal não identificado sem ambiguidade');p=products[0];
   const offers=(Array.isArray(p.offers)?p.offers:[p.offers]).filter(Boolean);if(offers.length!==1)throw Error('Produto com variantes: preço ambíguo');o=offers[0];
-  const card=brl(o.price),block=$('.shopinfo-pdp-price-block').first(),pix=brl(block.find('.shopinfo-price__pix-hero').first().text());
+  const cardTotal=brl(o.price),block=$('.shopinfo-pdp-price-block').first(),pix=brl(block.find('.shopinfo-price__pix-hero').first().text());
   if(!pix&&/\/OutOfStock$/i.test(String(o.availability??'')))throw new ConfirmedUnavailable();
-  if(!pix||!/pix/i.test(block.text())||!(card>0)||pix>card+.01||pix<card*.8)throw Error('Preço Pix não confirmado no produto');
+  if(!pix||!/pix/i.test(block.text())||!(cardTotal>0)||pix>cardTotal+.01||pix<cardTotal*.8)throw Error('Preço Pix não confirmado no produto');
   price=pix;original=null;payment='À vista no Pix, confirmado no produto; no cartão o preço é maior.';
+  card=cardTerms({pix,total:cardTotal>0?cardTotal:null,rows:installmentRows(block.text())});
   const gtin=String(p.gtin??'').replace(/\D/g,'');if(gtin)p={...p,additionalProperty:[...(p.additionalProperty??[]),{name:'EAN',value:gtin}]};
  }else{
   p=mainProduct($,url);const offers=Array.isArray(p.offers)?p.offers:[p.offers];o=offers.find((x:any)=>isType(x,'AggregateOffer'))??offers[0];
   if(id==='waz'){const variants=Array.isArray(o?.offers)?o.offers:[o];o=variants.find((x:any)=>normalize(x?.seller?.name??'')==='waz');if(!o)throw Error('Vendedor WAZ não confirmado');price=brl(o.price);const pix=brl($('[class*="spotPriceValue--pdp"]').first().text());
    // Esgotado na WAZ: schema do vendedor WAZ declara OutOfStock e a página não exibe preço Pix. Não vira oferta com preço do schema.
    if(!pix&&/\/OutOfStock$/i.test(String(o.availability??'')))throw new ConfirmedUnavailable();if(!pix||Math.abs(pix-price)>.02)throw Error('Preço Pix diverge do schema');original=brl($('[class*="flexRow--pdp-price-buy-btn"]').first().find('[class*="listPriceValue"]').first().text())||null;payment='À vista no Pix, confirmado no produto.';
+   card=cardTerms({pix,total:brl($('[class*="sellingPriceValue"]').first().text())||null,rows:installmentRows(region(text,/Op[çc][õo]es de parcelamento/i))});
   }else if(id==='ibyte'){
    // Vendedor próprio no schema e preço Pix impresso no DOM ("Por: R$ X no PIX") igual ao schema. highPrice do AggregateOffer não é preço antigo.
    const variants=Array.isArray(o?.offers)?o.offers:[o];o=variants.find((x:any)=>normalize(x?.seller?.name??'')==='ibyte');if(!o)throw Error('Vendedor iByte não confirmado');price=brl(o.price);
@@ -64,6 +70,7 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
    // O "De" da iByte costuma ser o preço a prazo (ex.: De R$ 839,90 = 10x R$ 83,99). Preço de cartão não é preço antigo.
    const parcels=Number($('[class*="installmentsNumber"]').first().text().trim()),parcel=brl($('[class*="installmentValue"]').first().text());
    if(original&&parcels>0&&parcel>0&&Math.abs(parcels*parcel-original)<=Math.max(.11,parcels*.01))original=null;
+   if(parcels>0&&parcel>0)card=cardTerms({pix:price,rows:[{n:parcels,value:parcel,interestFree:/sem juros/i.test($('[class*="installments--product-page"], [class*="installments"]').first().parent().text())?true:null,total:null}]});
    // mpn/gtin do schema da iByte são códigos internos; o código do fabricante vem do fim do título.
    p={...p,mpn:ibyteTitleCode(String(p.name??''))};
   }else if(id==='oficinadosbits'){
@@ -71,6 +78,7 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
    if(!store||o?.seller&&normalize(o.seller.name)!=='oficina dos bits')throw Error('Loja própria não confirmada');price=brl(o?.price);const pix=brl($('.price-discount__pix').first().text().match(/R\$\s*[\d.,]+/)?.[0]);if(!pix||Math.abs(pix-price)>.02)throw Error('Preço Pix não confirmado');payment='À vista no Pix, confirmado no produto.';
   }else if(id==='guerradigital'){
    if(normalize(o?.seller?.name??'')!=='guerra digital')throw Error('Vendedor Guerra Digital não confirmado');const display=$('#price_display');price=brl(display.text());const cents=Number(display.attr('data-product-price'))/100;if(!price||Math.abs(price-cents)>.02||!/pix/i.test(display.parent().parent().text()))throw Error('Preço Pix não confirmado');original=brl($('#compare_price_display').text())||null;payment='À vista no Pix, confirmado no produto; preço regular pode ser diferente.';
+   {const rows=installmentRows(region(text,/Cart[õo]es de cr[ée]dito/i,4000)),top=rows.filter(r=>r.total).sort((a,b)=>b.n-a.n)[0];card=cardTerms({pix:price,total:top?.total??null,rows});}
   }else throw Error('Adaptador não habilitado');
  }
  if(o?.priceCurrency!=='BRL'||!Number.isFinite(price)||price<=0)throw Error('Preço BRL inválido');
@@ -79,5 +87,5 @@ export function parseStoreProduct(id:string,html:string,url:string):ParsedProduc
  assertNewProduct(title);
  const specs=specificationData($,p,id);const images=[...new Set((Array.isArray(p.image)?p.image:[p.image]).map((x:any)=>typeof x==='string'?x:x?.url).filter((x:any)=>typeof x==='string'&&x.startsWith('https://'))) ] as string[];
  let brand=typeof p.brand==='string'?p.brand:p.brand?.name??null;if(brand&&['diversos','generico'].includes(normalize(brand)))brand=null;if(!brand&&specs.Marca)brand=specs.Marca;
- const now=new Date().toISOString();return {id:id+'-'+createHash('sha256').update(canonical).digest('hex').slice(0,20),store:id,url:canonical,title,category:classify(title),brand,mpn:manufacturerPart(p,title,specs),image:images[0]??null,images,price,original_price:original&&original>price?original:null,available,seller:names[id],sold:null,rating:Number(p.aggregateRating?.ratingValue)||null,review_count:Number(p.aggregateRating?.reviewCount)||null,specs,payment_note:payment,checked_at:now,expires_at:now};
+ const now=new Date().toISOString();return {...card,id:id+'-'+createHash('sha256').update(canonical).digest('hex').slice(0,20),store:id,url:canonical,title,category:classify(title),brand,mpn:manufacturerPart(p,title,specs),image:images[0]??null,images,price,original_price:original&&original>price?original:null,available,seller:names[id],sold:null,rating:Number(p.aggregateRating?.ratingValue)||null,review_count:Number(p.aggregateRating?.reviewCount)||null,specs,payment_note:payment,checked_at:now,expires_at:now};
 }

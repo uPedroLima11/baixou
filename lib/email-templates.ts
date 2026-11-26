@@ -3,7 +3,7 @@ import {offerFacets} from './specs';
 import {storeNames} from './stores';
 import {marketDiscount,marketStatus} from './market';
 
-export type NotificationReason={kind:'price'|'history'|'wishlist';summary:string;conditions:string[];product?:boolean;short:string};
+export type NotificationReason={payment?:'pix'|'card';kind:'price'|'history'|'wishlist';summary:string;conditions:string[];product?:boolean;short:string};
 const clean=(value:string)=>value.replace(/[\r\n\u0000-\u001f]+/g,' ').replace(/\s+/g,' ').trim();
 export const escapeEmailHTML=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const cut=(value:string,length:number)=>value.length>length?value.slice(0,length-1).trimEnd()+'…':value;
@@ -26,10 +26,11 @@ export function reasonForAlert(a:Alert,o:Offer):NotificationReason{
  if(!product&&a.category!=='all')conditions.push('Categoria: '+(categories.find(([id])=>id===a.category)?.[1]??a.category)+'.');
  if(a.brands?.length)conditions.push('Marca dentro da sua seleção.');
  if(Object.keys(a.spec_filters??{}).length)conditions.push('As características técnicas selecionadas foram atendidas.');
+ conditions.push(a.payment==='card'?'Forma de pagamento: cartão de crédito (total no cartão informado pela loja).':'Forma de pagamento: Pix / à vista.');
  const summary=history?'Seu alerta de queda de preço foi atendido.':product?'O produto que você acompanha chegou ao preço desejado.':'Uma oferta atingiu o preço do seu alerta.';
  const parts=[a.max_price!=null?'até '+money(Number(a.max_price)):'',a.min_drop_amount!=null?'queda ≥ '+money(Number(a.min_drop_amount)):'',a.min_discount!=null?'queda ≥ '+a.min_discount+'%':''].filter(Boolean);
  const scope=product?'este produto':a.category==='all'?'todas as categorias':(categories.find(([id])=>id===a.category)?.[1]??a.category);
- return {kind:history?'history':'price',summary,conditions,product,short:'Seu alerta ('+scope+'): '+parts.join(' e ')+'.'};
+ return {kind:history?'history':'price',summary,conditions,product,short:'Seu alerta ('+scope+(a.payment==='card'?', cartão':'')+'): '+parts.join(' e ')+'.'};
 }
 // Regra explícita no e-mail: favoritos só avisam fora do escopo dos alertas ativos, salvo opção marcada pelo usuário.
 export function wishlistReason(ignoredAlertLimits=false):NotificationReason{return {kind:'wishlist',summary:'Um produto da sua lista de desejos caiu pelo menos 5% abaixo do preço habitual.',short:'Lista de desejos: ≥ 5% abaixo do preço habitual.',conditions:['Regra: lista de desejos.',ignoredAlertLimits?'Você permitiu avisos de favoritos fora dos limites dos seus alertas.':'Nenhum alerta ativo seu cobre este produto.']};}

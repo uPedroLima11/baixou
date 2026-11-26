@@ -3,6 +3,7 @@ import {money,type Offer} from './types';
 import {storeNames} from './stores';
 import type {NotificationReason} from './email-templates';
 import {notificationProductName} from './email-templates';
+import {installmentLabel} from './payment';
 
 // Canal WhatsApp com REMETENTE CENTRAL do Baixou! (sessão em lib/whatsapp-session.ts; decisão em docs/WHATSAPP.md).
 // O usuário só informa o número e envia "BAIXOU <código>" ao remetente: isso comprova a posse do número e o consentimento,
@@ -41,7 +42,7 @@ export function buildWhatsAppMessage({offer:o,reason,siteUrl}:{offer:Offer;reaso
   (historic?'📉':'🔥')+' *Baixou!* Encontramos uma oferta para você','',
   '*'+cut(clean(name),70)+'*',
   ...(title.toLowerCase()!==clean(name).toLowerCase()?[cut(title,110)]:[]),'',
-  '💰 '+money(Number(o.price))+(o.store!=='mercadolivre'||o.payment_basis==='cash'?' à vista/Pix':''),
+  ...(o.payment_basis==='card'?['💳 '+money(Number(o.price))+' no cartão'+(installmentLabel(o)?' ('+installmentLabel(o)+')':'')]:['💰 '+money(Number(o.price))+(o.store!=='mercadolivre'||o.payment_basis==='cash'?' à vista/Pix':'')]),
   '🏪 '+clean(store)+(o.seller&&clean(o.seller).toLowerCase()!==clean(store).toLowerCase()?' · vendido por '+cut(clean(o.seller),40):''),
   ...(historic?['📉 '+money(Number(o.historical_median)-Number(o.price))+' abaixo do preço habitual ('+money(Number(o.historical_median))+')']:[]),
   '🎯 '+reason.short,'',

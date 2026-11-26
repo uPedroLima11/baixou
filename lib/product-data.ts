@@ -8,13 +8,17 @@ import {sameProduct} from './search';
 import {baixouScore,type BaixouScore} from './score';
 import type {GroupReference} from './groups';
 import type {Offer} from './types';
-export type ProductData={partial?:boolean;offer:Offer;related_specs:{store:string;offer_id:string;specs:Record<string,string>}|null;comparison:Offer[]|null;alternatives:Offer[];group:GroupReference|null;score:BaixouScore};
-export async function productData(id:string):Promise<ProductData|null|'error'>{
+import {offerForPayment,type Payment} from './payment';
+export type ProductData={payment?:Payment;cardMissing?:boolean;partial?:boolean;offer:Offer;related_specs:{store:string;offer_id:string;specs:Record<string,string>}|null;comparison:Offer[]|null;alternatives:Offer[];group:GroupReference|null;score:BaixouScore};
+// pay='card': mesma página, mas preço, habitual, comparação, alternativas e Score pelo total no cartão (índice do cartão).
+// Sem total no cartão informado: devolve o Pix com cardMissing (nunca estima o cartão).
+export async function productData(id:string,pay:Payment='pix'):Promise<ProductData|null|'error'>{
  const db=publicDb();if(!db)return 'error';
  const [{data,error},index]=await Promise.all([db.from('offers').select('*').eq('id',id).maybeSingle(),// O índice frio leva ~3 s: a página não espera por ele (comparação e Score completos chegam depois pelo cliente).
-  Promise.race([catalogIndex().catch(()=>null),new Promise<null>(r=>setTimeout(()=>r(null),600))])]);
+  Promise.race([catalogIndex(pay).catch(()=>null),new Promise<null>(r=>setTimeout(()=>r(null),600))])]);
  if(error)return 'error';if(!data)return null;
- const offer=data as Offer;let related_specs:ProductData['related_specs']=null;
+ const raw=data as Offer,projected=offerForPayment(raw,pay),cardMissing=pay==='card'&&!projected;if(cardMissing)return productData(id,'pix').then(d=>d&&d!=='error'?{...d,cardMissing:true}:d);
+ const offer=projected!;let related_specs:ProductData['related_specs']=null;
  if(offer.product_id&&Object.keys(offer.specs??{}).length<3){
   const others=await db.from('offers').select('*').eq('product_id',offer.product_id).neq('store',offer.store).limit(10);
   const best=((others.data??[]) as Offer[]).filter(o=>sameProduct(o,offer)).map(o=>({o,n:Object.keys(o.specs??{}).length})).sort((a,b)=>b.n-a.n)[0];
@@ -27,5 +31,5 @@ export async function productData(id:string):Promise<ProductData|null|'error'>{
  // Mesma nota do card: usa a do índice quando preço e referências são os mesmos; só recalcula (com o mesmo grupo)
  // se a linha do banco já trouxer preço/referência mais novos — nunca uma conta diferente.
  const same=entry&&Number(entry.o.price)===Number(offer.price)&&Number(entry.o.reference_median??0)===Number(offer.reference_median??0)&&Number(entry.o.market_median??0)===Number(offer.market_median??0)&&entry.o.expires_at===offer.expires_at;
- return {partial:!index,offer,related_specs,comparison:comparison&&comparison.length>1?comparison:null,alternatives,group,score:same?entry.score:baixouScore({...offer,group},now)};
+ return {payment:pay,partial:!index,offer,related_specs,comparison:comparison&&comparison.length>1?comparison:null,alternatives,group,score:same?entry.score:baixouScore({...offer,group},now)};
 }

@@ -14,11 +14,12 @@ export async function GET(req:Request){
  if(sp.has('page'))return legacy(sp);
  const t=performance.now();
  try{
-  const index=await catalogIndex(),loadMs=Math.round(performance.now()-t);
+  // Favoritos usam o índice Pix (o card mostra também o cartão); a lista usa o índice da modalidade escolhida.
+  const params=parseCatalogParams(sp),index=await catalogIndex(sp.has('saved')?'pix':params.payment),loadMs=Math.round(performance.now()-t);
   if(sp.has('saved')){const ids=(sp.get('saved')??'').split(',').filter(Boolean).slice(0,100);
    const db=publicDb();const {data}=ids.length&&db?await db.from('catalog_offers').select(LIST_FIELDS).in('id',ids):{data:[]};
    return NextResponse.json({items:currentForSaved(index,(data??[]) as unknown as Offer[]).filter(Boolean)},{headers:{'Cache-Control':'private, no-store'}});}
-  const q=performance.now(),result=queryCatalog(index,parseCatalogParams(sp)),queryMs=Math.round(performance.now()-q);
+  const q=performance.now(),result={...queryCatalog(index,params),payment:params.payment??'pix',withoutCard:index.withoutCard??0},queryMs=Math.round(performance.now()-q);
   const meta=sp.get('meta')==='1'?{...(await catalogMeta()),departments:index.departments}:undefined;
   return NextResponse.json({...result,meta,configured:true,timing:{loadMs,queryMs,buildMs:index.buildMs,cache:catalogStats()}},{headers:{...CACHE,'Server-Timing':`load;dur=${loadMs}, query;dur=${queryMs}`}});
  }catch(e){console.error('catalog',e instanceof Error?e.message:e);return NextResponse.json({items:[],total:0,error:'Não foi possível atualizar o catálogo.',configured:!!publicDb()},{status:503});}

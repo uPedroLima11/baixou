@@ -1,6 +1,7 @@
 import {canonicalBrand,matchesProductAlert} from './identity';
 import {offerFacets,matchesSpecFilter,type SpecFilter} from './specs';
 import {type Alert,type Offer} from './types';
+import {offerForPayment} from './payment';
 
 export const specFields:Record<string,{key:string;label:string;unit?:string}[]>={
  ram:[{key:'ddr',label:'Geração DDR (4 ou 5)'},{key:'total_gb',label:'Capacidade total',unit:'GB'},{key:'modules',label:'Quantidade de módulos'},{key:'frequency',label:'Frequência',unit:'MHz'}],
@@ -25,7 +26,10 @@ export function alertCovers(a:Alert,o:Offer){
  // Listas = qualquer um dos valores; "<chave>_min" = mínimo numérico; especificação desconhecida nunca casa.
  return matchesSpecFilter(offerSpecs(o),(a.spec_filters??{}) as SpecFilter);
 }
-export function matchesAlert(a:Alert,o:Offer,now=Date.now()){
+// Avaliado na modalidade do alerta (Pix padrão; cartão = total no cartão, habitual e queda do cartão). Sem preço no cartão
+// informado, alerta de cartão não dispara. Nunca compara cartão com Pix.
+export function matchesAlert(a:Alert,raw:Offer,now=Date.now()){
+ const o=offerForPayment(raw,a.payment??'pix');if(!o)return false;
  if(!a.enabled||!o.available||Date.parse(o.expires_at)<=now)return false;
  if(!alertCovers(a,o))return false;
  if(a.max_price!=null&&Number(o.price)>a.max_price)return false;

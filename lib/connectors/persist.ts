@@ -1,4 +1,5 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
+import {cardReferenceFields,loadCardReference} from '../payment';
 import {evidenceFromStats,type Offer} from '../types';
 import {identityForOffer,variantForOffer} from '../identity';
 import {verificationTTL} from '../collection-policy';
@@ -11,6 +12,8 @@ import type {ParsedProduct} from '../../scripts/store-adapters';
 // sem histórico (que só guarda verificações), status 'announced' (fora dos alertas e da referência de mercado).
 export async function persistVerifiedProduct(db:SupabaseClient,base:ParsedProduct,announced?:{at:string;ttlMinutes:number;post:string;insertOnly?:boolean}){
  const stats=await db.rpc('price_history_stats',{p_offer_id:base.id}).single<{median:number|null;samples:number;days:number;max:number|null;ref_median:number|null;ref_samples:number|null;ref_days:number|null;ref_min:number|null;ref_max:number|null}>();if(stats.error)throw stats.error;
+ // Anúncio (Telegram) nunca tem habitual verificado no cartão: só preço anunciado.
+ const cardRef=announced?cardReferenceFields(null,null):await loadCardReference(db,base.id,base.card_price);
  const evidence=evidenceFromStats(base.price,base.original_price,stats.data??{median:null,samples:0,days:0}),ttl=verificationTTL(evidence.evidence,evidence.discount);
  const identity=identityForOffer({...base,...evidence} as Offer);let productId:string|null=null;
  if(identity){const resolved=await db.rpc('resolve_catalog_product',{p_brand:identity.brand,p_mpn:identity.mpn,p_gtin:identity.gtin,p_variant:identity.variant});if(resolved.error)throw resolved.error;productId=resolved.data;}
@@ -24,10 +27,10 @@ export async function persistVerifiedProduct(db:SupabaseClient,base:ParsedProduc
   if(source)base.specs={...base.specs,'Fonte da imagem':source};
  }
  const now=announced?new Date(announced.at):new Date();
- const updated=await db.from('offers').upsert({...base,...evidence,product_id:productId,gtin:identity?.gtin??base.gtin??null,variant:identity?.variant??variantForOffer(base),discoveries:[],coupon_validated:false,last_attempt_at:now.toISOString(),checked_at:now.toISOString(),verification_status:announced?'announced':'verified',expires_at:new Date(now.getTime()+(announced?announced.ttlMinutes:ttl)*60000).toISOString()},announced?.insertOnly?{onConflict:'id',ignoreDuplicates:true}:undefined);
+ const updated=await db.from('offers').upsert({card_price:null,card_installments:null,card_installment_value:null,card_interest_free:null,...base,...evidence,...cardRef,product_id:productId,gtin:identity?.gtin??base.gtin??null,variant:identity?.variant??variantForOffer(base),discoveries:[],coupon_validated:false,last_attempt_at:now.toISOString(),checked_at:now.toISOString(),verification_status:announced?'announced':'verified',expires_at:new Date(now.getTime()+(announced?announced.ttlMinutes:ttl)*60000).toISOString()},announced?.insertOnly?{onConflict:'id',ignoreDuplicates:true}:undefined);
  if(updated.error)throw updated.error;
  // Histórico de preços ANUNCIADOS, separado do verificado (deduplicado por post).
  if(announced){const rec=await db.rpc('record_announcement',{p_offer:base.id,p_price:base.price,p_posted_at:announced.at,p_post:announced.post});if(rec.error)throw rec.error;}
- if(base.available&&!announced){const hist=await db.from('price_history').upsert({offer_id:base.id,price:base.price,bucket:now.toISOString().slice(0,13),observed_at:now.toISOString()},{onConflict:'offer_id,bucket',ignoreDuplicates:true});if(hist.error)throw hist.error;}
+ if(base.available&&!announced){const hist=await db.from('price_history').upsert({offer_id:base.id,price:base.price,card_price:base.card_price??null,bucket:now.toISOString().slice(0,13),observed_at:now.toISOString()},{onConflict:'offer_id,bucket',ignoreDuplicates:true});if(hist.error)throw hist.error;}
  return evidence;
 }

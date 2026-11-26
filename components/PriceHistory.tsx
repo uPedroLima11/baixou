@@ -23,7 +23,7 @@ export default function PriceHistory({offer:o,comparison}:{offer:Offer;compariso
  const [days,setDays]=useState(7),[view,setView]=useState<'offer'|'stores'|'lowest'>('offer'),[intraday,setIntraday]=useState(false),[data,setData]=useState<Record<string,Data>|null>(null),[failed,setFailed]=useState(false);
  const ids=peers.map(p=>p.id).join(',');
  // Uma única consulta: resumo diário (até 400 dias) + verificações brutas das últimas 48 h para a visão de detalhe.
- useEffect(()=>{let live=true;setFailed(false);fetchHistory(ids.split(',')).then((j:{series:HistorySeries[]})=>{if(!live)return;const out:Record<string,Data>={};for(const s of j.series)out[s.id]={raw:s.raw.map(([t,p])=>({t,p})),daily:s.daily.map(([day,min,max,close,samples])=>({day,min,max,close,samples})),announced:(s.announced??[]).map(([day,min,postedAt,post,last,posts])=>({day,min,postedAt,post,last,posts}))};setData(out);}).catch(()=>{if(live)setFailed(true);});return ()=>{live=false;};},[ids]);
+ useEffect(()=>{let live=true;setFailed(false);fetchHistory(ids.split(','),o.payment_basis==='card'?'card':'pix').then((j:{series:HistorySeries[]})=>{if(!live)return;const out:Record<string,Data>={};for(const s of j.series)out[s.id]={raw:s.raw.map(([t,p])=>({t,p})),daily:s.daily.map(([day,min,max,close,samples])=>({day,min,max,close,samples})),announced:(s.announced??[]).map(([day,min,postedAt,post,last,posts])=>({day,min,postedAt,post,last,posts}))};setData(out);}).catch(()=>{if(live)setFailed(true);});return ()=>{live=false;};},[ids]);
  const now=Date.now(),mine=data?.[o.id];
  const valid=(x:Offer)=>x.available&&Date.parse(x.expires_at)>now;
  const current=(x:Offer)=>valid(x)?Number(x.price):null;

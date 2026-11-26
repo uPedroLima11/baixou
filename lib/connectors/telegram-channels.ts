@@ -78,7 +78,8 @@ export function postToListing(p:ChannelPost,cfg:ChannelConfig,resolvedUrl?:strin
  const title=postTitle(p.text,canonical)??(oldTitle?postTitle(oldTitle,canonical):null);if(!title)return {ok:false,reason:'título não confere com o link'};
  if(EXCLUDED_TITLE.test(title)||excludedCondition(title))return {ok:false,reason:'condição diferente de novo'};
  const externalId=cfg.productPath.exec(url.pathname)?.[1]??url.pathname;
- return {ok:true,listing:{source:cfg.source,externalId,url:canonical,title,price:price.price,originalPrice:price.original,currency:'BRL',available:true,condition:'new',paymentBasis:'cash',
+ const card=price.installmentTotal&&price.installmentTotal>=price.price&&price.installmentTotal<=price.price*1.8?{card_price:price.installmentTotal,card_installments:null,card_installment_value:null,card_interest_free:null}:undefined;
+ return {ok:true,listing:{card,source:cfg.source,externalId,url:canonical,title,price:price.price,originalPrice:price.original,currency:'BRL',available:true,condition:'new',paymentBasis:'cash',
   seller:{id:null,name:cfg.storeName,official:true,reputationLevel:null,positiveRate:null,completedSales:null},images:p.photo?[p.photo]:[],brand:null,mpn:null,gtin:null,couponHint,fetchedAt:new Date(p.date).toISOString(),
   announcement:{channel:cfg.channel,postId:p.id,postedAt:new Date(p.date).toISOString(),installmentTotal:price.installmentTotal,label:cfg.channelLabel}}};
 }

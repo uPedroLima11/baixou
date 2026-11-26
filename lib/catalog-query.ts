@@ -24,7 +24,7 @@ export function cappedDiscount(o:Offer,ev:Evidence,disc:number,g:GroupReference|
  return inflated&&vsGroup<disc?{disc:vsGroup,capped:true}:{disc,capped:false};
 }
 export type Entry={o:Offer;facets:Record<string,SpecValue>;score:BaixouScore;ev:Evidence;disc:number;capped:boolean;group:GroupReference|null;compare:Offer[]|null;completeness:number;text:string};
-export type CatalogIndex={entries:Entry[];byId:Map<string,Entry>;departments:ReturnType<typeof departmentOptions>;builtAt:number;buildMs:number};
+export type CatalogIndex={withoutCard?:number;entries:Entry[];byId:Map<string,Entry>;departments:ReturnType<typeof departmentOptions>;builtAt:number;buildMs:number};
 const isLive=(o:Offer,now:number)=>o.available&&Date.parse(o.expires_at)>now;
 
 export function buildIndex(offers:Offer[],now=Date.now()):CatalogIndex{
@@ -35,7 +35,7 @@ export function buildIndex(offers:Offer[],now=Date.now()):CatalogIndex{
  return {entries,byId:new Map(entries.map(e=>[e.o.id,e])),departments:departmentOptions(live,now),builtAt:now,buildMs:Math.round(performance.now()-t)};
 }
 
-export type CatalogParams={mode?:Mode;category?:string;q?:string;stores?:string[];maxPrice?:number;minDiscount?:number;comparable?:boolean;sort?:'quality'|'discount'|'price'|'recent';facets?:Record<string,string[]>;offset?:number;limit?:number};
+export type CatalogParams={payment?:'pix'|'card';mode?:Mode;category?:string;q?:string;stores?:string[];maxPrice?:number;minDiscount?:number;comparable?:boolean;sort?:'quality'|'discount'|'price'|'recent';facets?:Record<string,string[]>;offset?:number;limit?:number};
 function inMode(e:Entry,mode:Mode,minDiscount:number){
  if(mode==='all')return true;
  if(mode==='market')return isOpportunity(e.score);
