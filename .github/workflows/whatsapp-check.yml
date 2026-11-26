@@ -1,0 +1,22 @@
+name: Diagnóstico do WhatsApp (sem conexão)
+# Confere se o pacote do WhatsApp carrega na Vercel e a situação do remetente. Não conecta ao WhatsApp,
+# não envia mensagens e a resposta não contém segredos (só situação, modo e se a chave de estado existe).
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+    steps:
+      - name: Chamar diagnóstico assinado
+        run: |
+          node -e '
+          const {createHmac}=require("node:crypto");
+          const time=String(Date.now()),sig=createHmac("sha256",process.env.SUPABASE_SERVICE_ROLE_KEY.trim()).update("whatsapp:"+time).digest("hex");
+          fetch(process.env.NEXT_PUBLIC_SITE_URL+"/api/jobs/notifications?check=whatsapp",{method:"POST",headers:{"x-baixou-time":time,"x-baixou-signature":sig}})
+           .then(async r=>{const t=await r.text();console.log(r.status,t);if(!r.ok)process.exit(1);});'
