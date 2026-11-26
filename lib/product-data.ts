@@ -8,10 +8,11 @@ import {sameProduct} from './search';
 import {baixouScore,type BaixouScore} from './score';
 import type {GroupReference} from './groups';
 import type {Offer} from './types';
-export type ProductData={offer:Offer;related_specs:{store:string;offer_id:string;specs:Record<string,string>}|null;comparison:Offer[]|null;alternatives:Offer[];group:GroupReference|null;score:BaixouScore};
+export type ProductData={partial?:boolean;offer:Offer;related_specs:{store:string;offer_id:string;specs:Record<string,string>}|null;comparison:Offer[]|null;alternatives:Offer[];group:GroupReference|null;score:BaixouScore};
 export async function productData(id:string):Promise<ProductData|null|'error'>{
  const db=publicDb();if(!db)return 'error';
- const [{data,error},index]=await Promise.all([db.from('offers').select('*').eq('id',id).maybeSingle(),catalogIndex().catch(()=>null)]);
+ const [{data,error},index]=await Promise.all([db.from('offers').select('*').eq('id',id).maybeSingle(),// O índice frio leva ~3 s: a página não espera por ele (comparação e Score completos chegam depois pelo cliente).
+  Promise.race([catalogIndex().catch(()=>null),new Promise<null>(r=>setTimeout(()=>r(null),600))])]);
  if(error)return 'error';if(!data)return null;
  const offer=data as Offer;let related_specs:ProductData['related_specs']=null;
  if(offer.product_id&&Object.keys(offer.specs??{}).length<3){
@@ -23,5 +24,5 @@ export async function productData(id:string):Promise<ProductData|null|'error'>{
  const comparison=entry?.compare?.filter(live)??null;
  const alternatives=index?index.entries.filter(e=>e.o.id!==id&&live(e.o)&&sameProduct(e.o,offer)).map(e=>e.o).slice(0,12):[];
  const group=entry?.group??null;
- return {offer,related_specs,comparison:comparison&&comparison.length>1?comparison:null,alternatives,group,score:baixouScore({...offer,group},now)};
+ return {partial:!index,offer,related_specs,comparison:comparison&&comparison.length>1?comparison:null,alternatives,group,score:baixouScore({...offer,group},now)};
 }

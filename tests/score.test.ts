@@ -64,3 +64,14 @@ test('store consistently below other stores is an opportunity; a recent own pric
  const steady=baixouScore({...base,price:770,...hist(770,40,3),...mkt(1000,4,960,1050)});assert.equal(steady.klass,'exceptional');
  const risen=baixouScore({...base,price:880,...hist(800,40,8),...mkt(1000,4,960,1050)});assert.equal(risen.klass,'above');// 10% acima do habitual
 });
+import {cappedDiscount} from '../lib/catalog-query';
+test('announced "from" price and inflated-base drops are capped by equivalent alternatives',()=>{
+ const g={key:'k',label:'RAM',median:1400,lowest:1300,offers:8,sellers:3};
+ // "De R$ 2.000 por R$ 1.300" com alternativas a ~R$ 1.400: no máximo 7%.
+ assert.deepEqual(cappedDiscount({price:1300,original_price:2000} as any,'retailer',35,g),{disc:7,capped:true});
+ // Queda real a partir de base inflada (R$ 2.489,99 contra alternativas de R$ 1.030): limitada à economia contra elas.
+ assert.deepEqual(cappedDiscount({price:699.99,historical_median:2489.99} as any,'history',71,{...g,median:1030}),{disc:32,capped:true});
+ // Queda a partir de base normal não muda; sem grupo não muda.
+ assert.deepEqual(cappedDiscount({price:900,historical_median:1000} as any,'history',10,{...g,median:950}),{disc:10,capped:false});
+ assert.deepEqual(cappedDiscount({price:1300,original_price:2000} as any,'retailer',35,null),{disc:35,capped:false});
+});

@@ -1,0 +1,8 @@
+// Cache do histórico no navegador: a página do produto pré-carrega a mesma consulta que a aba "Histórico de preços"
+// usa, então a aba abre sem nova espera e o resumo do histórico aparece logo ao lado da foto.
+export type HistorySeries={id:string;raw:[number,number][];daily:[string,number,number,number,number][];announced?:[string,number,string,string,number,number][]};
+const cache=new Map<string,Promise<{series:HistorySeries[]}>>();
+export function historyKey(ids:string[]){return ids.join(',');}
+export function fetchHistory(ids:string[]){const key=historyKey(ids);let p=cache.get(key);
+ if(!p){p=fetch('/api/history?ids='+encodeURIComponent(key)+'&days=2').then(r=>{if(!r.ok)throw Error('history');return r.json();});p.catch(()=>cache.delete(key));cache.set(key,p);}
+ return p;}

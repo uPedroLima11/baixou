@@ -12,14 +12,25 @@ import {departmentOptions} from './departments';
 import {normalize,type Offer} from './types';
 
 export type Mode='market'|'history'|'retailer'|'all';
-export type Entry={o:Offer;facets:Record<string,SpecValue>;score:BaixouScore;ev:Evidence;disc:number;group:GroupReference|null;compare:Offer[]|null;completeness:number;text:string};
+// Desconto exibido/ordenado com freio de mercado: o preço "de" da loja e uma queda que parte de um preço-base muito
+// acima das alternativas equivalentes (>1,3× a mediana delas) não valem mais que a economia real contra essas
+// alternativas. "De R$ 2.000 por R$ 1.300" com o mercado entre R$ 1.300 e R$ 1.500 não é grande desconto.
+export const INFLATED_BASE=1.3;
+export function cappedDiscount(o:Offer,ev:Evidence,disc:number,g:GroupReference|null){
+ if(!g||disc<=0)return {disc,capped:false};
+ const vsGroup=Math.max(0,Math.floor((1-Number(o.price)/g.median)*100+1e-9));
+ const base=ev==='history'?Number(o.historical_median):ev==='retailer'?Number(o.original_price):0;
+ const inflated=ev==='retailer'||(ev==='history'&&base>g.median*INFLATED_BASE);
+ return inflated&&vsGroup<disc?{disc:vsGroup,capped:true}:{disc,capped:false};
+}
+export type Entry={o:Offer;facets:Record<string,SpecValue>;score:BaixouScore;ev:Evidence;disc:number;capped:boolean;group:GroupReference|null;compare:Offer[]|null;completeness:number;text:string};
 export type CatalogIndex={entries:Entry[];byId:Map<string,Entry>;departments:ReturnType<typeof departmentOptions>;builtAt:number;buildMs:number};
 const isLive=(o:Offer,now:number)=>o.available&&Date.parse(o.expires_at)>now;
 
 export function buildIndex(offers:Offer[],now=Date.now()):CatalogIndex{
  const t=performance.now(),live=offers.filter(o=>isLive(o,now));
  const groups=groupReferences(live,now),comparisons=comparisonIndex(live);
- const entries=live.map(o=>{const group=groups.get(o.id)??null;return {o,facets:offerFacets(o),score:baixouScore({...o,group},now),ev:effectiveEvidence(o),disc:effectiveDiscount(o),group,compare:comparisons.get(o.id)??null,
+ const entries=live.map(o=>{const group=groups.get(o.id)??null,ev=effectiveEvidence(o),c=cappedDiscount(o,ev,effectiveDiscount(o),group);return {o,facets:offerFacets(o),score:baixouScore({...o,group},now),ev,disc:c.disc,capped:c.capped,group,compare:comparisons.get(o.id)??null,
   completeness:Number(!!o.image)+Number(!!o.brand)+Math.min(Object.keys(o.specs??{}).length,5)/5,text:normalize(o.title)};});
  return {entries,byId:new Map(entries.map(e=>[e.o.id,e])),departments:departmentOptions(live,now),builtAt:now,buildMs:Math.round(performance.now()-t)};
 }
@@ -68,10 +79,10 @@ export function queryCatalog(index:CatalogIndex,p:CatalogParams,now=Date.now()){
 }
 
 // Card: sem ficha técnica nem galeria (a página do produto busca o registro completo). Score e comparação já prontos.
-export type CardOffer=Omit<Offer,'specs'|'images'>&{specs:Record<string,string>;images:string[];score:BaixouScore;compare:{count:number;lowest:number;lowestStore:string}|null};
+export type CardOffer=Omit<Offer,'specs'|'images'>&{specs:Record<string,string>;images:string[];score:BaixouScore;compare:{count:number;lowest:number;lowestStore:string}|null;disc:number;capped:boolean;group:{median:number;offers:number;label:string}|null};
 export function cardPayload(e:Entry):CardOffer{
  const {specs:_s,images:_i,...rest}=e.o as Offer&{images?:string[]};void _s;void _i;
- return {...rest,specs:{},images:[],score:e.score,compare:e.compare?{count:e.compare.length,lowest:Number(e.compare[0].price),lowestStore:e.compare[0].store}:null};
+ return {...rest,specs:{},images:[],disc:e.disc,capped:e.capped,group:e.group?{median:e.group.median,offers:e.group.offers,label:e.group.label}:null,score:e.score,compare:e.compare?{count:e.compare.length,lowest:Number(e.compare[0].price),lowestStore:e.compare[0].store}:null};
 }
 // Lista de desejos: anúncio ativo mais barato do mesmo produto (ou o próprio) para cada id salvo.
 export function currentForSaved(index:CatalogIndex,saved:Offer[],now=Date.now()){
