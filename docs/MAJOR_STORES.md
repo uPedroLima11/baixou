@@ -1,3 +1,14 @@
+# Páginas de Black Friday (Claude Code, 27/11/2026)
+
+| URL | Resultado | Decisão |
+| --- | --- | --- |
+| www.terabyteshop.com.br/blackfriday | 403 desafio Cloudflare (mesmo bloqueio do site) | Não contornar |
+| landing.terabyteshop.com.br/blackfriday | 403 S3 AccessDenied (objeto não existe) | — |
+| landing.terabyteshop.com.br/loja/landing-pages.json | 200 JSON público: 13 campanhas de jogos de brinde, sem lista de produtos/preços | Sem uso para preços |
+| www.pichau.com.br/black-friday | 403 desafio Cloudflare | Não contornar |
+| www.pichau.com.br/media/sitemap.xml | 200, só URLs de produto (sem campanha, preço ou estoque) | Já registrado |
+| amazon.com.br (campanha) | Não testado: robots bloqueia agentes Claude | — |
+
 # Amazon, Pichau/Terabyte, histórico e ChipArt — rodada Claude Code (26/11/2026, noite)
 
 Nenhuma página amazon.com.br consultada (robots bloqueia agentes Claude). Pesquisa somente pública, sem conta, chave ou demo.

@@ -1,3 +1,26 @@
+# CHECKPOINT — Black Friday: cartão × Pix, páginas de campanha (Claude Code, 27/11/2026, ~02h UTC)
+
+## Páginas de Black Friday (investigadas, sem fonte utilizável)
+- Terabyte `/blackfriday`: HTTP 403 com desafio Cloudflare ("Just a moment…"), igual às demais rotas do site. Host liberado `landing.terabyteshop.com.br` (robots "Liberado para buscadores e leitores de IA"): `/blackfriday` = 403 S3 (objeto inexistente); `/loja/landing-pages.json` (público) lista 13 campanhas de jogos de brinde, nenhuma listagem de Black Friday nem preço. Os ~6.758 produtos que o proprietário vê no navegador vêm do host bloqueado; não contornado.
+- Pichau `/black-friday`: 403 Cloudflare. Sitemap (200, 4,2 MB) só URLs de produto, sem campanha/preço.
+- Amazon: não testada (robots bloqueia agentes Claude). Nada muda nas conclusões de MAJOR_STORES.md.
+
+## Preço no cartão como modalidade (commit 6510e27 + ajustes)
+- Coleta do total no cartão e parcelas INFORMADOS pela loja (nunca porcentagem): KaBuM (`prices.price` + `installment` {n, valor, hasFee}), WAZ ("OU R$ X" + opções sem juros), Guerra (tabela "Cartões de crédito … Total"), Patoloco (tabela de parcelas sem juros, N×valor), iByte (N x de V sem juros; "De" só quando = N×V), Shopinfo (schema = cartão + parcelas do bloco), ML vitrines (sem juros = N×V; preço não exclusivo do Pix vale no cartão à vista, parcelas acima = com juros), Telegram ("Ou Parcelado R$ Y", continua anunciado). ChipArt: `preco_lista` não fecha com as parcelas (165,61 ≠ 18×8,59) → "não informado". Validação: total ≥ Pix e ≤ 1,8×; tabela incoerente → não informado. Conferido em páginas reais de 27/11 (work/pay, não versionado).
+- Migration `20261127010000_card_payment_modality.sql` **aplicada**: colunas card_* em offers; `price_history.card_price`; `price_daily.card_*` (gatilho); `card_price_stats` (habitual do cartão = mesma regra do Pix); `refresh_market_reference` calcula também `card_market_*` (cartão × cartão, mesmos vendedores independentes); view `catalog_offers` com as colunas; `alerts.payment` (padrão 'pix': o alerta existente do proprietário continua Pix) e `profiles.payment_preference`.
+- Histórico do cartão começa em 27/11/2026; nenhum dado anterior existia (price_history/price_daily/announced_daily guardavam só um preço). Nada estimado.
+- `lib/payment.ts`: `offerForPayment(o,'card')` projeta a oferta (preço = total no cartão; habitual, queda e mercado do cartão; `pix_price` guardado). Score, grupos de alternativas, comparação, filtros/ordenação do catálogo, alertas, favoritos, e-mail e WhatsApp usam a mesma lógica sobre a oferta projetada. Oferta projetada nunca vira Pix.
+- Catálogo: seletor Pix/Cartão (URL `pag=cartao`, localStorage e `profiles.payment_preference`); índice do cartão montado sob demanda só com ofertas que têm total no cartão. Cards: preço da modalidade + linha discreta da outra ("Cartão não informado" quando falta). Produto: tabela Pix × Cartão (clicável) e `/api/product?pag=cartao`; histórico `/api/history?pag=cartao` (séries card_*).
+- Alertas: forma de pagamento ao criar/editar (categoria e produto). Exemplo do proprietário testado: Pix 729,99 / cartão 858,81 não dispara alerta de cartão ≤ 850; 849,99 dispara; mesmo alerta no Pix dispara. Quedas no cartão usam só o habitual do cartão. Favoritos na modalidade preferida. Deduplicação com chave separada ':card'. tests/payment.test.ts.
+- Produção (02h UTC): primeira rodada gravou cartão em Patoloco 33, Shopinfo 32, iByte 23, WAZ 18, Guerra 3, KaBuM 1 (ciclo próprio), Pichau anunciado; razão cartão/Pix 1,05–1,22. API modo cartão: 153 ofertas, notas "Dados insuficientes" até haver habitual do cartão (≥5 verificações em ≥3 dias, ~30/11). Navegador: seletor, cards e página do produto conferidos.
+- Erro React #418 em produção (texto "há X min" do ISR diverge da hidratação) → idade relativa com suppressHydrationWarning. Conferir console após o deploy.
+
+## Pendências
+- Cobertura do cartão cresce a cada rechecagem (fila ~60 min); Score/queda no cartão só depois de dias completos.
+- WhatsApp central: código pronto e publicado, aguardando pareamento do número remetente pelo proprietário (ver checkpoint abaixo).
+- Estatísticas continuam só no Pix.
+- Ordem de `cheapestPerProduct` nas notificações ainda pelo Pix (afeta só qual loja vence entre ofertas do mesmo produto que já casaram).
+
 # CHECKPOINT — WhatsApp com remetente central (Claude Code, 27/11/2026, ~00h UTC)
 
 - Proprietário recusou o CallMeBot (chave por usuário). **CallMeBot removido** (código, UI e testes). Novo modelo em docs/WHATSAPP.md: Baileys (WhiskeySockets, 7.0.0-rc14, versão exata) em ciclos curtos na Vercel; sem servidor 24/7, sem custo.

@@ -195,3 +195,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - ChipArt: busca 429 → descoberta pelo sitemap declarado no robots (1×/24 h). Não voltar a chamar `/pesquisa`.
 - Favicon: arquivos de convenção em app/ (favicon.ico/icon.png/apple-icon.png) recortados da etiqueta do logo; não reapontar para /logo.png (wordmark).
 
+## Cartão × Pix (Claude Code, 27/11/2026)
+- Preço no cartão = total/parcelas publicados pela loja (lib/payment.ts `cardTerms`); nunca porcentagem sobre o Pix; incoerente → "não informado". ChipArt sem cartão confiável.
+- Inteligência por modalidade via `offerForPayment`: nunca comparar cartão de uma loja com Pix de outra; histórico/habitual/mercado do cartão só de colunas card_*. Histórico do cartão começa em 27/11/2026; não preencher.
+- Alertas têm `payment` (padrão pix, preserva os existentes); favoritos usam `profiles.payment_preference`; deduplicação de cartão com chave ':card'.
+- Black Friday Terabyte/Pichau: páginas de campanha atrás do mesmo Cloudflare; landing da Terabyte sem listagem. Não insistir sem fato novo.
+
