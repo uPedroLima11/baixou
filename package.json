@@ -13,6 +13,7 @@
     "collect:check": "tsx scripts/collect.ts --check",
     "notifications": "tsx scripts/notify.ts",
     "discover": "tsx scripts/discover.ts",
+    "discover:targeted": "tsx scripts/targeted.ts",
     "discover:social": "tsx scripts/discord.ts",
     "connectors": "tsx scripts/connectors.ts",
     "market:refresh": "tsx scripts/market-reference.ts",
