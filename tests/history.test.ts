@@ -10,9 +10,9 @@ test('collection gaps break the line; nothing is interpolated',()=>{
 });
 
 test('periods unlock only when history covers the previous period',()=>{
- const two=availablePeriods(now-2*DAY,now);assert.deepEqual(two.map(p=>p.enabled),[true,false,false,false,false]);
+ const two=availablePeriods(now-2*DAY,now);assert.deepEqual(two.map(p=>p.enabled),[true,true,false,false,false]);
  const forty=availablePeriods(now-40*DAY,now);assert.deepEqual(forty.map(p=>p.enabled),[true,true,true,false,false]);
- assert.deepEqual(availablePeriods(null,now).map(p=>p.enabled),[true,false,false,false,false]);
+ assert.deepEqual(availablePeriods(null,now).map(p=>p.enabled),[true,true,false,false,false]);
 });
 
 test('price N days ago uses that day (or the day before), never a later or invented value',()=>{

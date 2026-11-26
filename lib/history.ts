@@ -13,7 +13,9 @@ export const dayStart=(day:string)=>Date.parse(day+'T03:00:00Z');
 export function segments<T extends {t:number;seg?:number}>(points:T[],maxGap:number){const out:T[][]=[];let cur:T[]=[];for(const p of [...points].sort((a,b)=>a.t-b.t)){const prev=cur[cur.length-1];if(prev&&(p.t-prev.t>maxGap||p.seg!==prev.seg)){out.push(cur);cur=[];}cur.push(p);}if(cur.length)out.push(cur);return out;}
 export function median(values:number[]){const v=values.filter(Number.isFinite).sort((a,b)=>a-b);if(!v.length)return null;const m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2;}
 // Período disponível: o primeiro sempre; os demais só quando o histórico já ultrapassa o período anterior.
-export function availablePeriods(firstObserved:number|null,now=Date.now()){const span=firstObserved==null?0:(now-firstObserved)/DAY;return PERIODS.map((p,i)=>({...p,enabled:i===0||span>PERIODS[i-1].days}));}
+// 7 e 30 dias sempre disponíveis (o eixo mostra o período inteiro; dias sem dados ficam vazios). Períodos maiores só
+// quando o histórico já ultrapassa o período anterior.
+export function availablePeriods(firstObserved:number|null,now=Date.now()){const span=firstObserved==null?0:(now-firstObserved)/DAY;return PERIODS.map((p,i)=>({...p,enabled:i<=1||span>PERIODS[i-1].days}));}
 // Fechamento do dia N dias atrás (ou do dia anterior mais próximo, até 1 dia antes), a partir do resumo diário.
 export function closeDaysAgo(daily:DailyPoint[],n:number,now=Date.now(),field:'close'|'min'='close'){const target=spDay(now-n*DAY),floor=spDay(now-(n+1)*DAY);const hit=[...daily].filter(d=>d.day<=target&&d.day>=floor).sort((a,b)=>b.day.localeCompare(a.day))[0];return hit?hit[field]:null;}
 // Série diária do gráfico: um ponto por dia de São Paulo = MENOR preço observado no dia. O dia atual é parcial e

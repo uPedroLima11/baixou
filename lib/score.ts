@@ -63,7 +63,9 @@ export function baixouScore(o:ScoreInput,now=Date.now()):BaixouScore{
  const s=sm!==null?(sh!==null&&sh<=-0.05?Math.min(sh,sm):sm):sh!;
  if(sh!==null)reasons.push(Math.abs(sh)<0.03?'Em linha com o preço habitual observado ('+h!.days+' dias).':fmt(sh)+(sh>0?' abaixo':' acima')+' do preço habitual observado ('+h!.days+' dias).');
  if(sm!==null)reasons.push(Math.abs(sm)<0.03?'Em linha com '+m!.stores+' outras lojas comparadas.':fmt(sm)+(sm>0?' abaixo':' acima')+' da mediana de '+m!.stores+' outras lojas comparadas.');
- if(h?.min&&o.price<=h.min&&h.days>=3)reasons.push('Menor preço registrado nos últimos '+h.days+' dias.');
+ // "Menor preço" só quando houve variação: preço constante não é recorde.
+ if(h?.min&&h.days>=3&&o.price<h.min)reasons.push('Abaixo do menor preço diário registrado nos últimos '+h.days+' dias.');
+ else if(h?.min&&h.days>=3&&o.price<=h.min&&h.median>h.min)reasons.push('Igual ao menor preço diário registrado nos últimos '+h.days+' dias.');
  const cheaperElsewhere=m?.lowest!=null&&o.price>m.lowest;
  if(cheaperElsewhere)reasons.push('Há loja comparada com preço menor agora.');
  if(o.evidence==='retailer'&&Number(o.discount)>0)reasons.push('Desconto anunciado pela loja: '+o.discount+'% (não usado na nota).');

@@ -36,8 +36,9 @@ test('history and market together: the smaller saving wins (conservative)',()=>{
 test('announced (Telegram) and expired offers are never scored; lowest-ever reason only with real minimum',()=>{
  assert.equal(baixouScore({...base,verification_status:'announced',...hist(1000)}).klass,'insufficient');
  assert.equal(baixouScore({...base,expires_at:new Date(Date.now()-1000).toISOString(),...hist(1000)}).klass,'insufficient');
- assert.ok(baixouScore({...base,price:780,...hist(1000,12,8,800)}).reasons.some(r=>/Menor preço registrado nos últimos 8 dias/.test(r)));
- assert.ok(!baixouScore({...base,price:820,...hist(1000,12,8,800)}).reasons.some(r=>/Menor preço/.test(r)));
+ assert.ok(baixouScore({...base,price:780,...hist(1000,12,8,800)}).reasons.some(r=>/Abaixo do menor preço diário registrado nos últimos 8 dias/.test(r)));
+ assert.ok(!baixouScore({...base,price:820,...hist(1000,12,8,800)}).reasons.some(r=>/menor preço/.test(r)));
+ assert.ok(!baixouScore({...base,price:800,...hist(800,12,8,800)}).reasons.some(r=>/menor preço/.test(r)),"preço constante não é recorde");
 });
 test('score number always sits inside its class band (no 100 labelled "boa")',()=>{
  const good=baixouScore({...base,price:800,...hist(1000,6,7)});assert.equal(good.klass,'good');assert.equal(good.score,87);
