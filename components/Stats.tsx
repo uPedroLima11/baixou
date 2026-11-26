@@ -17,6 +17,11 @@ const signedMoney=(x:number)=>(x>0?'+':x<0?'−':'')+money(Math.abs(x));
 const dateBR=(day:string)=>new Date(dayStart(day)).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
 const sellerOf=(m:{store:string;seller:string})=>m.store==='mercadolivre'?m.seller.replace(/ \(loja oficial no Mercado Livre\)$/,''):storeNames[m.store]??m.store;
 const cache=new Map<string,StatsResult>();
+const pending=new Map<string,Promise<StatsResult>>();
+function readStats(q:string){
+ const hit=cache.get(q);if(hit&&Date.now()-hit.generatedAt<120000)return Promise.resolve(hit);
+ let p=pending.get(q);if(!p){p=fetch('/api/stats?'+q).then(r=>{if(!r.ok)throw Error();return r.json() as Promise<StatsResult>;}).then(j=>{if(cache.size>=24)cache.delete(cache.keys().next().value!);cache.set(q,j);return j;}).finally(()=>pending.delete(q));pending.set(q,p);}return p;
+}
 function queryOf(c:string,applied:Record<string,string>,days:number){const sp=new URLSearchParams({c});for(const [k,v] of Object.entries(applied))if(v)sp.set(k,v);if(days)sp.set('dias',String(days));return sp.toString();}
 function Change({v,abs}:{v:number;abs?:number}){const cls=v<=-0.02?'down':v>=0.02?'up':'';return <span className={'stat-change '+cls}>{v<=-0.02?<TrendingDown size={13} aria-hidden/>:v>=0.02?<TrendingUp size={13} aria-hidden/>:<Minus size={13} aria-hidden/>}{abs!=null&&Math.abs(abs)>=0.01?signedMoney(abs)+' · ':''}{pct(v)}</span>;}
 
@@ -30,8 +35,8 @@ export default function Stats({initial}:{initial:StatsResult|null}){
  const q=queryOf(cat,applied,days);
  useEffect(()=>{if(first.current&&data&&queryOf(data.category,data.applied,data.days)===q){first.current=false;return;}first.current=false;
   try{history.replaceState(history.state,'','/estatisticas?'+q);}catch{}
-  const hit=cache.get(q);if(hit){setData(hit);return;}
-  let live=true;setBusy(true);setErr(false);fetch('/api/stats?'+q).then(r=>{if(!r.ok)throw Error();return r.json();}).then((j:StatsResult)=>{cache.set(q,j);if(live)setData(j);}).catch(()=>{if(live)setErr(true);}).finally(()=>{if(live)setBusy(false);});return()=>{live=false;};},[q]);// eslint-disable-line react-hooks/exhaustive-deps
+  const hit=cache.get(q);if(hit&&Date.now()-hit.generatedAt<120000){setData(hit);setBusy(false);setErr(false);return;}
+  let live=true;setBusy(true);setErr(false);readStats(q).then(j=>{if(live)setData(j);}).catch(()=>{if(live)setErr(true);}).finally(()=>{if(live)setBusy(false);});return()=>{live=false;};},[q]);// eslint-disable-line react-hooks/exhaustive-deps
  const view=data&&data.category===cat?data:null;
  const setFilter=(k:string,v:string)=>setApplied(a=>{const n={...a};if(v)n[k]=v;else delete n[k];return n;});
  const chooseCat=(c:'ram'|'gpu')=>{if(c===cat)return;setCat(c);setApplied({});};
@@ -40,7 +45,7 @@ export default function Stats({initial}:{initial:StatsResult|null}){
   <main className="wrap stats-main">
    <div className="stats-top">
     <h1>Estatísticas de preços</h1>
-    <div className="segmented" role="tablist" aria-label="Categoria"><button role="tab" aria-selected={cat==='ram'} className={cat==='ram'?'active':''} onClick={()=>chooseCat('ram')}>Memória RAM</button><button role="tab" aria-selected={cat==='gpu'} className={cat==='gpu'?'active':''} onClick={()=>chooseCat('gpu')}>Placas de vídeo</button></div>
+    <div className="segmented" role="tablist" aria-label="Categoria">{(['ram','gpu'] as const).map(c=><button key={c} role="tab" aria-selected={cat===c} className={cat===c?'active':''} onPointerEnter={()=>{if(cat!==c)void readStats(queryOf(c,{},days)).catch(()=>{});}} onFocus={()=>{if(cat!==c)void readStats(queryOf(c,{},days)).catch(()=>{});}} onClick={()=>chooseCat(c)}>{c==='ram'?'Memória RAM':'Placas de vídeo'}</button>)}</div>
     {view&&view.windows.length>0&&<div className="segmented" role="group" aria-label="Período">{view.windows.map(d=><button key={d} aria-pressed={view.days===d} className={view.days===d?'active':''} onClick={()=>setDays(d)}>{d===view.historyDays&&d<7?'Desde '+dateBR(view.firstDay!):d<=90?d+' dias':d===180?'6 meses':'1 ano'}</button>)}</div>}
     {busy&&<span className="stats-busy" role="status"><RefreshCw size={14} className="spin"/>Atualizando</span>}
    </div>
@@ -63,8 +68,8 @@ function StatsPanel({data,applied}:{data:StatsResult;applied:Record<string,strin
   <div className="stats-panel">
    <section className="stats-card table-card">
     <div className="stats-table-wrap"><table className="stats-table compact">
-     <thead><tr><th scope="col"><span className="sr-only">No gráfico</span></th><th scope="col">{c==='ram'?'Configuração':'GPU · VRAM'}</th><th scope="col">Menor agora</th><th scope="col">Típico</th><th scope="col">Maior</th><th scope="col">{data.days?'Variação':'Variação'}</th><th scope="col">Ofertas</th></tr></thead>
-     <tbody>{groups.length?groups.map((g,i)=>{const on=sel.includes(g.key),showTier=c==='ram'&&tiers.length>1&&(i===0||groups[i-1].tier!==g.tier);return <GroupRow key={g.key} g={g} c={c} on={on} color={colorOf(g.key)} showTier={showTier} toggle={()=>toggle(g.key)}/>;}):<tr><td colSpan={7} className="muted">Nenhuma configuração com ofertas ativas para estes filtros.</td></tr>}</tbody>
+     <thead><tr><th scope="col"><span className="sr-only">No gráfico</span></th><th scope="col">{c==='ram'?'Configuração':'GPU · VRAM'}</th><th scope="col">Menor agora</th><th scope="col">Típico</th><th scope="col">Variação</th><th scope="col">Ofertas</th></tr></thead>
+     <tbody>{groups.length?groups.map((g,i)=>{const on=sel.includes(g.key),showTier=c==='ram'&&tiers.length>1&&(i===0||groups[i-1].tier!==g.tier);return <GroupRow key={g.key} g={g} on={on} color={colorOf(g.key)} showTier={showTier} toggle={()=>toggle(g.key)}/>;}):<tr><td colSpan={6} className="muted">Nenhuma configuração com ofertas ativas para estes filtros.</td></tr>}</tbody>
     </table></div>
     <p className="muted small">Preço do {c==='ram'?'módulo ou kit inteiro':'produto'}; típico = mediana das ofertas ativas; variação = mediana do mesmo anúncio no início e no fim do período{data.days?' ('+data.days+' dias)':''}. Clique numa linha para incluí-la no gráfico.</p>
    </section>
@@ -73,19 +78,19 @@ function StatsPanel({data,applied}:{data:StatsResult;applied:Record<string,strin
   {(data.moves.down.length>0||data.moves.up.length>0)&&<section className="stats-card movers"><div><h2><TrendingDown size={15}/>Maiores quedas{data.days?' · '+data.days+' dias':''}</h2><MoveList list={data.moves.down} empty="Nenhuma queda de 2% ou mais."/></div><div><h2><TrendingUp size={15}/>Maiores altas</h2><MoveList list={data.moves.up} empty="Nenhuma alta de 2% ou mais."/></div></section>}
   <details className="stats-method"><summary><Info size={14}/>Metodologia e amostra</summary><ul>
    <li>Amostra: {data.sample.grouped} de {data.sample.live} ofertas ativas com preço verificado à vista/Pix, em {data.sample.stores} lojas; {data.sample.paired} anúncios com início e fim do período. Histórico desde {data.firstDay?dateBR(data.firstDay):'—'} ({data.historyDays} dias).</li>
-   <li>{c==='ram'?'Cada configuração é comparada só com ela mesma: geração, uso (desktop, notebook, servidor ECC/registrada), módulo × kit com a mesma divisão e capacidade total. Atributo desconhecido exclui o anúncio.':'Cada linha é um modelo de GPU com a mesma VRAM; fabricantes de placa diferentes entram como alternativas.'}</li>
+   <li>{c==='ram'?'Este painel inclui DDR4 e DDR5 desktop de 8 GB ou mais, separando módulos e kits com a mesma divisão e capacidade total. Notebook, servidor, DDR3 e capacidades menores continuam no catálogo. Uso desconhecido fica fora deste painel.':'Este painel inclui NVIDIA RTX e Radeon RX a partir da série RX 5000, sempre com a mesma VRAM por linha; modelos antigos continuam no catálogo.'}</li>
    <li>Preço riscado ("de") e preços apenas divulgados pelas lojas nunca entram. Gráfico: um ponto por dia (menor preço do dia), dias sem coleta ficam vazios, hoje é parcial; "preço típico" acompanha os mesmos anúncios de um dia para o outro, então produtos novos não distorcem a evolução.</li>
    <li>Cobertura parcial das lojas monitoradas; não há previsão de preço.</li></ul></details>
  </>;
 }
-function GroupRow({g,c,on,color,showTier,toggle}:{g:StatGroup;c:string;on:boolean;color:number;showTier:boolean;toggle:()=>void}){
- return <>{showTier&&<tr className="tier-row"><th colSpan={7}>{g.tier}</th></tr>}<tr className={on?'on':''} onClick={toggle}>
+function GroupRow({g,on,color,showTier,toggle}:{g:StatGroup;on:boolean;color:number;showTier:boolean;toggle:()=>void}){
+ return <>{showTier&&<tr className="tier-row"><th colSpan={6}>{g.tier.replace(' desktop','')}</th></tr>}<tr className={on?'on':''} onClick={toggle}>
   <td><button type="button" className="pick" aria-pressed={on} aria-label={(on?'Remover do gráfico: ':'Mostrar no gráfico: ')+g.label} onClick={e=>{e.stopPropagation();toggle();}}><i style={on?{background:`var(--s${color+1})`}:undefined}/></button></td>
-  <th scope="row">{c==='ram'?g.label.replace(/^DDR\d · /,''):g.label}</th>
-  <td onClick={e=>e.stopPropagation()}><a href={'/produto/'+encodeURIComponent(g.low.id)} title={g.low.title} className="low-link"><StoreIcon store={g.low.store} size={14}/><b>{money(g.low.price)}</b></a><small>{sellerOf(g.low)}</small></td>
-  <td>{money(g.median)}</td><td>{money(g.high)}</td>
-  <td>{g.change?<><Change v={g.change.pct} abs={g.change.abs}/><small>{g.change.paired} anúncios</small></>:<span className="muted">—</span>}</td>
-  <td>{g.offers}<small>{g.sellers} {g.sellers===1?'loja':'lojas'}</small></td></tr></>;
+  <th scope="row">{g.label}</th>
+  <td onClick={e=>e.stopPropagation()}><a href={'/produto/'+encodeURIComponent(g.low.id)} title={sellerOf(g.low)+' · '+g.low.title} className="low-link"><StoreIcon store={g.low.store} size={14}/><b>{money(g.low.price)}</b></a></td>
+  <td>{money(g.median)}</td>
+  <td title={g.change?g.change.paired+' anúncios pareados':undefined}>{g.change?<Change v={g.change.pct} abs={g.change.abs}/>:<span className="muted">—</span>}</td>
+  <td title={g.sellers+' lojas'}>{g.offers}<small>{g.sellers} {g.sellers===1?'loja':'lojas'}</small></td></tr></>;
 }
 function MoveList({list,empty}:{list:StatsResult['moves']['down'];empty:string}){return list.length?<ol className="move-list">{list.map(m=><li key={m.id}><a href={'/produto/'+encodeURIComponent(m.id)}>{m.title}</a><span><StoreIcon store={m.store} size={12}/>{sellerOf(m)} · {money(m.base)} → <strong>{money(m.last)}</strong> <Change v={m.change}/></span></li>)}</ol>:<p className="muted small">{empty}</p>;}
 

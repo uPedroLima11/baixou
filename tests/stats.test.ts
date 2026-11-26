@@ -1,7 +1,15 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {ramGroup,gpuGroup,snapshot,panel,groupPanel,chainIndex,type StatOffer} from '../lib/stats';
+import {statsGroup} from '../lib/stats';
 const live=new Date(Date.now()+3600000).toISOString();
 const o=(id:string,title:string,price:number,extra:Partial<StatOffer>={}):StatOffer=>({id,title,price,store:'kabum',category:'ram',brand:'Kingston',specs:{},variant:{},url:'https://x/'+id,seller:'KaBuM!',seller_key:null,payment_basis:'cash',available:true,expires_at:live,image:null,...extra} as StatOffer);
+test('statistics scope excludes old/notebook/server/small RAM and legacy GPUs without changing catalog groups',()=>{
+ for(const title of ['Memória desktop 8GB DDR3','Memória desktop 4GB DDR4','Memória Notebook 16GB DDR5 SODIMM','Memória desktop 16GB DDR4 ECC Server','Memória 16GB DDR4'])assert.equal(statsGroup(o('x',title,100),'ram'),null,title);
+ for(const title of ['Memória desktop 8GB DDR4','Memória desktop 16GB DDR5','Kit Memória desktop 32GB (2x16GB) DDR5','Memória desktop 64GB DDR5'])assert.ok(statsGroup(o('x',title,100),'ram'),title);
+ assert.ok(ramGroup(o('x','Memória desktop 4GB DDR3',100)),'catalog grouping remains intact');
+ for(const title of ['Placa de Vídeo GTX 750 2GB','Placa de Vídeo GTX 1050 4GB','Placa de Vídeo GTX 1060 6GB','Placa de Vídeo RX 580 8GB'])assert.equal(statsGroup(o('g',title,100,{category:'gpu'}),'gpu'),null,title);
+ for(const title of ['Placa de Vídeo RTX 2060 6GB','Placa de Vídeo RTX 5060 Ti 16GB','Placa de Vídeo RX 6600 8GB','Placa de Vídeo RX 9070 XT 16GB'])assert.ok(statsGroup(o('g',title,100,{category:'gpu'}),'gpu'),title);
+});
 test('RAM groups never mix module with kit, kit splits, DDR generations, notebook or server memory',()=>{
  const k=(t:string)=>ramGroup(o('a',t,1))?.key??null;
  assert.equal(k('Memória Kingston Fury Beast 16GB DDR5 5600MHz'),'ddr5|desktop|módulo|16');

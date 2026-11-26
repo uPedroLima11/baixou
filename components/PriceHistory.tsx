@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {money,type Offer} from '@/lib/types';
 import {storeNames} from '@/lib/stores';
+import {nearestChartPoint} from '@/lib/chart-focus';
 import {availablePeriods,closeDaysAgo,dailyLowest,dailySeries,dayStart,describeTrend,median,segments,spDay,DAY,type DailyPoint,type RawPoint} from '@/lib/history';
 // Ponto do gráfico: valor observado, rótulo de loja opcional, linhas extras para o tooltip e dia parcial (hoje).
 export type ChartPoint=RawPoint&{label?:string;detail?:string[];partial?:boolean;hi?:number;seg?:number};
@@ -74,7 +75,7 @@ export default function PriceHistory({offer:o,comparison}:{offer:Offer;compariso
 }
 
 export function Chart({series,showExtremes,daily,axis=short,value=money,domain}:{series:Series[];showExtremes:boolean;daily:boolean;axis?:(v:number)=>string;value?:(v:number)=>string;domain?:[number,number]}){
- const box=useRef<HTMLDivElement>(null),[width,setWidth]=useState(640),[hover,setHover]=useState<number|null>(null);
+ const box=useRef<HTMLDivElement>(null),[width,setWidth]=useState(640),[hover,setHover]=useState<{x:number;y:number}|null>(null);
  useEffect(()=>{const el=box.current;if(!el)return;const ro=new ResizeObserver(([e])=>setWidth(Math.max(280,Math.round(e.contentRect.width))));ro.observe(el);return ()=>ro.disconnect();},[]);
  const narrow=width<520,H=narrow?220:260,pad={l:narrow?54:64,r:narrow?12:18,t:24,b:30};
  const all=series.flatMap(s=>s.points),tMin=Math.min(...all.map(p=>p.t)),tMax=Math.max(...all.map(p=>p.t));
@@ -89,13 +90,13 @@ export function Chart({series,showExtremes,daily,axis=short,value=money,domain}:
  const maxTicks=narrow?4:7,daysAll=[...new Set(all.map(p=>p.t))].sort((a,b)=>a-b);
  const xTicks=daily&&domain?Array.from({length:maxTicks},(_,i)=>{const a=t0+DAY/2,n=Math.round((t1-DAY/2-a)/DAY);return a+Math.round(n*i/(maxTicks-1))*DAY;}):daily?(daysAll.length<=maxTicks?daysAll:Array.from({length:maxTicks},(_,i)=>{const n=Math.round((tMax-tMin)/DAY);return tMin+Math.round(n*i/(maxTicks-1))*DAY;})):Array.from({length:narrow?3:5},(_,i)=>tMin+(t1-tMin)*i/((narrow?3:5)-1));
  const primary=series[0].points,low=primary.reduce((a,b)=>b.p<a.p?b:a,primary[0]),highPoint=primary.reduce((a,b)=>(b.hi??b.p)>(a.hi??a.p)?b:a,primary[0]),high={t:highPoint.t,p:highPoint.hi??highPoint.p},last=primary[primary.length-1];
- const hoverT=hover==null?null:t0+(hover-pad.l)/(width-pad.l-pad.r)*span;
- const near=hoverT==null?[]:series.map(s=>{if(!s.points.length)return null;const p=s.points.reduce((a,b)=>Math.abs(b.t-hoverT)<Math.abs(a.t-hoverT)?b:a,s.points[0]);return Math.abs(p.t-hoverT)<=(daily?DAY/2:s.maxGap/2)||series.length===1?{s,p}:null;}).filter(Boolean) as {s:Series;p:ChartPoint}[];
+ const selected=hover?nearestChartPoint<Series,ChartPoint>(series,hover,x,y,daily?Math.abs(x(t0+DAY/2)-x(t0)):40):null;
+ const near=selected?[selected]:[];
  const focus=near[0]?.p;
  const color=(s:Series)=>`var(--s${s.color+1})`;
  return <div className="price-chart" ref={box}>
   <svg width={width} height={H} role="img" aria-label={'Série: de '+value(primary[0].p)+' a '+value(last.p)+', mínimo '+value(low.p)+', máximo '+value(high.p)}
-   onPointerMove={e=>{const r=(e.currentTarget as SVGSVGElement).getBoundingClientRect();const px=e.clientX-r.left;setHover(px>=pad.l&&px<=width-pad.r?px:null);}} onPointerLeave={()=>setHover(null)}>
+   onPointerMove={e=>{const r=e.currentTarget.getBoundingClientRect(),px=(e.clientX-r.left)*width/r.width,py=(e.clientY-r.top)*H/r.height;setHover(px>=pad.l&&px<=width-pad.r&&py>=pad.t&&py<=H-pad.b?{x:px,y:py}:null);}} onPointerLeave={()=>setHover(null)}>
    {ticks.map(v=><g key={v}><line x1={pad.l} x2={width-pad.r} y1={y(v)} y2={y(v)} className="grid"/><text x={pad.l-8} y={y(v)+4} textAnchor="end" className="axis">{axis(v)}</text></g>)}
    {xTicks.map((t,i)=><text key={i} x={x(t)} y={H-8} textAnchor={!daily&&i===0?'start':!daily&&i===xTicks.length-1?'end':'middle'} className="axis">{daily?dateBR(t):timeBR(t)}</text>)}
    {series.map(s=>segments(s.points,s.maxGap).map((seg,i)=>{const solid=seg.filter(p=>!p.partial),partial=seg.find(p=>p.partial);return <g key={s.id+i}>
@@ -108,14 +109,14 @@ export function Chart({series,showExtremes,daily,axis=short,value=money,domain}:
     <circle cx={x(high.t)} cy={y(high.p)} r={5.5} className="mark high"/><text x={Math.min(width-pad.r-24,Math.max(pad.l+24,x(high.t)))} y={Math.max(pad.t-8,y(high.p)-10)} textAnchor="middle" className="mark-label">máx {axis(high.p)}</text></>}
    {hover!=null&&focus&&<><line x1={x(focus.t)} x2={x(focus.t)} y1={pad.t} y2={H-pad.b} className="crosshair"/>{near.map(({s,p})=><circle key={s.id} cx={x(p.t)} cy={y(p.p)} r={5} className="mark" style={{fill:color(s)}}/>)}</>}
   </svg>
-  {hover!=null&&focus&&<div className="chart-tip" style={{left:Math.min(width-200,Math.max(0,x(focus.t)-100))}}><strong>{daily?dateBR(focus.t,true):timeBR(focus.t)}{focus.partial&&<em> · parcial</em>}</strong>{near.map(({s,p})=><div key={s.id} className="tip-row"><span><i style={{background:color(s)}}/>{p.label??s.label}<b>{value(p.p)}</b></span>{p.detail?.map(d=><small key={d}>{d}</small>)}</div>)}{daily&&series.length===1&&<small className="tip-note">Ponto = menor preço observado no dia{primary.some(p=>p.hi!=null&&p.hi>p.p)?'; traço vertical = variação do dia':''}</small>}</div>}
+  {hover!=null&&focus&&<div className="chart-tip" style={{left:Math.min(width-240,Math.max(0,x(focus.t)-115))}}><strong>{daily?dateBR(focus.t,true):timeBR(focus.t)}{focus.partial&&<em> · parcial</em>}</strong>{near.map(({s,p})=><div key={s.id} className="tip-row"><span><i style={{background:color(s)}}/>{p.label??s.label}<b>{value(p.p)}</b></span>{p.detail?.map(d=><small key={d}>{d}</small>)}</div>)}{daily&&series.length===1&&<small className="tip-note">Ponto = menor preço observado no dia{primary.some(p=>p.hi!=null&&p.hi>p.p)?'; traço vertical = variação do dia':''}</small>}</div>}
  </div>;
 }
 
 // "Histórico de preços anunciados": um ponto por dia = menor preço que a própria loja publicou no dia (Telegram).
 // Separado das verificações; não entra em estatísticas, referência de mercado nem alertas.
 function AnnouncedHistory({rows}:{rows:Announced[]}){
- const today=spDay(Date.now()),recent=rows.filter(r=>r.day>=spDay(Date.now()-89*DAY));
+ const today=spDay(Date.now()),recent=rows.filter(r=>r.day>=spDay(Date.now()-119*DAY));
  const points:ChartPoint[]=recent.map(r=>({t:dayStart(r.day)+12*3600000,p:r.min,partial:r.day===today,detail:['Publicado às '+new Date(r.postedAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'})+' (t.me/'+r.post+')',...(r.last!==r.min?['Último anunciado no dia: '+money(r.last)]:[]),r.posts+(r.posts===1?' publicação':' publicações')+(r.day===today?' · dia em andamento':'')]}));
  return <div className="history-panel">
   <h3 className="announced-title">Histórico de preços anunciados</h3>

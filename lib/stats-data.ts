@@ -6,7 +6,7 @@
 import {publicDb} from './supabase';
 import {catalogIndex} from './catalog-server';
 import {offerFacets,facetLabel} from './specs';
-import {ramGroup,gpuGroup,cashComparable,isLive,panel,type ChangeRow,type StatOffer} from './stats';
+import {statsGroup,cashComparable,isLive,panel,type ChangeRow,type StatOffer} from './stats';
 import {independentSeller} from './search';
 import {median,spDay,DAY} from './history';
 import type {Offer} from './types';
@@ -15,12 +15,12 @@ export type StatsCategory='ram'|'gpu';
 export type StatsFilters=Record<string,string>;
 // Filtros aceitos por categoria (chave = faceta de lib/specs.ts, exceto form/kind/chip derivados do grupo).
 export const STATS_FILTERS:Record<StatsCategory,{key:string;label:string}[]>={
- ram:[{key:'ddr',label:'Geração'},{key:'form',label:'Uso'},{key:'kind',label:'Formato'},{key:'total_gb',label:'Capacidade'},{key:'frequency',label:'Frequência'},{key:'brand',label:'Marca'}],
+ ram:[{key:'ddr',label:'Geração'},{key:'kind',label:'Módulo/kit'},{key:'total_gb',label:'Capacidade'},{key:'frequency',label:'Frequência'},{key:'brand',label:'Marca'}],
  gpu:[{key:'chip_vendor',label:'Chip'},{key:'gpu_model',label:'GPU'},{key:'vram_gb',label:'VRAM'},{key:'brand',label:'Fabricante da placa'}],
 };
 type Facts={group:{key:string;label:string;order:number[];tier?:string;gb?:number};values:Record<string,string>};
 export function statFacts(o:StatOffer,c:StatsCategory):Facts|null{
- const g=c==='ram'?ramGroup(o):gpuGroup(o);if(!g)return null;const f=offerFacets(o),v:Record<string,string>={};
+ const g=statsGroup(o,c);if(!g)return null;const f=offerFacets(o),v:Record<string,string>={};
  if(c==='ram'){v.ddr=String(f.ddr);v.form=g.tier!.split(' ')[1];v.kind=Number(f.modules)>1?'kit':'módulo';v.total_gb=String(f.total_gb);if(f.frequency)v.frequency=String(f.frequency);}
  else{if(f.chip_vendor)v.chip_vendor=String(f.chip_vendor);v.gpu_model=String(f.gpu_model);v.vram_gb=String(f.vram_gb);}
  if(f.brand)v.brand=String(f.brand);
@@ -38,7 +38,7 @@ export type Move={id:string;title:string;store:string;seller:string;base:number;
 
 export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted:number):Promise<StatsResult>{
  const db=publicDb();if(!db)throw Error('Supabase não configurado');
- const now=Date.now(),index=await catalogIndex();
+ const now=Date.now(),[index,first]=await Promise.all([catalogIndex(),db.from('price_daily').select('day').order('day').limit(1)]);
  const live=index.entries.map(e=>e.o).filter(o=>o.category===c&&isLive(o,now)&&cashComparable(o)) as (Offer&StatOffer)[];
  const facts=new Map<string,Facts>();for(const o of live){const x=statFacts(o,c);if(x)facts.set(o.id,x);}
  // Opções de cada filtro respeitam os OUTROS filtros (contagens reais; valor desconhecido nunca vira opção).
@@ -48,7 +48,7 @@ export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted
  const chosen=live.filter(o=>{const x=facts.get(o.id);return x&&passes(x,applied);});
  const byGroup=new Map<string,{g:Facts['group'];list:(Offer&StatOffer)[]}>();for(const o of chosen){const g=facts.get(o.id)!.group;const e=byGroup.get(g.key)??{g,list:[]};e.list.push(o);byGroup.set(g.key,e);}
  // Histórico disponível e janelas com dia-base real.
- const first=await db.from('price_daily').select('day').order('day').limit(1);if(first.error)throw first.error;
+ if(first.error)throw first.error;
  const firstDay:string|null=first.data[0]?.day??null,today=spDay(now),historyDays=firstDay?Math.round((Date.parse(today)-Date.parse(firstDay))/DAY):0;
  const windows=[...(historyDays>=1&&historyDays<7?[historyDays]:[]),...[7,30,90,180,365].filter(d=>d<=historyDays)];
  const days=windows.includes(daysWanted)?daysWanted:windows[0]??0;

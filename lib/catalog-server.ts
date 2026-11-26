@@ -8,25 +8,36 @@ import {publicDb} from './supabase';
 import {buildIndex,type CatalogIndex} from './catalog-query';
 import type {Offer,SourceStatus,StoreCoverage} from './types';
 import type {StoreRecord} from './stores';
+import {unstable_cache} from 'next/cache';
+import {encodeSnapshot,decodeSnapshot,type CatalogSnapshot} from './catalog-snapshot';
 
 export const LIST_FIELDS='id,store,url,title,category,brand,mpn,image,price,original_price,available,seller,sold,rating,review_count,specs,checked_at,expires_at,historical_median,historical_samples,historical_days,discount,evidence,discoveries,coupon_hint,coupon_validated,payment_note,product_id,gtin,variant,last_attempt_at,verification_status,market_median,market_lowest,market_stores,market_highest,market_expires_at,market_checked_at,seller_key,payment_basis,historical_max,reference_median,reference_samples,reference_days,reference_min,reference_max';
 // Egress (cota gratuita 5 GB/mês): carga completa ~5,8 MB sem compressão; delta traz só as linhas alteradas desde a
 // leitura anterior (margem de 45 s para relógio/réplica). Atualização sob demanda: sem visitas, nada é lido.
 const FULL_MS=60*60000,DELTA_MS=120000,META_MS=120000,PAGE=1000,MARGIN_MS=45000;
 type Meta={sources:SourceStatus[];stores:StoreRecord[];coverage:{generated_at:string;stores:StoreCoverage[]}|null};
-type State={offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number}};
+type State={offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
 let state:State|null=null,inflight:Promise<State>|null=null,metaInflight:Promise<Meta|null>|null=null;
 
-async function fullLoad():Promise<State>{
+async function fetchSnapshot():Promise<CatalogSnapshot>{
  const db=publicDb();if(!db)throw Error('Supabase não configurado');
- const t=performance.now(),started=new Date(Date.now()-MARGIN_MS).toISOString(),now=new Date().toISOString();
+ const started=new Date(Date.now()-MARGIN_MS).toISOString(),now=new Date().toISOString();
  const first=await db.from('catalog_offers').select(LIST_FIELDS,{count:'exact'}).eq('available',true).gt('expires_at',now).order('id').range(0,PAGE-1);
  if(first.error)throw first.error;
  const total=first.count??first.data.length,pages=Math.ceil(total/PAGE);
  const rest=await Promise.all(Array.from({length:Math.max(0,pages-1)},(_,i)=>db.from('catalog_offers').select(LIST_FIELDS).eq('available',true).gt('expires_at',now).order('id').range((i+1)*PAGE,(i+2)*PAGE-1)));
  const offers=new Map<string,Offer>();for(const r of [first,...rest]){if(r.error)throw r.error;for(const o of r.data as unknown as Offer[])offers.set(o.id,o);}
- const at=Date.now();
- return {offers,fullAt:at,deltaAt:at,since:started,index:buildIndex([...offers.values()],at),meta:state?.meta??null,metaAt:state?.metaAt??0,stats:{fullMs:Math.round(performance.now()-t)}};
+ return {offers:[...offers.values()],at:Date.now(),since:started};
+}
+const sharedSnapshot=unstable_cache(async()=>{const encoded=encodeSnapshot(await fetchSnapshot());return encoded.length<=1800000?encoded:'';},['baixou-public-catalog-brotli-v1',LIST_FIELDS,process.env.NEXT_PUBLIC_SUPABASE_URL??'unconfigured'],{revalidate:120});
+async function fullLoad():Promise<State>{
+ const t=performance.now();let snapshot:CatalogSnapshot,bytes=0;
+ try{const encoded=await sharedSnapshot();bytes=encoded.length;snapshot=encoded?decodeSnapshot(encoded):await fetchSnapshot();
+  // A revalidação do Data Cache pode devolver uma versão antiga: não iniciar uma instância com snapshot >2 min.
+  if(Date.now()-snapshot.at>DELTA_MS)snapshot=await fetchSnapshot();
+ }catch{snapshot=await fetchSnapshot();}
+ const at=Date.now(),offers=new Map(snapshot.offers.map(o=>[o.id,o]));
+ return {offers,fullAt:at,deltaAt:snapshot.at,since:snapshot.since,index:buildIndex(snapshot.offers,at),meta:state?.meta??null,metaAt:state?.metaAt??0,stats:{fullMs:Math.round(performance.now()-t),snapshotBytes:bytes,snapshotAgeS:Math.round((at-snapshot.at)/1000)}};
 }
 async function deltaLoad(s:State):Promise<State>{
  const db=publicDb();if(!db)throw Error('Supabase não configurado');
