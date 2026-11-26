@@ -23,7 +23,7 @@ export const FACETS:Record<string,FacetDef[]>={
  other:[brand],
 };
 const num=(s:string)=>Number(s.replace(',','.'));
-function capacityGB(m:RegExpMatchArray|null){return m?num(m[1])*(m[2]==='tb'?1000:1):undefined;}
+function capacityGB(m:RegExpMatchArray|null){return m?num(m[1])*(m[2].toLowerCase()==='tb'?1000:1):undefined;}
 export function offerFacets(o:Pick<Offer,'title'|'category'|'specs'|'brand'>&{variant?:Record<string,SpecValue>|null}):Record<string,SpecValue>{
  const raw=joinThousands(o.title),t=' '+normalize(raw)+' ',r:Record<string,SpecValue>={};
  const set=(k:string,v:SpecValue|undefined|null)=>{if(v!==undefined&&v!==null&&v!==''&&!(typeof v==='number'&&!Number.isFinite(v)))r[k]=v;};
@@ -70,7 +70,7 @@ export function offerFacets(o:Pick<Offer,'title'|'category'|'specs'|'brand'>&{va
   set('storage_gb',capacityGB(t.match(/\b(\d+(?:\s\d)?)\s*(gb|tb)\s*(?:de\s*)?(?:ssd|nvme|hd|m 2)\b/)??t.match(/\b(?:ssd|nvme)\s*(?:de\s*)?(\d+)\s*(gb|tb)\b/)));
   if(/\b(gamer|gaming)\b/.test(t))set('use','gamer');
  }
- if(c==='ssd'){set('kind',/^\s*(hd|hdd|disco)\b/.test(t)||/\b(hdd|hard drive|7200\s*rpm|5400\s*rpm|barracuda)\b/.test(t)?'HD':'SSD');set('capacity_gb',capacityGB(t.match(/\b(\d+(?:\s\d)?)\s*(gb|tb)\b/)));cap('interface',/\b(nvme|sata)\b/);if(r.interface)r.interface=String(r.interface).toUpperCase();set('form',/\bm\s*2\b/.test(t)?'M.2':/\b2\s*5\b/.test(t)?'2,5"':undefined);}
+ if(c==='ssd'){set('kind',/^\s*(hd|hdd|disco)\b/.test(t)||/\b(hdd|hard drive|7200\s*rpm|5400\s*rpm|barracuda)\b/.test(t)?'HD':'SSD');set('capacity_gb',capacityGB(raw.match(/\b(\d+(?:[.,]\d+)?)\s*(gb|tb)\b/i)));cap('interface',/\b(nvme|sata)\b/);if(r.interface)r.interface=String(r.interface).toUpperCase();set('form',/\bm\s*2\b/.test(t)?'M.2':/\b2\s*5\b/.test(t)?'2,5"':undefined);}
  if(c==='chair')set('chair_type',/\bgamer\b/.test(t)?'gamer':/\b(escritorio|office|presidente|diretor|ergonomica)\b/.test(t)?'escritório':undefined);
  if(c==='peripherals'){const sub:[RegExp,string][]=[[/\b(headset|fones?)\b/,'Headset/fone'],[/\b(water\s*cooler|watercooler)\b/,'Water cooler'],[/\bcooler\b/,'Cooler'],[/\b(ventoinha|fan)\b/,'Ventoinha'],[/\bfonte\b/,'Fonte'],[/\bgabinete\b/,'Gabinete'],[/\b(webcam|camera web)\b/,'Webcam'],[/\bmicrofone\b/,'Microfone'],[/\b(mousepad|mouse pad)\b/,'Mousepad'],[/\b(controle|joystick|volante)\b/,'Controle'],[/\b(caixa de som|soundbar)\b/,'Caixa de som'],[/\b(teclado e mouse|kit|combo)\b/,'Kit teclado/mouse']];for(const [re,v] of sub)if(re.test(t)){set('subtype',v);break;}}
  if(['peripherals','mouse','keyboard'].includes(c))set('connectivity',/\b(sem fio|wireless|2 4 ?ghz|bluetooth)\b/.test(t)?'sem fio':/\b(com fio|cabo usb|usb)\b/.test(t)?'com fio':undefined);

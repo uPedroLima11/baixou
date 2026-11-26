@@ -50,6 +50,9 @@ test('RAM frequency in MT/s is the same as MHz (Kingston Fury Beast KF432C16BB/1
  assert.equal(f.frequency,3200);assert.equal(f.ddr,'4');assert.equal(f.total_gb,16);assert.equal(f.form_factor,'desktop');
 });
 import {ramFormFromCode} from '../lib/identity';
+test('SSD capacity is read before punctuation normalization: PCIe 4.0 1TB never becomes an invalid 0 1 capacity',()=>{
+ for(const [title,gb] of [['SSD NVMe PCIe 4.0 1TB TLC',1000],['SSD 1,5 TB SATA',1500],['SSD 2.000GB NVMe PCIe 4.0',2000]] as const)assert.equal(facetsMT({title,category:'ssd',brand:null,specs:{}}).capacity_gb,gb,title);
+});
 test('RAM form factor decoded only from published manufacturer code schemes',()=>{
  assert.equal(ramFormFromCode('AD4U3200716G22-BHYC'),'dimm');assert.equal(ramFormFromCode('AD4S320016G22-SGN'),'sodimm');
  assert.equal(ramFormFromCode('KF432C16BB/16'),'dimm');assert.equal(ramFormFromCode('KF432S20IB/16'),'sodimm');
