@@ -92,7 +92,7 @@ export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:strin
    // vencido e fica fora do catálogo); todos alimentam o histórico de preços anunciados.
    // A importação de publicações antigas (scripts/telegram-backfill.ts) amplia janela e páginas por variáveis.
    const lookback=Math.min(24*120,Number(ctx.env.TELEGRAM_LOOKBACK_HOURS)||ANNOUNCED_LOOKBACK_HOURS),maxPages=Math.min(1000,Number(ctx.env.TELEGRAM_MAX_PAGES)||12);
-   const since=Date.now()-lookback*3600000,seen=new Set<string>(),reasons:Record<string,number>={};let before:number|undefined,emitted=0,last=0,pages=0,scanned=0,shortAt=0,windowComplete=false;
+   const since=Date.now()-lookback*3600000,seen=new Set<string>(),reasons:Record<string,number>={};let before:number|undefined,emitted=0,last=0,pages=0,scanned=0,shortAt=0,windowComplete=false,interrupted=false;
    for(let page=0;page<maxPages&&Date.now()<ctx.deadline;page++){
     const wait=last+1500-Date.now();if(wait>0)await sleep(wait);last=Date.now();
     if(Date.now()>=ctx.deadline)break;
@@ -100,7 +100,7 @@ export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:strin
     if(!r.ok)throw new Error('Telegram HTTP '+r.status);
     const posts=parseChannelPage(await r.text(),cfg.channel);pages++;scanned+=posts.length;if(!posts.length){windowComplete=true;break;}
     for(const p of posts){if(Date.parse(p.date)<since)continue;
-     if(Date.now()>=ctx.deadline)break;
+     if(Date.now()>=ctx.deadline){interrupted=true;break;}
      // Sem preço não é anúncio elegível; links de lives/matérias não precisam de requisição ao encurtador.
      if(!postPrice(p.text)){reasons['preço ausente ou ambíguo']=(reasons['preço ausente ou ambíguo']??0)+1;continue;}
      const direct=p.links.some(l=>{try{return new URL(l).hostname===cfg.productHost;}catch{return false;}});
@@ -109,7 +109,7 @@ export function telegramChannelConnector(cfg:ChannelConfig&{id:string;name:strin
      // Posts mais novos primeiro: o anúncio mais recente de cada produto vence; os anteriores só entram no histórico.
      d.listing.announcement!.latest=!seen.has(d.listing.externalId);seen.add(d.listing.externalId);
      yield d.listing;if(++emitted>=ctx.maxListings)return;}
-    const oldest=posts[posts.length-1];if(Date.parse(oldest.date)<since){windowComplete=true;break;}if(before!==undefined&&oldest.id>=before)break;before=oldest.id;
+    const oldest=posts[posts.length-1];if(Date.parse(oldest.date)<since){windowComplete=!interrupted;break;}if(before!==undefined&&oldest.id>=before)break;before=oldest.id;
    }
    console.log(JSON.stringify({connector:cfg.id,pages,scanned,parsed:emitted,rejected:reasons,window_complete:windowComplete}));
   }};

@@ -1,0 +1,36 @@
+name: Validar descoberta direcionada
+on:
+  workflow_dispatch:
+    inputs:
+      stores:
+        description: 'Lojas permitidas (IDs separados por vírgula); ChipArt só após acesso público sem 429'
+        required: true
+        default: 'patoloco,ibyte,shopinfo'
+      max_searches:
+        description: 'Buscas por loja (1–15)'
+        required: true
+        default: '3'
+permissions:
+  contents: read
+concurrency:
+  group: baixou-targeted-validation
+  cancel-in-progress: false
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TARGETED_STORES: ${{ inputs.stores }}
+      TARGETED_MAX: ${{ inputs.max_searches }}
+      TARGETED_DEADLINE_MS: '20000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Buscar códigos fortes nas páginas públicas
+        run: npm run discover:targeted
