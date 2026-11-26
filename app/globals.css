@@ -180,3 +180,5 @@
 .switch-bar{height:2px;margin:-2px 0 10px;background:linear-gradient(90deg,transparent,var(--orange),transparent);background-size:40% 100%;background-repeat:no-repeat;animation:switch-bar 1s linear infinite}@keyframes switch-bar{from{background-position:-40% 0}to{background-position:140% 0}}@media(prefers-reduced-motion:reduce){.switch-bar{animation:none;background:var(--orange);opacity:.5}}.refresh-error{display:block;font-size:11px;color:var(--orange);margin-top:4px;text-align:right}
 
 @media(max-width:560px){.toast{left:16px;right:16px;transform:none;max-width:none}}
+
+.store-icon{border-radius:4px;flex-shrink:0;object-fit:contain;background:#fff}.store-badge.detail .store-icon{width:24px;height:24px}
