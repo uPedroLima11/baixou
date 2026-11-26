@@ -49,3 +49,13 @@ test('RAM frequency in MT/s is the same as MHz (Kingston Fury Beast KF432C16BB/1
  const f=facetsMT({title:'Memoria RAM Kingston Fury  Beast, 16GB, 3200MT/s, DDR4, CL16, DIMM,  Preto - KF432C16BB/16',category:'ram',specs:{},brand:'Kingston'} as any);
  assert.equal(f.frequency,3200);assert.equal(f.ddr,'4');assert.equal(f.total_gb,16);assert.equal(f.form_factor,'desktop');
 });
+import {ramFormFromCode} from '../lib/identity';
+test('RAM form factor decoded only from published manufacturer code schemes',()=>{
+ assert.equal(ramFormFromCode('AD4U3200716G22-BHYC'),'dimm');assert.equal(ramFormFromCode('AD4S320016G22-SGN'),'sodimm');
+ assert.equal(ramFormFromCode('KF432C16BB/16'),'dimm');assert.equal(ramFormFromCode('KF432S20IB/16'),'sodimm');
+ assert.equal(ramFormFromCode('KVR32N22S8/16'),'dimm');assert.equal(ramFormFromCode('KVR32S22S8/16'),'sodimm');
+ assert.equal(ramFormFromCode('CT16G4DFRA32A'),'dimm');assert.equal(ramFormFromCode('CT16G4SFRA32A'),'sodimm');assert.equal(ramFormFromCode('CT16G56C46U5'),'dimm');
+ assert.equal(ramFormFromCode('SMU4WEC8C2J3464SAG'),undefined);assert.equal(ramFormFromCode(null),undefined);
+ const waz=facetsMT({title:'Memória DDR4 - 16GB (1x 16GB) / 3.200MHz - Adata - AD4U3200716G22-BHYC',category:'ram',specs:{},brand:'Adata',mpn:'AD4U3200716G22-BHYC'} as any);assert.equal(waz.form_factor,'desktop');
+ const smart=facetsMT({title:'Memória DDR4 - 16GB (1x 16GB) / 3.200MHz - Smart - SMU4WEC8C2J3464SAG / ZMU4WEC8C2J3464SCG',category:'ram',specs:{},brand:'Smart',mpn:null} as any);assert.equal(smart.form_factor,undefined);
+});

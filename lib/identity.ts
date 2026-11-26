@@ -37,7 +37,20 @@ export function manufacturerCode(mpn:string|null|undefined,title=''){
 export function variantsCompatible(a:Variant={},b:Variant={}){for(const key of Object.keys(a)){if(b[key]!==undefined&&String(a[key])!==String(b[key]))return false;}return true;}
 // "3.200MHz" (milhar com ponto) não pode virar 200 MHz na normalização.
 export const joinThousands=(s:string)=>s.replace(/(\d)\.(\d{3})(?!\d)/g,'$1$2');
-export function variantForOffer(o:Pick<Offer,'title'|'category'|'specs'>):Variant{const text=normalize(joinThousands(o.title+' '+Object.values(o.specs??{}).join(' ')));const v:Variant={};if(o.category==='ram'||/kit.*memoria/.test(text)){const pack=text.match(/\b(\d{1,2})\s*x\s*(\d{1,3})\s*gb\b/);if(pack){v.modules=Number(pack[1]);v.per_module_gb=Number(pack[2]);v.total_gb=Number(pack[1])*Number(pack[2]);}else{const cap=text.match(/\b(\d{1,3})\s*gb\b/);if(cap)v.total_gb=Number(cap[1]);}const ddr=text.match(/\bddr\s*([345])\b/);if(ddr)v.ddr=ddr[1];const speed=text.match(/\b(\d{3,5})\s*(?:mhz|mts|mt\s*s)\b/);/* "3200MT/s" normalizado vira "3200mt s" */if(speed)v.frequency=Number(speed[1]);if(/notebook|sodimm|so dimm|\bs dimm\b/.test(text))v.form_factor='sodimm';else if(/desktop|udimm|dimm/.test(text))v.form_factor='dimm';}return v;}
+// Formato da memória pelo esquema PUBLICADO do código do fabricante (dado da loja, nunca semelhança de título):
+// ADATA AD4U/AD5U = U-DIMM, AD4S/AD5S = SO-DIMM; Kingston KF4xxC/KF5xxC = DIMM (Fury Beast/Renegade), KF4xxS/KF5xxS =
+// SO-DIMM (Fury Impact), KVRxxN = U-DIMM, KVRxxS = SO-DIMM; Crucial CTxxG4DF…/…U5 = U-DIMM, CTxxG4SF…/…S5 = SO-DIMM.
+// Código sem esquema conhecido continua sem formato (não casa com filtro de uso).
+export function ramFormFromCode(code:string|null|undefined):'dimm'|'sodimm'|undefined{
+ const c=(code??'').toUpperCase().replace(/\s+/g,'');if(!c)return undefined;
+ let m=c.match(/\bAD[45]([US])\d{4}/);if(m)return m[1]==='U'?'dimm':'sodimm';
+ m=c.match(/\bKF[45]\d{2}([CS])\d/);if(m)return m[1]==='C'?'dimm':'sodimm';
+ m=c.match(/\bKVR\d{2}([NS])\d/);if(m)return m[1]==='N'?'dimm':'sodimm';
+ m=c.match(/\bCT\d{1,3}G[45]([DS])F/);if(m)return m[1]==='D'?'dimm':'sodimm';
+ m=c.match(/\bCT\d{1,3}G\d{2}C\d{2}([US])\d/);if(m)return m[1]==='U'?'dimm':'sodimm';
+ return undefined;
+}
+export function variantForOffer(o:Pick<Offer,'title'|'category'|'specs'>&{mpn?:string|null}):Variant{const text=normalize(joinThousands(o.title+' '+Object.values(o.specs??{}).join(' ')));const v:Variant={};if(o.category==='ram'||/kit.*memoria/.test(text)){const pack=text.match(/\b(\d{1,2})\s*x\s*(\d{1,3})\s*gb\b/);if(pack){v.modules=Number(pack[1]);v.per_module_gb=Number(pack[2]);v.total_gb=Number(pack[1])*Number(pack[2]);}else{const cap=text.match(/\b(\d{1,3})\s*gb\b/);if(cap)v.total_gb=Number(cap[1]);}const ddr=text.match(/\bddr\s*([345])\b/);if(ddr)v.ddr=ddr[1];const speed=text.match(/\b(\d{3,5})\s*(?:mhz|mts|mt\s*s)\b/);/* "3200MT/s" normalizado vira "3200mt s" */if(speed)v.frequency=Number(speed[1]);if(/notebook|sodimm|so dimm|\bs dimm\b/.test(text))v.form_factor='sodimm';else if(/desktop|udimm|dimm/.test(text))v.form_factor='dimm';else{const f=ramFormFromCode(o.mpn)??ramFormFromCode(o.title.split(/\s[-–]\s/).pop());if(f)v.form_factor=f;}}return v;}
 export function identityForOffer(o:Offer){if(o.category==='kit'||manufacturerConflict(o.mpn,o.title))return null;/* códigos conflitantes e kits não sustentam identidade */const brand=canonicalBrand(o.brand??'');if(!brand)return null;const mpn=manufacturerCode(o.mpn,o.title);
 const rawGTIN=Object.entries(o.specs??{}).find(([k])=>/^(ean|gtin|ean13|ean 13|upc)$/i.test(k))?.[1]?.replace(/\D/g,'')??o.gtin??'';const gtin=validGTIN(rawGTIN)?rawGTIN.padStart(14,'0'):null;
 return mpn||gtin?{brand,mpn,gtin,variant:variantForOffer(o)}:null;}
