@@ -24,5 +24,8 @@ export async function productData(id:string):Promise<ProductData|null|'error'>{
  const comparison=entry?.compare?.filter(live)??null;
  const alternatives=index?index.entries.filter(e=>e.o.id!==id&&live(e.o)&&sameProduct(e.o,offer)).map(e=>e.o).slice(0,12):[];
  const group=entry?.group??null;
- return {partial:!index,offer,related_specs,comparison:comparison&&comparison.length>1?comparison:null,alternatives,group,score:baixouScore({...offer,group},now)};
+ // Mesma nota do card: usa a do índice quando preço e referências são os mesmos; só recalcula (com o mesmo grupo)
+ // se a linha do banco já trouxer preço/referência mais novos — nunca uma conta diferente.
+ const same=entry&&Number(entry.o.price)===Number(offer.price)&&Number(entry.o.reference_median??0)===Number(offer.reference_median??0)&&Number(entry.o.market_median??0)===Number(offer.market_median??0)&&entry.o.expires_at===offer.expires_at;
+ return {partial:!index,offer,related_specs,comparison:comparison&&comparison.length>1?comparison:null,alternatives,group,score:same?entry.score:baixouScore({...offer,group},now)};
 }

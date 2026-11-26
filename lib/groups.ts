@@ -13,7 +13,9 @@ export type EquivalentKey={key:string;label:string};
 export function equivalentGroup(o:StatOffer):EquivalentKey|null{
  if(o.category==='ram'){
   const g=ramGroup(o),f=offerFacets(o),mhz=Number(f.frequency);if(!g||!mhz)return null;
-  return {key:'ram|'+g.key+'|'+mhz,label:g.label+' · '+mhz+' MHz · '+(g.tier?.endsWith('notebook')?'notebook':g.tier?.endsWith('servidor')?'servidor':'desktop')};
+  // Linha/qualidade: latência (CL) separa módulos de entrada dos de desempenho (ex.: Fury Beast CL16 × entrada CL22).
+  const cl=ramLatencyClass(o.title,Number(f.ddr));
+  return {key:'ram|'+g.key+'|'+mhz+'|'+cl.key,label:g.label+' · '+mhz+' MHz · '+cl.label+' · '+(g.tier?.endsWith('notebook')?'notebook':g.tier?.endsWith('servidor')?'servidor':'desktop')};
  }
  if(o.category==='gpu'){const g=gpuGroup(o);return g?{key:'gpu|'+g.key,label:g.label}:null;}
  if(o.category==='cpu'){
@@ -51,3 +53,9 @@ export function groupReferences(offers:Offer[],now=Date.now()){
  }
  return out;
 }
+
+// Classe de latência pela CL informada no título ("CL16", "C16"). DDR4: CL<=16 baixa latência; DDR5: CL<=36; DDR3: CL<=9.
+// Sem CL no título, a oferta só é comparada com outras também sem essa informação.
+export function ramLatencyClass(title:string,ddr:number){const m=(' '+normalize(title)+' ').match(/\bc(?:l)?\s?(\d{2})\b/);const cl=m?Number(m[1]):NaN;
+ if(!Number.isFinite(cl)||cl<5||cl>60)return {key:'cl?',label:'CL não informada'};
+ const low=ddr===5?cl<=36:ddr===4?cl<=16:cl<=9;return low?{key:'cl-low',label:'baixa latência (CL'+cl+')'}:{key:'cl-std',label:'CL padrão'};}

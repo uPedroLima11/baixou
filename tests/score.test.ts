@@ -75,3 +75,10 @@ test('announced "from" price and inflated-base drops are capped by equivalent al
  assert.deepEqual(cappedDiscount({price:900,historical_median:1000} as any,'history',10,{...g,median:950}),{disc:10,capped:false});
  assert.deepEqual(cappedDiscount({price:1300,original_price:2000} as any,'retailer',35,null),{disc:35,capped:false});
 });
+import {equivalentGroup,ramLatencyClass} from '../lib/groups';
+test('RAM alternatives split by latency class: Fury Beast CL16 is not grouped with entry-level CL22',()=>{
+ const beast={title:'Memoria RAM Kingston Fury Beast, 16GB, 3200MT/s, DDR4, CL16, DIMM, Preto - KF432C16BB/16',category:'ram',specs:{},brand:'Kingston',mpn:'KF432C16BB/16'} as any;
+ const entry={title:'Memória RAM Husky Impulse, 16GB, 3200MHz, DDR4, CL22, Preto - HRM001163222PT',category:'ram',specs:{},brand:'Husky'} as any;
+ assert.notEqual(equivalentGroup(beast)!.key,equivalentGroup(entry)!.key);
+ assert.equal(ramLatencyClass('DDR4 3200 CL16',4).key,'cl-low');assert.equal(ramLatencyClass('DDR5 6000 CL30',5).key,'cl-low');assert.equal(ramLatencyClass('DDR4 16GB 3200MHz',4).key,'cl?');
+});
