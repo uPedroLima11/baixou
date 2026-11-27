@@ -170,3 +170,17 @@ export async function unlinkSender(db:Db){
  await db.from('whatsapp_auth').delete().neq('id','');await setSender(db,{status:'unlinked',phone:null,last_error:null,pairing_expires_at:null});
  return r.ok;
 }
+
+// Código de confirmação enviado PELO remetente do Baixou! ao número informado pelo usuário (fluxo de 27/11/2026).
+// Confere antes se o número tem WhatsApp; devolve o JID real (contas antigas podem não ter o 9º dígito).
+// Também processa a caixa de entrada (PARAR) na mesma sessão, para não atrasar desativações.
+export async function sendConfirmationCode(db:Db,phone:string,text:string,siteUrl:string):Promise<{ok:true;jid:string}|{ok:false;reason:string}>{
+ const r=await withWhatsApp(db,async s=>{
+  await processInbox(db,s,siteUrl);
+  const found=await s.sock.onWhatsApp(phone).catch(()=>null);const hit=(found??[]).find((x:Any)=>x?.exists);
+  if(!hit?.jid)return {ok:false as const,reason:'sem_whatsapp'};
+  await s.sock.sendMessage(hit.jid,{text});await wait(1500);
+  return {ok:true as const,jid:String(hit.jid)};
+ },{deadlineMs:25000});
+ return r.ok?r.value:{ok:false,reason:r.reason};
+}

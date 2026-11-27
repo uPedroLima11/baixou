@@ -15,8 +15,19 @@ async function admin(req:Request){
 }
 export async function GET(req:Request){
  const a=await admin(req);if(!a)return json({admin:false});
- const s=await senderStatus(a.db);
- return json({admin:true,keyConfigured:!!stateKey(),status:s?.status??'unlinked',phone:s?.phone?maskPhone(s.phone):null,lastConnectedAt:s?.last_connected_at??null,problem:s?.last_error??null,pairingUntil:s?.pairing_expires_at??null});
+ const s=await senderStatus(a.db),since=new Date(Date.now()-7*86400000).toISOString(),day=new Date(Date.now()-86400000).toISOString();
+ // Resumo de envios (sem números nem conteúdo): status por canal WhatsApp em 24 h e 7 dias, fila e confirmações pendentes.
+ const [logs,queued,contacts,lastErrors]=await Promise.all([
+  a.db.from('notification_log').select('status,updated_at').eq('channel','whatsapp').gte('updated_at',since).limit(5000),
+  a.db.from('notification_log').select('id',{count:'exact',head:true}).eq('channel','whatsapp').eq('status','queued'),
+  a.db.from('whatsapp_contacts').select('status,enabled').limit(5000),
+  a.db.from('notification_log').select('updated_at,last_error').eq('channel','whatsapp').eq('status','failed').order('updated_at',{ascending:false}).limit(5)]);
+ const tally=(rows:{status:string;updated_at:string}[],from:string)=>rows.filter(r=>r.updated_at>=from).reduce((m,r)=>{m[r.status]=(m[r.status]??0)+1;return m;},{} as Record<string,number>);
+ const c=(contacts.data??[]) as {status:string;enabled:boolean}[];
+ const history={day:tally((logs.data??[]) as {status:string;updated_at:string}[],day),week:tally((logs.data??[]) as {status:string;updated_at:string}[],since),queued:queued.count??0,
+  contacts:{confirmed:c.filter(x=>x.status==='confirmed').length,active:c.filter(x=>x.status==='confirmed'&&x.enabled).length,pending:c.filter(x=>x.status==='pending').length},
+  recentFailures:((lastErrors.data??[]) as {updated_at:string;last_error:string|null}[]).map(r=>({at:r.updated_at,error:(r.last_error??'').slice(0,120)}))};
+ return json({admin:true,mode:process.env.WHATSAPP_MODE??'off',history,keyConfigured:!!stateKey(),status:s?.status??'unlinked',phone:s?.phone?maskPhone(s.phone):null,lastConnectedAt:s?.last_connected_at??null,problem:s?.last_error??null,pairingUntil:s?.pairing_expires_at??null});
 }
 export async function POST(req:Request){
  const a=await admin(req);if(!a)return json({error:'forbidden'},403);
