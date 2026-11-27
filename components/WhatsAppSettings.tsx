@@ -2,16 +2,12 @@
 import {useCallback,useEffect,useState} from 'react';
 import {MessageCircle} from 'lucide-react';
 import CountryPhoneInput from './CountryPhoneInput';
-import {supabase} from '@/lib/supabase';
+import {callApi} from '@/lib/api-client';
 
 type Contact={phone:string;status:'pending'|'confirmed';enabled:boolean;confirmed:boolean;awaitingCode:boolean;resendIn:number};
 type State={available:boolean;senderReady?:boolean;contact:Contact|null}|null;
 
-export async function callApi(path:string,method:string,body?:unknown){
- const token=(await supabase()?.auth.getSession())?.data.session?.access_token;if(!token)throw Error('Entre novamente na sua conta.');
- const r=await fetch(path,{method,headers:{authorization:'Bearer '+token,...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});
- const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(typeof data.error==='string'&&data.error.length>12?data.error:'Não foi possível concluir agora.');return data;
-}
+export {callApi};
 
 // Canal opcional (remetente central do Baixou!): número → autorização → código de 6 dígitos enviado pelo Baixou! → confirmar.
 // Mostra só a etapa atual. Mesmos alertas, limites e pausas do e-mail; e-mail e WhatsApp são independentes.

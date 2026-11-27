@@ -5,13 +5,14 @@ import {useEffect,useMemo,useState} from 'react';
 import {ArrowLeft,ExternalLink,Megaphone,Info} from 'lucide-react';
 import {money,categories} from '@/lib/types';
 import {storeNames} from '@/lib/stores';
-type Item={id:string;store:string;url:string;title:string;category:string;brand:string|null;mpn:string|null;image:string|null;price:number;posted_at:string;in_catalog:boolean;source:string|null;image_source:string|null;product_id:string|null;note:string|null};
+import type {AnnouncedItem as Item,AnnouncedResult} from '@/lib/announced';
 const ago=(iso:string)=>{const m=Math.max(0,Math.floor((Date.now()-Date.parse(iso))/60000));return m<60?m+' min':m<1440?Math.floor(m/60)+' h'+(m%60?' '+m%60+' min':''):Math.floor(m/1440)+' d '+Math.floor(m%1440/60)+' h';};
 const when=(iso:string)=>new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
 const postLink=(source:string|null)=>source?.match(/t\.me\/[\w/]+/)?.[0]??null;
-export default function Announced(){
- const [items,setItems]=useState<Item[]|null>(null),[err,setErr]=useState(false),[store,setStore]=useState(''),[cat,setCat]=useState(''),[hours,setHours]=useState(48);
- useEffect(()=>{fetch('/api/announced?hours=48').then(r=>{if(!r.ok)throw Error();return r.json();}).then(j=>setItems(j.offers)).catch(()=>setErr(true));},[]);
+export default function Announced({initial}:{initial?:AnnouncedResult|null}){
+ const [items,setItems]=useState<Item[]|null>(initial?.offers??null),[err,setErr]=useState(false),[store,setStore]=useState(''),[cat,setCat]=useState(''),[hours,setHours]=useState(48);
+ // HTML recente (<2 min) não precisa de nova consulta; mais velho, a lista exibida continua e é trocada ao chegar a nova.
+ useEffect(()=>{if(initial&&Date.now()-Date.parse(initial.generated_at)<120000)return;fetch('/api/announced?hours=48').then(r=>{if(!r.ok)throw Error();return r.json();}).then(j=>setItems(j.offers)).catch(()=>{if(!initial)setErr(true);});},[initial]);
  const list=useMemo(()=>(items??[]).filter(i=>(!store||i.store===store)&&(!cat||i.category===cat)&&Date.parse(i.posted_at)>=Date.now()-hours*3600000),[items,store,cat,hours]);
  const stores=[...new Set((items??[]).map(i=>i.store))],cats=categories.filter(([id])=>id!=='all'&&(items??[]).some(i=>i.category===id));
  return <div className="stats-page">
@@ -32,7 +33,7 @@ export default function Announced(){
       <span className="store-badge"><Megaphone size={14}/>{storeNames[i.store]??i.store} · publicado {when(i.posted_at)} (há {ago(i.posted_at)})</span>
       <a className="announced-title-link" href={'/produto/'+encodeURIComponent(i.id)}>{i.title}</a>
       <div className="announced-price"><strong>{money(i.price)}</strong><span>à vista, preço anunciado</span></div>
-      <small className="muted">{i.in_catalog?'Também no catálogo (publicação com menos de 6 h).':'Fora do catálogo: publicação com mais de 6 h.'} Disponibilidade não confirmada.{i.brand&&i.mpn?' Modelo: '+i.brand+' '+i.mpn+'.':''}</small>
+      <small className="muted">{Date.parse(i.expires_at)>Date.now()?'Também no catálogo (publicação com menos de 6 h).':'Fora do catálogo: publicação com mais de 6 h.'} Disponibilidade não confirmada.{i.brand&&i.mpn?' Modelo: '+i.brand+' '+i.mpn+'.':''}</small>
       <div className="announced-actions"><a className="primary" href={i.url} target="_blank" rel="noopener noreferrer">Consultar na loja<ExternalLink size={15}/></a>{postLink(i.source)&&<a className="link-button" href={'https://'+postLink(i.source)} target="_blank" rel="noopener noreferrer">Ver publicação</a>}</div>
      </div></li>)}</ul></>}
   </main>
