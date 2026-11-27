@@ -201,3 +201,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Alertas têm `payment` (padrão pix, preserva os existentes); favoritos usam `profiles.payment_preference`; deduplicação de cartão com chave ':card'.
 - Black Friday Terabyte/Pichau: páginas de campanha atrás do mesmo Cloudflare; landing da Terabyte sem listagem. Não insistir sem fato novo.
 
+## Modalidade, KaBuM por listagem e catálogo unificado (Claude Code, 27/11/2026)
+- Notificações escolhem a melhor loja POR MODALIDADE (`selectNotifications`); nunca voltar ao menor Pix para alerta de cartão.
+- KaBuM: listagem (100/página) renova conhecidos e descobre novos; detalhe confirma identidade. Não tratar item ausente da listagem como esgotado. Renovação sem mudança grava histórico no máximo a cada 6 h (limite do banco gratuito).
+- Catálogo: Todos (padrão, sem exclusões) / Pix / Cartão; cards sempre mostram os dois preços. Estatísticas: Pix/Cartão com funções *_card.
+

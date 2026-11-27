@@ -1,3 +1,30 @@
+# CHECKPOINT — loja por modalidade, KaBuM por listagens, Estatísticas e catálogo unificado (Claude Code, 27/11/2026, ~01h30 UTC)
+
+## 1. Alertas: melhor loja na modalidade do alerta (b897477)
+- Bug: `cheapestPerProduct` comparava lojas pelo Pix mesmo em alerta de cartão. Agora `selectNotifications` decide cada oferta POR MODALIDADE (regras Pix e cartão avaliadas separadamente; favoritos na preferência) e compara só lojas decididas na mesma modalidade pelo preço dela; chaves de deduplicação separadas (`:card`). Exemplo do proprietário (A Pix 699/cartão 899, B Pix 749/cartão 799, alerta cartão ≤ 850 → B) e alertas Pix+cartão simultâneos em tests/payment.test.ts.
+- Dados reais: 9 produtos com cartão em 2+ lojas; em 2 a loja mais barata no Pix ≠ no cartão (Kingston Fury Beast 8 GB: Pix Patoloco 573,72, cartão KaBuM 649,99 × Patoloco 675,00; Kingston A400 240 GB: Pix WAZ 559,52, cartão iByte 649,90 × WAZ 682,34).
+
+## 2. Preço no cartão (auditoria)
+- Vivos com cartão: 153 (27/11 ~00h) → 1.369 → **3.494 de 4.200 (83%)**. Verificações dos últimos minutos: KaBuM 311/311, Shopinfo, iByte e Guerra 100%, WAZ 99%, Patoloco 98%; faltas na KaBuM eram de rodadas iniciadas antes do deploy. ML 59% (vitrine Pix-exclusiva sem "sem juros" → não informado; lista do ML exige verificação de conta). Juros: só ML informa com juros (131 itens).
+- ChipArt: campos incoerentes entre si (produtos com listas diferentes repetem 18×8,59; boleto ≠ Pix) → continua "não informado". Terabyte: posts só publicam à vista ("💰 A partir de"); Pichau: "Ou Parcelado R$ Y" já usado (47/48).
+
+## 3. Cobertura
+- KaBuM: listagens `?page_number=N&page_size=100` trazem vendedor, estoque, Pix, cartão, parcelas e campanha vigente (`offer`). Conferência: 42/42 Pix e 13/13 cartão iguais ao detalhe. `scripts/kabum-listing.ts` + `lib/kabum-listing.ts` no collect-kabum.yml (240 s, antes do detalhe; mesmo lease/robots/1,5 s/8 MB): renova conhecidos (preço igual em lote; mudança pela via completa), enfileira novos de venda própria (teto KaBuM 8.000; detalhe confirma identidade), detalhe de renovados só após 20 h. Primeira rodada hospedada `45914884304`: 69 páginas, 6.611 itens, 303 renovados, 272 alterados, 411 novos, 0 erros. Tamanho medido: hardware prioritário ~5,4 mil produtos próprios (RAM 1.650 itens/46% próprios, GPU 450, CPU 718, placa-mãe 1.093, SSD 1.189, fontes 762, coolers 2.200...); periféricos/notebooks >10 mil (limitados a 30/10 páginas).
+- Armazenamento: renovação sem mudança grava no máximo 1 linha de histórico bruto a cada 6 h (balde 00/06/12/18); mudança grava na hora. Banco 117 MB (27/11 01h). Acompanhar: com +4 mil ofertas, o bruto cresce; plano de retenção 21→7 dias continua para depois da Black Friday.
+- Terabyte/Pichau: sem possibilidade técnica nova (lista do ML exige verificação; páginas BF atrás do Cloudflare). Canais: Terabyte 2.424 produtos anunciados em 120 dias (132 vivos pela regra de 6 h), Pichau 1.539 (47 vivos). Amazon: nada novo desde a pesquisa de 27/11 00h.
+
+## 4. Estatísticas por modalidade (b169072)
+- Seletor Pix/Cartão. Cartão: índice do cartão + `group_daily_card`/`price_changes_card` (migration 20261127020000 aplicada; leem só card_* do resumo diário). Histórico do cartão desde 26/11; sem variação até haver dia-base.
+
+## 5. WhatsApp (d444cf1) — pronto para o pareamento
+- Ciclo espera `receivedPendingNotifications` (fim das mensagens recebidas com o aparelho desconectado, até 12 s) em vez de 2,5 s fixos; manutenção a cada 2 h; inbox antes da fila (nenhuma mensagem após PARAR recebido). `due_rechecks` considera quem recebe por WhatsApp (migration 20261127030000 aplicada). Roteiro do proprietário e checklist de homologação em docs/WHATSAPP.md. **Nenhum número pareado; nenhum envio real ainda.**
+
+## 6. Catálogo unificado (c9f3c8b, pedido do proprietário)
+- Seletor Todos (padrão) / Pix / Cartão. Todos: catálogo unificado sem exclusões. Pix: só preços à vista/Pix (ML sem Pix explícito fora). Cartão: só totais no cartão. Cards sempre com Pix e Cartão lado a lado, mesmo destaque, parcelas e "não informado"; modalidade escolhida destacada; cards estreitos empilham. Aba padrão cai para Catálogo completo quando a categoria não tem oportunidade na modalidade. Produção: Todos 3.979 · Pix 3.765 · Cartão 3.357. Página do produto mantém o quadro Pix × Cartão. Alertas não mudaram.
+
+## Operação
+- queue_health (01h UTC): atraso máx. 2,5–2,9 min nas lojas, KaBuM 11,9 min (1.459 vivas). CI verde; deploys Ready.
+
 # CHECKPOINT — Black Friday: cartão × Pix, páginas de campanha (Claude Code, 27/11/2026, ~02h UTC)
 
 ## Páginas de Black Friday (investigadas, sem fonte utilizável)
