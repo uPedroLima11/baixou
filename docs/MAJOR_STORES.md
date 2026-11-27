@@ -1,3 +1,10 @@
+# Novas alternativas examinadas pelo Codex (26/11/2026, BRT)
+
+- [FarejaPreço — API e termos](https://farejapreco.com.br/dados-abertos/termos). Gratuito e sem chave, permite consultas pontuais com crédito, data e link. Veda reconstruir o catálogo ou expor os dados como API própria. Documenta ML/Shopee e feeds de parceiros, sem oferta Amazon verificável e sem links diretos de lojas no endpoint. Sem integração.
+- [PriceHunter Datasets](https://github.com/samuelkoelho/pricehunter-datasets). O repositório público contém somente README. A base atualizada é vendida e a licença de código indicada no README não constitui uma fonte de preços atuais autorizada.
+- [BigDataCorp Preço Atual](https://docs.bigdatacorp.com.br/plataforma/reference/produtos-preco-atual). API com detalhamento por vendedor e cobrança por consulta. Fora do escopo de custo zero.
+- As novas sondagens não forneceram preço, estoque e vendedor verificáveis em fonte autorizada para Amazon, Pichau ou Terabyte. Preços do Telegram mantêm o status de anunciados.
+
 # Resumo para continuidade (27/11/2026)
 Amazon sem fonte gratuita sem cadastro; Pichau/Terabyte só Telegram (Cloudflare nas páginas e campanhas). Detalhes abaixo e em docs/CONTINUIDADE_CODEX.md. Não repetir sem possibilidade técnica nova.
 

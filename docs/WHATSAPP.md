@@ -1,3 +1,9 @@
+## Contatos internacionais (26/11/2026, BRT)
+
+O seletor pesquisável começa em Brasil (+55) e formata o número no país escolhido. A API valida o E.164. O banco guarda os dígitos canônicos sem o sinal '+' para continuar usando os JIDs existentes e o caminho de PARAR. A normalização especial do nono dígito continua restrita ao Brasil. A migration 20261127070000 alterou somente a restrição dos contatos. O remetente brasileiro seguiu conectado e o contato confirmado foi preservado.
+
+O modo geral já está liberado. Falta verificar com eventos reais o código internacional, alerta de cartão, conta comum, PARAR automático e recuperação após desconexão. Nenhum novo pareamento foi feito durante esta rodada.
+
 # Estado em 27/11/2026 01h UTC
 - Liberado para todos (WHATSAPP_MODE=on). Disparo automático: pg_cron baixou-alerts (1/min) + coletas; ciclo conecta só com fila/código/≥15 min ocioso. Latência medida: 7 s e 32 s da verificação ao recibo de entrega. Pendente: números internacionais; homologar código novo, alerta de cartão e recuperação (ver CONTINUIDADE_CODEX.md).
 
