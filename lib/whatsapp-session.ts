@@ -112,7 +112,9 @@ export async function deliverQueue(db:Db,s:Session,{max=15,until}:{max?:number;u
  const stale=await db.from('notification_log').update({status:'failed',attempts:3,last_error:'WhatsApp: vencida na fila',updated_at:new Date().toISOString()}).eq('channel','whatsapp').eq('status','queued').lt('updated_at',new Date(Date.now()-60*60000).toISOString()).select('id');expired=stale.data?.length??0;
  const {data:rows,error}=await db.from('notification_log').select('id,user_id,body').eq('channel','whatsapp').eq('status','queued').order('updated_at').limit(max);if(error)throw error;
  for(const r of rows??[]){if(Date.now()>until-6000)break;
-  const {data:c}=await db.from('whatsapp_contacts').select('jid,enabled,status').eq('user_id',r.user_id).maybeSingle();
+  const {data:c}=await db.from('whatsapp_contacts').select('jid,phone,enabled,status').eq('user_id',r.user_id).maybeSingle();
+  // Contato confirmado sem JID gravado (registros antigos): resolve pelo número no próprio WhatsApp e grava.
+  if(c&&c.status==='confirmed'&&c.enabled&&!c.jid&&c.phone){const found=await s.sock.onWhatsApp(c.phone).catch(()=>null);const hit=(found??[]).find((x:Any)=>x?.exists);if(hit?.jid){c.jid=String(hit.jid);await db.from('whatsapp_contacts').update({jid:c.jid}).eq('user_id',r.user_id);}}
   const lock=await db.from('notification_log').update({status:'sending',updated_at:new Date().toISOString()}).eq('id',r.id).eq('status','queued').select('id');if(!lock.data?.length)continue;
   if(!c||c.status!=='confirmed'||!c.enabled||!c.jid||!r.body){await db.rpc('finish_notification',{p_id:r.id,p_ok:false,p_permanent:true,p_error:'WhatsApp: contato desativado'});failed++;continue;}
   try{const sent=await s.sock.sendMessage(c.jid,{text:r.body});await db.rpc('finish_notification',{p_id:r.id,p_ok:true,p_message_id:sent?.key?.id??null,p_accepted_only:true});accepted++;if(sent?.key?.id)ids.set(sent.key.id,r.id);}

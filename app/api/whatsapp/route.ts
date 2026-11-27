@@ -47,6 +47,7 @@ export async function POST(req:Request){
   if(!phone)return json({error:'Informe um celular brasileiro com DDD, por exemplo (11) 91234-5678.'},400);
   const sent=row?.codes_sent??[],wait=Math.ceil((lastSent(row)+RESEND_SECONDS*1000-now.getTime())/1000);
   if(wait>0)return json({error:'Aguarde '+wait+' s para pedir outro código.'},429);
+  if(row?.status==='confirmed'&&row.phone===phone)return json({ok:true,message:'Este número já está confirmado.'});
   if(!canSendCode(sent,now.getTime()))return json({error:'Muitos códigos solicitados. Tente novamente mais tarde.'},429);
   const [taken,recent,sender]=await Promise.all([
    db.from('whatsapp_contacts').select('user_id',{count:'exact',head:true}).eq('phone',phone).eq('status','confirmed').neq('user_id',user.id),
