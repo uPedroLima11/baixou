@@ -31,15 +31,17 @@ const optionLabel=(k:string,v:string)=>k==='form'||k==='kind'?v.charAt(0).toUppe
 
 export type Pick={id:string;title:string;store:string;seller:string;price:number};
 export type StatGroup={key:string;label:string;tier:string;offers:number;sellers:number;low:Pick;median:number;high:number;change:{pct:number;abs:number;paired:number}|null};
-export type StatsResult={category:StatsCategory;generatedAt:number;days:number;windows:number[];firstDay:string|null;historyDays:number;
+export type StatsResult={payment?:'pix'|'card';category:StatsCategory;generatedAt:number;days:number;windows:number[];firstDay:string|null;historyDays:number;
  filters:{key:string;label:string;options:{value:string;label:string;count:number}[]}[];applied:StatsFilters;
  groups:StatGroup[];moves:{down:Move[];up:Move[]};sample:{live:number;grouped:number;stores:number;paired:number}};
 export type Move={id:string;title:string;store:string;seller:string;base:number;last:number;change:number};
 
-export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted:number):Promise<StatsResult>{
+// pay='card': índice do cartão (ofertas projetadas no total no cartão) e resumo diário SÓ do cartão (price_changes_card).
+// Histórico do cartão começa em 26–27/11/2026; nenhum dia vem do Pix.
+export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted:number,pay:'pix'|'card'='pix'):Promise<StatsResult>{
  const db=publicDb();if(!db)throw Error('Supabase não configurado');
- const now=Date.now(),[index,first]=await Promise.all([catalogIndex(),db.from('price_daily').select('day').order('day').limit(1)]);
- const live=index.entries.map(e=>e.o).filter(o=>o.category===c&&isLive(o,now)&&cashComparable(o)) as (Offer&StatOffer)[];
+ const now=Date.now(),[index,first]=await Promise.all([catalogIndex(pay),(pay==='card'?db.from('price_daily').select('day').not('card_min_cents','is',null):db.from('price_daily').select('day')).order('day').limit(1)]);
+ const live=index.entries.map(e=>e.o).filter(o=>o.category===c&&isLive(o,now)&&(pay==='card'?o.verification_status!=='announced':cashComparable(o))) as (Offer&StatOffer)[];
  const facts=new Map<string,Facts>();for(const o of live){const x=statFacts(o,c);if(x)facts.set(o.id,x);}
  // Opções de cada filtro respeitam os OUTROS filtros (contagens reais; valor desconhecido nunca vira opção).
  const filters=STATS_FILTERS[c].map(def=>{const counts=new Map<string,number>();for(const x of facts.values()){if(!passes(x,{...applied,[def.key]:''}))continue;const v=x.values[def.key];if(v)counts.set(v,(counts.get(v)??0)+1);}
@@ -53,7 +55,7 @@ export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted
  const windows=[...(historyDays>=1&&historyDays<7?[historyDays]:[]),...[7,30,90,180,365].filter(d=>d<=historyDays)];
  const days=windows.includes(daysWanted)?daysWanted:windows[0]??0;
  let rows:ChangeRow[]=[];let changes=new Map<string,number>();
- if(days){const ids=chosen.map(o=>o.id).slice(0,600);const r=await db.rpc('price_changes',{p_ids:ids,p_days:days});if(r.error)throw r.error;rows=r.data as ChangeRow[];changes=panel(rows,spDay(now-DAY)).changes;}
+ if(days){const ids=chosen.map(o=>o.id).slice(0,600);const r=await db.rpc(pay==='card'?'price_changes_card':'price_changes',{p_ids:ids,p_days:days});if(r.error)throw r.error;rows=r.data as ChangeRow[];changes=panel(rows,spDay(now-DAY)).changes;}
  const rowOf=new Map(rows.map(r=>[r.offer_id,r]));
  const pick=(o:Offer):Pick=>({id:o.id,title:o.title,store:o.store,seller:o.seller,price:Number(o.price)});
  const groups:(StatGroup&{order:number[]})[]=[...byGroup.values()].map(({g,list})=>{const prices=list.map(o=>Number(o.price)).sort((a,b)=>a-b),best=list.reduce((a,b)=>Number(b.price)<Number(a.price)?b:a);
@@ -63,7 +65,7 @@ export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted
  const byId=new Map(chosen.map(o=>[o.id,o]));
  const move=(id:string,v:number):Move=>{const o=byId.get(id)!,r=rowOf.get(id)!;return {id,title:o.title,store:o.store,seller:o.seller,base:Number(r.base_price),last:Number(r.last_price),change:v};};
  const entries=[...changes.entries()].filter(([id])=>byId.has(id));
- return {category:c,generatedAt:now,days,windows,firstDay,historyDays,filters,applied,
+ return {payment:pay,category:c,generatedAt:now,days,windows,firstDay,historyDays,filters,applied,
   groups:groups.map(({order:_o,...g})=>{void _o;return g;}),
   moves:{down:entries.filter(([,v])=>v<=-0.02).sort((a,b)=>a[1]-b[1]).slice(0,6).map(([id,v])=>move(id,v)),up:entries.filter(([,v])=>v>=0.02).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([id,v])=>move(id,v))},
   sample:{live:live.length,grouped:chosen.length,stores:new Set(chosen.map(o=>o.store)).size,paired:changes.size}};
@@ -71,5 +73,5 @@ export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted
 export function parseStatsQuery(sp:URLSearchParams){
  const c:StatsCategory=sp.get('c')==='gpu'?'gpu':'ram',applied:StatsFilters={};
  for(const {key} of STATS_FILTERS[c]){const v=(sp.get(key)??'').slice(0,40);if(v&&/^[\p{L}\p{N} .×-]{1,40}$/u.test(v))applied[key]=v;}
- const days=Number(sp.get('dias'))||7;return {c,applied,days};
+ const days=Number(sp.get('dias'))||7;return {c,applied,days,pay:(sp.get('pag')==='cartao'?'card':'pix') as 'pix'|'card'};
 }

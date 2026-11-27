@@ -4,7 +4,7 @@ import {buildStats,parseStatsQuery} from '@/lib/stats-data';
 // resumo diário (price_changes). Cache de borda 10 min por combinação de filtros.
 export const dynamic='force-dynamic';
 export async function GET(req:Request){
- const {c,applied,days}=parseStatsQuery(new URL(req.url).searchParams);
- try{return NextResponse.json(await buildStats(c,applied,days),{headers:{'Cache-Control':'public, s-maxage=600, stale-while-revalidate=1800'}});}
+ const {c,applied,days,pay}=parseStatsQuery(new URL(req.url).searchParams);
+ try{return NextResponse.json(await buildStats(c,applied,days,pay),{headers:{'Cache-Control':'public, s-maxage=600, stale-while-revalidate=1800'}});}
  catch(e){console.error('stats',e instanceof Error?e.message.slice(0,200):'erro');return NextResponse.json({error:'unavailable'},{status:503});}
 }

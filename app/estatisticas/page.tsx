@@ -5,4 +5,4 @@ export const metadata:Metadata={title:'Estatísticas de preços — Baixou!',des
 // Painel já com o conteúdo de Memória RAM (7 dias) no HTML; regenerado a cada 10 min. Filtros e outras abas
 // consultam /api/stats (mesma função, cache de borda).
 export const revalidate=600;
-export default async function Page(){let initial:StatsResult|null=null;try{initial=await buildStats('ram',{},7);}catch(e){console.error('stats inicial',e instanceof Error?e.message:e);}return <Stats initial={initial}/>;}
+export default async function Page(){let initial:StatsResult|null=null;try{initial=await buildStats('ram',{},7,'pix');}catch(e){console.error('stats inicial',e instanceof Error?e.message:e);}return <Stats initial={initial}/>;}

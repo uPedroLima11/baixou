@@ -22,18 +22,20 @@ function readStats(q:string){
  const hit=cache.get(q);if(hit&&Date.now()-hit.generatedAt<120000)return Promise.resolve(hit);
  let p=pending.get(q);if(!p){p=fetch('/api/stats?'+q).then(r=>{if(!r.ok)throw Error();return r.json() as Promise<StatsResult>;}).then(j=>{if(cache.size>=24)cache.delete(cache.keys().next().value!);cache.set(q,j);return j;}).finally(()=>pending.delete(q));pending.set(q,p);}return p;
 }
-function queryOf(c:string,applied:Record<string,string>,days:number){const sp=new URLSearchParams({c});for(const [k,v] of Object.entries(applied))if(v)sp.set(k,v);if(days)sp.set('dias',String(days));return sp.toString();}
+function queryOf(c:string,applied:Record<string,string>,days:number,pay:'pix'|'card'='pix'){const sp=new URLSearchParams({c});if(pay==='card')sp.set('pag','cartao');for(const [k,v] of Object.entries(applied))if(v)sp.set(k,v);if(days)sp.set('dias',String(days));return sp.toString();}
 function Change({v,abs}:{v:number;abs?:number}){const cls=v<=-0.02?'down':v>=0.02?'up':'';return <span className={'stat-change '+cls}>{v<=-0.02?<TrendingDown size={13} aria-hidden/>:v>=0.02?<TrendingUp size={13} aria-hidden/>:<Minus size={13} aria-hidden/>}{abs!=null&&Math.abs(abs)>=0.01?signedMoney(abs)+' · ':''}{pct(v)}</span>;}
 
 export default function Stats({initial}:{initial:StatsResult|null}){
  const [data,setData]=useState<StatsResult|null>(initial),[busy,setBusy]=useState(false),[err,setErr]=useState(false);
- const [cat,setCat]=useState<'ram'|'gpu'>(initial?.category??'ram'),[applied,setApplied]=useState<Record<string,string>>(initial?.applied??{}),[days,setDays]=useState(initial?.days??7);
+ const [cat,setCat]=useState<'ram'|'gpu'>(initial?.category??'ram'),[applied,setApplied]=useState<Record<string,string>>(initial?.applied??{}),[days,setDays]=useState(initial?.days??7),[pay,setPay]=useState<'pix'|'card'>('pix');
+ // Forma de pagamento: mesma preferência do catálogo (salva neste navegador).
+ useEffect(()=>{try{if(localStorage.getItem('baixou-payment')==='card')setPay('card');}catch{}},[]);
  const first=useRef(true);
- if(initial&&first.current)cache.set(queryOf(initial.category,initial.applied,initial.days),initial);
+ if(initial&&first.current)cache.set(queryOf(initial.category,initial.applied,initial.days,initial.payment??'pix'),initial);
  // Estado inicial pela URL (compartilhável); sem parâmetros, usa o conteúdo que veio no HTML.
  useEffect(()=>{const sp=new URLSearchParams(location.search);const c=sp.get('c')==='gpu'?'gpu':'ram',a:Record<string,string>={};sp.forEach((v,k)=>{if(!['c','dias'].includes(k))a[k]=v;});if(c!==cat||Object.keys(a).length||sp.get('dias')){setCat(c);setApplied(a);if(sp.get('dias'))setDays(Number(sp.get('dias')));}},[]);// eslint-disable-line react-hooks/exhaustive-deps
- const q=queryOf(cat,applied,days);
- useEffect(()=>{if(first.current&&data&&queryOf(data.category,data.applied,data.days)===q){first.current=false;return;}first.current=false;
+ const q=queryOf(cat,applied,days,pay);
+ useEffect(()=>{if(first.current&&data&&queryOf(data.category,data.applied,data.days,data.payment??'pix')===q){first.current=false;return;}first.current=false;
   try{history.replaceState(history.state,'','/estatisticas?'+q);}catch{}
   const hit=cache.get(q);if(hit&&Date.now()-hit.generatedAt<120000){setData(hit);setBusy(false);setErr(false);return;}
   let live=true;setBusy(true);setErr(false);readStats(q).then(j=>{if(live)setData(j);}).catch(()=>{if(live)setErr(true);}).finally(()=>{if(live)setBusy(false);});return()=>{live=false;};},[q]);// eslint-disable-line react-hooks/exhaustive-deps
@@ -45,7 +47,8 @@ export default function Stats({initial}:{initial:StatsResult|null}){
   <main className="wrap stats-main">
    <div className="stats-top">
     <h1>Estatísticas de preços</h1>
-    <div className="segmented" role="tablist" aria-label="Categoria">{(['ram','gpu'] as const).map(c=><button key={c} role="tab" aria-selected={cat===c} className={cat===c?'active':''} onPointerEnter={()=>{if(cat!==c)void readStats(queryOf(c,{},days)).catch(()=>{});}} onFocus={()=>{if(cat!==c)void readStats(queryOf(c,{},days)).catch(()=>{});}} onClick={()=>chooseCat(c)}>{c==='ram'?'Memória RAM':'Placas de vídeo'}</button>)}</div>
+    <div className="segmented" role="tablist" aria-label="Categoria">{(['ram','gpu'] as const).map(c=><button key={c} role="tab" aria-selected={cat===c} className={cat===c?'active':''} onPointerEnter={()=>{if(cat!==c)void readStats(queryOf(c,{},days,pay)).catch(()=>{});}} onFocus={()=>{if(cat!==c)void readStats(queryOf(c,{},days,pay)).catch(()=>{});}} onClick={()=>chooseCat(c)}>{c==='ram'?'Memória RAM':'Placas de vídeo'}</button>)}</div>
+    <div className="pay-toggle" role="radiogroup" aria-label="Forma de pagamento">{([['pix','Pix'],['card','Cartão']] as const).map(([v,l])=><button key={v} type="button" role="radio" aria-checked={pay===v} className={pay===v?'active':''} title={v==='card'?'Valores pelo total no cartão informado pelas lojas (histórico desde 26/11/2026)':'Valores pelo preço à vista no Pix'} onClick={()=>{setPay(v);try{localStorage.setItem('baixou-payment',v);}catch{}}}>{l}</button>)}</div>
     {view&&view.windows.length>0&&<div className="segmented" role="group" aria-label="Período">{view.windows.map(d=><button key={d} aria-pressed={view.days===d} className={view.days===d?'active':''} onClick={()=>setDays(d)}>{d===view.historyDays&&d<7?'Desde '+dateBR(view.firstDay!):d<=90?d+' dias':d===180?'6 meses':'1 ano'}</button>)}</div>}
     {busy&&<span className="stats-busy" role="status"><RefreshCw size={14} className="spin"/>Atualizando</span>}
    </div>
@@ -77,7 +80,7 @@ function StatsPanel({data,applied}:{data:StatsResult;applied:Record<string,strin
   </div>
   {(data.moves.down.length>0||data.moves.up.length>0)&&<section className="stats-card movers"><div><h2><TrendingDown size={15}/>Maiores quedas{data.days?' · '+data.days+' dias':''}</h2><MoveList list={data.moves.down} empty="Nenhuma queda de 2% ou mais."/></div><div><h2><TrendingUp size={15}/>Maiores altas</h2><MoveList list={data.moves.up} empty="Nenhuma alta de 2% ou mais."/></div></section>}
   <details className="stats-method"><summary><Info size={14}/>Metodologia e amostra</summary><ul>
-   <li>Amostra: {data.sample.grouped} de {data.sample.live} ofertas ativas com preço verificado à vista/Pix, em {data.sample.stores} lojas; {data.sample.paired} anúncios com início e fim do período. Histórico desde {data.firstDay?dateBR(data.firstDay):'—'} ({data.historyDays} dias).</li>
+   <li>Amostra: {data.sample.grouped} de {data.sample.live} ofertas ativas com preço verificado {data.payment==='card'?'no cartão (total informado pela loja; histórico do cartão desde 26/11/2026)':'à vista/Pix'}, em {data.sample.stores} lojas; {data.sample.paired} anúncios com início e fim do período. Histórico desde {data.firstDay?dateBR(data.firstDay):'—'} ({data.historyDays} dias).</li>
    <li>{c==='ram'?'Este painel inclui DDR4 e DDR5 desktop de 8 GB ou mais, separando módulos e kits com a mesma divisão e capacidade total. Notebook, servidor, DDR3 e capacidades menores continuam no catálogo. Uso desconhecido fica fora deste painel.':'Este painel inclui NVIDIA RTX e Radeon RX a partir da série RX 5000, sempre com a mesma VRAM por linha; modelos antigos continuam no catálogo.'}</li>
    <li>Preço riscado ("de") e preços apenas divulgados pelas lojas nunca entram. Gráfico: um ponto por dia (menor preço do dia), dias sem coleta ficam vazios, hoje é parcial; "preço típico" acompanha os mesmos anúncios de um dia para o outro, então produtos novos não distorcem a evolução.</li>
    <li>Cobertura parcial das lojas monitoradas; não há previsão de preço.</li></ul></details>
@@ -99,9 +102,9 @@ const seriesCache=new Map<string,Promise<SeriesData[]>>();
 function Evolution({data,applied,keys,colorOf,metric,setMetric}:{data:StatsResult;applied:Record<string,string>;keys:string[];colorOf:(k:string)=>number;metric:'lowest'|'typical';setMetric:(m:'lowest'|'typical')=>void}){
  const [rows,setRows]=useState<SeriesData[]|null>(null),[err,setErr]=useState(false);
  const days=Math.max(30,data.days||30),k=keys.join(',');
- useEffect(()=>{if(!k){setRows([]);return;}const sp=new URLSearchParams({c:data.category,days:String(days),keys:k});for(const [a,v] of Object.entries(applied))if(v)sp.set(a,v);const url='/api/stats/series?'+sp;
+ useEffect(()=>{if(!k){setRows([]);return;}const sp=new URLSearchParams({c:data.category,days:String(days),keys:k});if(data.payment==='card')sp.set('pag','cartao');for(const [a,v] of Object.entries(applied))if(v)sp.set(a,v);const url='/api/stats/series?'+sp;
   let p=seriesCache.get(url);if(!p){p=fetch(url).then(r=>{if(!r.ok)throw Error();return r.json();}).then(j=>j.series as SeriesData[]);p.catch(()=>seriesCache.delete(url));seriesCache.set(url,p);}
-  let live=true;setErr(false);p.then(s=>{if(live)setRows(s);}).catch(()=>{if(live)setErr(true);});return()=>{live=false;};},[data.category,days,k,JSON.stringify(applied)]);// eslint-disable-line react-hooks/exhaustive-deps
+  let live=true;setErr(false);p.then(s=>{if(live)setRows(s);}).catch(()=>{if(live)setErr(true);});return()=>{live=false;};},[data.category,data.payment,days,k,JSON.stringify(applied)]);// eslint-disable-line react-hooks/exhaustive-deps
  const typical=metric==='typical';
  const series:Series[]=(rows??[]).map(s=>({id:s.key,label:s.label,color:Math.max(0,colorOf(s.key)),maxGap:1.6*DAY,points:s.points.filter(p=>!typical||p.typical!=null).map(p=>({t:dayStart(p.day)+12*3600000,p:typical?p.typical!:p.lowest,partial:p.partial,seg:typical?p.segment:0,label:s.label,detail:typical?[p.pairs+' anúncios pareados']:[p.store,p.offers+' anúncios no dia']}))})).filter(s=>s.points.length);
  return <section className="stats-card chart-card">
