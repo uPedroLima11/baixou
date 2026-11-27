@@ -208,3 +208,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Transição (27/11/2026)
 - Referência principal: docs/CONTINUIDADE_CODEX.md. WhatsApp liberado para todos (WHATSAPP_MODE=on); administração só WHATSAPP_ADMIN_USERS; não desconectar a sessão. Alertas automáticos por pg_cron a cada minuto (baixou-alerts) + eventos das coletas.
+
+## Desempenho e cache (Claude Code, 27/11/2026)
+- Catálogo: requisição nunca espera o banco se houver índice ≤10 min na memória (atualização em `after()`); snapshot em fatias do Data Cache (≤1,8 MB cada). Delta sempre paginado: PostgREST corta em 1.000 linhas.
+- Leituras públicas usam `withRetry` (lib/db-retry.ts) só para erros transitórios; nunca para gravação.
+- Imagens: manter a captura de erro antes da hidratação, retentativas e miniatura do mesmo arquivo da loja. Ícone é proteção visual, não solução.
+- Pacote inicial: não importar supabase-js, painéis da conta ou bibliotecas pesadas de forma síncrona na página inicial; evitar React.lazy/Suspense em painéis abertos por clique.
+- `refresh_market_reference()` só grava linhas com valor alterado; não voltar a atualizar a tabela inteira (infla o delta e o egresso).
+- KaBuM: listagem por departamento com `facet_filters` kabum_product=true; vendedor/marketplace continuam conferidos item a item.

@@ -1,3 +1,17 @@
+## Rodada Claude Code — desempenho, imagens, cache frio, KaBuM e jogos (26–27/11/2026, BRT)
+
+Detalhes, medições antes/depois e causas em docs/HANDOFF.md (topo). Último commit de código `e37fb63`; 183 testes; CI e deploy verdes.
+- **Imagens**: `components/ProductImage.tsx` + `lib/images.ts` + script no `app/layout.tsx`. Erro antes da hidratação é reprocessado; retentativas com backoff; miniatura do CDN da loja e original como 2ª tentativa; recuperação ao voltar online/visível. Com falhas injetadas, 0 imagens quebradas (antes 3–5 de 12 permanentes). Não voltar a `onError` puro.
+- **Catálogo no servidor** (`lib/catalog-server.ts`): índice servido da memória (≤10 min) e atualizado com `after()`; 5 fatias no Data Cache (snapshot único passou de 1,8 MB); leitura completa em faixas paralelas; delta paginado (max-rows 1.000 do PostgREST); `lib/db-retry.ts` para 57014/rede. `timing.cache` em `/api/catalog` mostra fases (cacheMs, decodeMs, dbMs, dbShards, deltaRows).
+- **Pacote inicial**: painéis da conta/WhatsApp, libphonenumber e supabase-js sob demanda (`lib/supabase-browser.ts`, `lib/api-client.ts`, `components/whatsapp-role.ts`); sem GSAP no herói; painéis sem Suspense (React 19 segura ~300 ms). JS inicial 1,19 → 0,65 MB.
+- **Produto**: ISR real (`generateStaticParams` vazio) + `cache()`; HIT 0,24–0,37 s. Primeira visita após deploy ainda espera a geração (pendência).
+- **Divulgadas** no HTML (`lib/announced.ts`).
+- **Banco**: migration `20261127090000` aplicada — `refresh_market_reference()` só grava linhas que mudam e sem nested loop (4,5 s → 0,2–0,4 s; 10.801 → ~182 linhas). Isso encolhe o delta do catálogo.
+- **KaBuM**: `scripts/kabum-listing.ts` varre 10 departamentos com `facet_filters` `kabum_product=true` (~4 mil produtos próprios, ~43 páginas). Vivas 2.239 → 3.055; ~890 aguardando detalhe. Jogos/vales não entram na fila.
+- **Jogos**: KaBuM só tem 9 consoles próprios (todos publicados); Xbox lá é só marketplace. Vitrines oficiais ML PlayStation/Nintendo/GameSir adicionadas (probe 200) com rodízio entre execuções. Marketplace de terceiros continua recusado.
+- **Pichau/Terabyte/Amazon**: nada integrável novo (Terabyte sem loja ML; listas da vitrine Pichau exigem sessão; projetos Amazon novos raspam com Selenium). Não repetir.
+- Medidor: `work/cc/measure.mjs` (local, fora do Git): Chrome headless do Windows via CDP, celular 4G lento/CPU 4× e desktop, falhas de imagem injetadas.
+
 ## Rodada Codex — mobile, WhatsApp internacional, Consoles e Controles (26/11/2026, BRT)
 
 - Checkpoint anterior `0285ba8` publicado no alias de produção (Vercel Ready), CI 45920571774 verde. Variável GitHub `WHATSAPP_MODE=on`; remetente conectado, um contato confirmado e dez envios com recibo, zero de cartão. Cron `baixou-alerts` ativo e cinco registros recentes HTTP 200 no pg_net. A latência de 7 s e 32 s é a evidência registrada na transição; não foram disparadas novas mensagens para repeti-la.

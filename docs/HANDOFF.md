@@ -1,3 +1,61 @@
+## Rodada Claude Code — desempenho, imagens, cache frio, KaBuM por departamento, jogos (26–27/11/2026, ~22h30–00h40 BRT)
+
+Checkpoint inicial `d9c32c6`. Commits: `0d3879b` imagens · `712eeef` índice em segundo plano/fatias/delta paginado · `fef1583` pacote inicial · `0a847f5` vitrines de jogos ML · `9265001` tempos da carga fria · `7b5aa8e` KaBuM por departamento · `a95e1c7` índices Pix/Cartão em segundo plano · `fab6192` painéis sem Suspense · `5d8c9e7` ISR do produto · `28615a8` rodízio das vitrines ML · `e37fb63` referência de mercado. 183 testes, typecheck, build e CI verdes; deploys Ready em produção.
+
+### Medição (Chrome do Windows headless via CDP, `work/cc/measure.mjs`, cache frio por contexto novo)
+Celular = 390×844, DPR 3, 150 ms RTT, 1,6 Mbit/s, CPU 4×. Desktop = 1440×900 sem limitação. Interação = clique até a grade trocar e `aria-busy` voltar a false (inclui a atualização em segundo plano; os cards já aparecem antes).
+
+| Métrica | Celular antes → depois | Desktop antes → depois |
+|---|---|---|
+| JS inicial da página inicial (descomprimido) | 1,19 MB → 0,65 MB | idem |
+| LCP página inicial | 3,7–4,2 s → 2,5–2,8 s | 1,5–1,7 s → 1,4 s |
+| Primeiro card na tela | 2,0–2,5 s → 2,2 s | 1,3 s → 1,3 s |
+| Imagens com falha transitória injetada (12 primeiras) | 3 quebradas + 1 ícone, permanentes → 0 quebradas | 5 quebradas + 2–3 ícones → 12/12 em 8 s |
+| Abrir login | 44–54 ms → 57 ms (pico de 335 ms corrigido) | 11–16 ms → 6–28 ms |
+| Produto (em cache) visível / completo | 0,47 / 0,96 s → 0,30–0,52 / 0,53–1,0 s | 0,42 / 1,2 s → 0,11–0,26 / 0,17–0,36 s |
+| Ofertas divulgadas (conteúdo) | 4,4 s → 2,0–2,5 s | 1,5 s → 1,2–1,3 s |
+| Estatísticas (conteúdo) | 1,9 s → 1,7–2,3 s (já vinha no HTML) | 1,2 s → 1,2–1,5 s |
+| Modos/filtros/ordenação | 0,15–0,64 s → 0,12–0,83 s | 25–110 ms → 23–250 ms |
+| Servidor: carga fria do índice | 6,2 s → 0,96 s (Data Cache 378 ms, decodificação 266 ms, índice ~300 ms) | — |
+| Servidor: requisição com índice >2 min | esperava delta (0,9–1,2 s) → 0 ms (delta depois da resposta) | — |
+
+Medições pontuais; o banco gratuito tem picos (ver refresh_market_reference abaixo). Uma rodada caiu durante deploy (instâncias frias) e foi descartada.
+
+### Causas corrigidas
+- **Imagens**: o HTML do servidor já traz as `<img>`; no celular elas falham antes da hidratação e o `onError` do React nunca roda → retângulo branco eterno (CSS `background:#fff`). Script no layout registra o erro (`window.__baixouImgErr`), o card reprocessa; retentativas 0,7 s/2 s com `_r=n`; depois o original; esgotado, nova tentativa ao voltar online/aba visível/20 s. Memória de URL falha por sessão. Miniaturas do próprio CDN (lib/images.ts): KaBuM `_g` 395 px 27 KB (vs `_gg` 113 KB), VTEX `ids/N-400-400` 18 KB (vs 78 KB), Shopify `width=480` (vs 1920, 251 KB). 4 primeiros cards `fetchpriority=high`, 8 `eager`, resto lazy. CDN KaBuM: 40/40 e rajada de 300 imagens em paralelo HTTP 200. Telegram (`telesco.pe`) expira: posts antigos 404 (fallback legítimo); <48 h 200.
+- **503 em cache frio**: `statement_timeout` de 3 s do papel anon (57014) em picos de CPU do banco. Instância fria lia 13 páginas em série. Agora: índice em memória servido na hora e atualizado com `after()`; instância nova aceita fatia do Data Cache de até 10 min + delta em segundo plano; leitura completa em faixas de id paralelas; `lib/db-retry.ts` repete só erros transitórios (57014, rede, PGRST00x). Estatísticas: primeiro dia/variações/ofertas da série memorizados por instância.
+- **Snapshot acima do teto**: o snapshot único chegou a 1,93 MB (teto 1,8 MB) → toda instância fria ia ao banco. Agora 5 fatias no Data Cache (`baixou-public-catalog-shard-v2`).
+- **Delta truncado (correção)**: PostgREST corta em 1.000 linhas; `limit(5000)` perdia mudanças (inclusive indisponíveis). Paginado por id.
+- **Pacote inicial**: GSAP (deixava o herói invisível até hidratar), libphonenumber, painéis da conta/WhatsApp e supabase-js saíram do carregamento inicial. Painéis pré-carregados em ocioso e ao apontar/tocar o botão da conta, renderizados sem Suspense (o React 19 segurava ~300 ms). Sessão local lida do localStorage para o botão; validação logo depois.
+- **Produto**: rota era dinâmica (sem `generateStaticParams` o `revalidate` não valia) e lia o produto 2× por visita. Agora ISR (gerada na 1ª visita, HIT 0,24–0,37 s) + `cache()`; o cliente troca pela verificação atual se for mais nova.
+- **Divulgadas**: lista no HTML (`lib/announced.ts`, revalidate 120 s).
+- **refresh_market_reference()**: regravava as 10.801 ofertas (182 com referência) e `market_checked_at` em todas → tabela inteira em todo delta do catálogo; nested loop 3.132² por estimativa de 1 linha. Migration `20261127090000` (aplicada): só linhas que mudam + `enable_nestloop=off` na função. 4.466 ms → 191–379 ms. Tinha causado falha 57014 no job report (run 45927530946).
+
+### Consoles e controles
+- KaBuM vende **9 consoles** próprios (todos publicados) e 50 controles (41 publicados). Xbox Series na KaBuM: só marketplace (FKL Games, Kuko, Truex, Magalu…), por isso Xbox/Nintendo "não produziam ofertas". 50 consoles de marketplace descartados pela política de vendedor (decisão: não aceitar terceiros, nem Magalu, sem pedido do proprietário).
+- Vitrines oficiais ML novas: PlayStation (loja 1473), Nintendo (5590), GameSir (210282), sondadas no runner (probe 45927618374, HTTP 200). Xbox/Microsoft/8BitDo sem loja oficial. O conector só alcançava 3–4 vitrines por execução, sempre as primeiras: rodízio de 3 lojas por janela de 15 min (`rotateStores`). As de jogos entram quando o rodízio chegar ao fim da lista (≤ ~2 h 15 min).
+- "Bundle Nintendo Switch 2 – …" agora é console (variante pacote). WAZ/Patoloco/ChipArt/Guerra/iByte/Shopinfo: rotas de consoles inexistentes (404) ou só menu.
+
+### KaBuM — departamentos com filtro de venda própria
+- A listagem aceita `facet_filters=base64({"kabum_product":["true"]})` (filtro "KaBuM!" da loja; robots não restringe). Hardware 1.029, periféricos 1.796, computadores 301, gamer 221, espaço gamer 164, áudio 225, celulares 68, tablets 33, câmeras/cartões 59, escritório 73. Primeira rodada (run 45928994328): 45 páginas, 3.965 itens, 2.625 renovados, 1.058 novos na fila, 0 erros, dentro de 240 s. Jogos/vales não são enfileirados. URLs antigas das categorias mistas saíram do rodízio.
+- KaBuM vivas: 2.239 → **3.055** durante a rodada (890 novos ainda aguardando detalhe; ~380 por rodada).
+
+### Pichau, Terabyte, Amazon
+- Terabyte: sem loja oficial no ML (`terabyte` 404, demais redirecionam). Pichau ML: listas internas da vitrine (`/loja/pichau/lista/...`) redirecionam para a vitrine (exigem sessão). Busca nova por APIs/feeds: só scraper de 2021 (`hardware-price-scraper-api`).
+- Amazon: novos projetos (PriceRadarBR, amazon-price-tracker, price_tracker_new) raspam páginas da amazon.com.br com Selenium/seletores CSS — vedado pelas Condições de Uso, sem vendedor identificado; Marc0l4/price-tracker usa Scavio (chave). Nenhuma integração utilizável; páginas da Amazon não foram acessadas.
+
+### Estado no fim da rodada
+- Vivas 5.637 (início 5.131): KaBuM 3.055, WAZ 525, Shopinfo 433, ChipArt 334, iByte 284, ML 270, Patoloco 242, Terabyte 231 (anunciadas), Guerra 182, Pichau 81 (anunciadas). Consoles 9; controles 50.
+- WAZ/iByte com atraso de 30+ min (≈110 vencidas cada) às ~03h20 UTC: execução do collect.yml de 02:57 em andamento; acompanhar `queue_health()`.
+- pg_net: 61×200 na última hora (1 timeout de DNS às 02:29, durante deploy). E-mail 15 e WhatsApp 11 entregues em 24 h; remetente `connected` (02:33). Nada foi pareado/desconectado. Banco 125 MB.
+
+### Pendências
+1. Primeira visita de produto após deploy (ISR vazio) espera a geração: 0,6–1,9 s normal, até 3,5 s com o banco disputado e 8–20 s no celular lento logo após deploy. Avaliar `loading.tsx`/pré-geração dos mais vistos.
+2. Confirmar entrada das vitrines PlayStation/Nintendo/GameSir no catálogo (consoles/DualSense/GameSir) depois do rodízio; conferir amostra contra a página.
+3. KaBuM: acompanhar conversão dos ~890 candidatos novos e o tempo da etapa de detalhe; teto 8.000.
+4. Cartão: modos Baixou!/Quedas no cartão ficam vazios até o histórico do cartão amadurecer (~30/11).
+5. Marketplace da KaBuM (Magalu e outros) só com decisão do proprietário.
+
 ## Rodada Codex — mobile, WhatsApp internacional, Consoles e Controles (26/11/2026, BRT)
 
 - Checkpoint anterior `0285ba8` publicado no alias de produção (Vercel Ready), CI 45920571774 verde. Variável GitHub `WHATSAPP_MODE=on`; remetente conectado, um contato confirmado e dez envios com recibo, zero de cartão. Cron `baixou-alerts` ativo e cinco registros recentes HTTP 200 no pg_net. A latência de 7 s e 32 s é a evidência registrada na transição; não foram disparadas novas mensagens para repeti-la.
