@@ -1,3 +1,7 @@
+# CHECKPOINT DE TRANSIÇÃO PARA O CODEX (Claude Code, 27/11/2026 ~01h10 UTC)
+
+Ler primeiro docs/CONTINUIDADE_CODEX.md (estado, automação, pendências por prioridade). Novidades desta etapa: rotina pg_cron `baixou-alerts` a cada minuto (/api/jobs/alerts; 200 OK), WhatsApp liberado para todos (WHATSAPP_MODE=on na Vercel e vars), latência medida verificação→WhatsApp entregue 7 s e 32 s, menu da conta instantâneo, PARAR homologado pelo proprietário. Pendente principal: números internacionais.
+
 # CHECKPOINT — cadastro, WhatsApp homologação, notificações compactas, "Pix ou cartão" (Claude Code, 27/11/2026, ~02h UTC)
 
 - **Erro de cadastro (print do proprietário):** logs do Auth mostraram que o cadastro FOI concluído (e-mail de confirmação em ~6 s); as novas tentativas receberam 429 `over_email_send_rate_limit` e o login `email_not_confirmed`, mas a tela mostrava só "Não foi possível concluir". Corrigido (36534ed): mensagens específicas por código de erro e botão "Reenviar e-mail de confirmação". A pessoa só precisa abrir o link de confirmação. tests/auth-messages.test.ts.

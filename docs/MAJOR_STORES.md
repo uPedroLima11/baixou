@@ -1,3 +1,6 @@
+# Resumo para continuidade (27/11/2026)
+Amazon sem fonte gratuita sem cadastro; Pichau/Terabyte só Telegram (Cloudflare nas páginas e campanhas). Detalhes abaixo e em docs/CONTINUIDADE_CODEX.md. Não repetir sem possibilidade técnica nova.
+
 # Páginas de Black Friday (Claude Code, 27/11/2026)
 
 | URL | Resultado | Decisão |

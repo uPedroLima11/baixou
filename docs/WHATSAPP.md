@@ -1,3 +1,6 @@
+# Estado em 27/11/2026 01h UTC
+- Liberado para todos (WHATSAPP_MODE=on). Disparo automático: pg_cron baixou-alerts (1/min) + coletas; ciclo conecta só com fila/código/≥15 min ocioso. Latência medida: 7 s e 32 s da verificação ao recibo de entrega. Pendente: números internacionais; homologar código novo, alerta de cartão e recuperação (ver CONTINUIDADE_CODEX.md).
+
 # Atualização 27/11/2026 (madrugada) — confirmação por código enviado pelo Baixou!
 
 - Fluxo do usuário: número com DDD + autorização → **Enviar código** → o remetente confere se o número tem WhatsApp (`onWhatsApp`, grava o JID real) e envia "🔐 Baixou! Seu código de confirmação é: NNNNNN…" → o usuário digita o código no site → confirmado e ativado. O fluxo antigo (usuário enviar "BAIXOU código") deixou de ser oferecido; o processamento de PARAR continua.

@@ -206,3 +206,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - KaBuM: listagem (100/página) renova conhecidos e descobre novos; detalhe confirma identidade. Não tratar item ausente da listagem como esgotado. Renovação sem mudança grava histórico no máximo a cada 6 h (limite do banco gratuito).
 - Catálogo: Todos (padrão, sem exclusões) / Pix / Cartão; cards sempre mostram os dois preços. Estatísticas: Pix/Cartão com funções *_card.
 
+## Transição (27/11/2026)
+- Referência principal: docs/CONTINUIDADE_CODEX.md. WhatsApp liberado para todos (WHATSAPP_MODE=on); administração só WHATSAPP_ADMIN_USERS; não desconectar a sessão. Alertas automáticos por pg_cron a cada minuto (baixou-alerts) + eventos das coletas.
