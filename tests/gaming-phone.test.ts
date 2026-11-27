@@ -12,6 +12,11 @@ test('consoles preservam modelo, armazenamento e pacote declarados', () => {
     model:'PlayStation 5 Slim', brand:'sony', storage:825, drive:'Digital', bundle:'Bundle',
   });
   assert.equal(consoleFacts(normalize('Console Nintendo Switch 2, 256GB'))?.model, 'Nintendo Switch 2');
+  // Vitrine oficial da Nintendo no ML publica pacotes como "Bundle Nintendo Switch 2 – …": continua console, como pacote.
+  const bundle = consoleFacts(normalize('Bundle Nintendo Switch 2 – Nintendo Switch Sports Resort'));
+  assert.equal(bundle?.model, 'Nintendo Switch 2'); assert.equal(bundle?.bundle, 'Bundle');
+  assert.equal(classify('Bundle Nintendo Switch 2 – Nintendo Switch Sports Resort'), 'consoles');
+  assert.notEqual(classify('Bundle Jogo Mario Kart para Nintendo Switch'), 'consoles');
   for (const accessory of ['Jogo para PlayStation 5', 'Capa Nintendo Switch OLED', 'Nintendo Switch Pro Controller', 'Xbox Series X SSD para expansão']) {
     assert.notEqual(classify(accessory), 'consoles', accessory);
   }

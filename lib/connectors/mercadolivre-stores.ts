@@ -17,6 +17,8 @@ export const ML_OFFICIAL_STORES:OfficialStore[]=[
  {slug:'samsung',name:'Samsung',brand:'Samsung'},{slug:'lg',name:'LG',brand:'LG'},{slug:'aoc',name:'AOC',brand:'AOC'},{slug:'philips',name:'Philips',brand:'Philips'},
  {slug:'acer',name:'Acer',brand:'Acer'},{slug:'lenovo',name:'Lenovo',brand:'Lenovo'},{slug:'dell',name:'Dell',brand:'Dell'},{slug:'hp',name:'HP',brand:'HP'},{slug:'positivo',name:'Positivo',brand:'Positivo'},
  {slug:'jbl',name:'JBL',brand:'JBL'},{slug:'edifier',name:'Edifier',brand:'Edifier'},
+ // Consoles e controles (sondados no runner em 27/11/2026: HTTP 200). Xbox/Microsoft e 8BitDo não têm loja oficial no ML.
+ {slug:'playstation',name:'PlayStation',brand:'Sony'},{slug:'nintendo',name:'Nintendo',brand:'Nintendo'},{slug:'gamesir',name:'GameSir',brand:'GameSir'},
 ];
 const ORIGIN='https://www.mercadolivre.com.br';
 // Vitrines de varejistas (Pichau, KaBuM!) não informam marca: usa a marca impressa no título SOMENTE quando

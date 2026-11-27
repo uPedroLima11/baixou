@@ -10,7 +10,7 @@ const consoleModels: [RegExp,string,string][] = [
 ];
 
 export function consoleFacts(title:string) {
-  const text = title.trim().replace(/^(?:bundle )?(?:console|videogame|video game)(?: portatil)? /, '');
+  const text = title.trim().replace(/^bundle (?=(?:console|videogame|video game|nintendo switch|(?:sony )?playstation 5|ps5|xbox series)\b)/, '').replace(/^(?:console|videogame|video game)(?: portatil)? /, '');
   const entry = consoleModels.find(([pattern]) => pattern.test(text));
   if (!entry || /^(?:.*?\b(?:control|controller|pro controller|joy con)\b)(?: para| compat)/.test(text) ||
       /^(?:nintendo switch(?: 2)?|(?:sony )?playstation 5|ps5|xbox series [xs]) (?:pro controller|controller|controle para|carregador|acessorio|capa|suporte|jogo|dock|placa|ssd para)\b/.test(text)) return null;
