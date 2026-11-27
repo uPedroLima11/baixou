@@ -17,7 +17,7 @@ export const LIST_FIELDS='id,store,url,title,category,brand,mpn,image,price,orig
 // leitura anterior (margem de 45 s para relógio/réplica). Atualização sob demanda: sem visitas, nada é lido.
 const FULL_MS=60*60000,DELTA_MS=120000,META_MS=120000,PAGE=1000,MARGIN_MS=45000;
 type Meta={sources:SourceStatus[];stores:StoreRecord[];coverage:{generated_at:string;stores:StoreCoverage[]}|null};
-type State={cardIndex?:CatalogIndex;offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
+type State={cardIndex?:CatalogIndex;pixIndex?:CatalogIndex;offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
 let state:State|null=null,inflight:Promise<State>|null=null,metaInflight:Promise<Meta|null>|null=null;
 
 async function fetchSnapshot():Promise<CatalogSnapshot>{
@@ -47,14 +47,17 @@ async function deltaLoad(s:State):Promise<State>{
  if(r.error)throw r.error;
  const offers=new Map(s.offers);for(const o of r.data as unknown as Offer[]){if(o.available)offers.set(o.id,o);else offers.delete(o.id);}
  const at=Date.now();
- return {...s,cardIndex:undefined,offers,deltaAt:at,since:next,index:buildIndex([...offers.values()],at),stats:{...s.stats,deltaMs:Math.round(performance.now()-t),deltaRows:r.data.length}};
+ return {...s,cardIndex:undefined,pixIndex:undefined,offers,deltaAt:at,since:next,index:buildIndex([...offers.values()],at),stats:{...s.stats,deltaMs:Math.round(performance.now()-t),deltaRows:r.data.length}};
 }
 // Índice por modalidade: o do cartão é montado sob demanda a partir das ofertas projetadas no cartão (preço total no
 // cartão, habitual e lojas comparadas no cartão) e só contém ofertas com preço no cartão informado pela loja.
-function indexFor(s:State,pay:Payment):CatalogIndex{if(pay==='pix')return s.index;
+// all = catálogo unificado (nada excluído; ordenação/Score pelo preço principal à vista). pix = só preços à vista/Pix
+// (exclui preços do ML sem Pix explícito). card = só ofertas com total no cartão.
+function indexFor(s:State,pay:Payment|'all'):CatalogIndex{if(pay==='all')return s.index;
+ if(pay==='pix'){if(!s.pixIndex){const cash=[...s.offers.values()].filter(o=>o.store!=='mercadolivre'||o.payment_basis==='cash');s.pixIndex={...buildIndex(cash,s.deltaAt),withoutCard:s.offers.size-cash.length};}return s.pixIndex;}
  if(!s.cardIndex){const projected=[...s.offers.values()].map(o=>offerForPayment(o,'card')).filter((o):o is Offer=>!!o);s.cardIndex={...buildIndex(projected,s.deltaAt),withoutCard:s.offers.size-projected.length};}
  return s.cardIndex;}
-export async function catalogIndex(pay:Payment='pix'):Promise<CatalogIndex>{
+export async function catalogIndex(pay:Payment|'all'='all'):Promise<CatalogIndex>{
  const now=Date.now();
  if(state&&now-state.fullAt<FULL_MS&&now-state.deltaAt<DELTA_MS)return indexFor(state,pay);
  inflight??=(async()=>{try{state=!state||now-state.fullAt>=FULL_MS?await fullLoad():await deltaLoad(state).catch(()=>fullLoad());return state;}finally{inflight=null;}})();

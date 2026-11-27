@@ -15,7 +15,7 @@ export type ProductData={payment?:Payment;cardMissing?:boolean;partial?:boolean;
 export async function productData(id:string,pay:Payment='pix'):Promise<ProductData|null|'error'>{
  const db=publicDb();if(!db)return 'error';
  const [{data,error},index]=await Promise.all([db.from('offers').select('*').eq('id',id).maybeSingle(),// O índice frio leva ~3 s: a página não espera por ele (comparação e Score completos chegam depois pelo cliente).
-  Promise.race([catalogIndex(pay).catch(()=>null),new Promise<null>(r=>setTimeout(()=>r(null),600))])]);
+  Promise.race([catalogIndex(pay==='pix'?'all':pay).catch(()=>null),new Promise<null>(r=>setTimeout(()=>r(null),600))])]);
  if(error)return 'error';if(!data)return null;
  const raw=data as Offer,projected=offerForPayment(raw,pay),cardMissing=pay==='card'&&!projected;if(cardMissing)return productData(id,'pix').then(d=>d&&d!=='error'?{...d,cardMissing:true}:d);
  const offer=projected!;let related_specs:ProductData['related_specs']=null;

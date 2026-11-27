@@ -12,6 +12,16 @@ export function paymentLabel(o:Offer){
  return announced?'à vista · anunciado pela loja':o.store!=='mercadolivre'||o.payment_basis==='cash'?'à vista no Pix':'Condições de pagamento na loja';
 }
 
+// Card do catálogo: Pix e cartão lado a lado, com o mesmo destaque, em qualquer modalidade escolhida.
+// Pix: preço à vista (ou "Preço na loja" quando a fonte não informa Pix). Cartão: total informado + parcelas.
+export function DualPrice({o,active}:{o:Offer;active:'all'|'pix'|'card'}){
+ const card=isCardView(o)?Number(o.price):Number(o.card_price),cashBasis=isCardView(o)||o.store!=='mercadolivre'||o.payment_basis==='cash';
+ const pix=isCardView(o)?Number(o.pix_price):Number(o.price),s=short(o),announced=o.verification_status==='announced';
+ return <div className="dual-price">
+  <div className={active==='pix'?'chosen':''}><small>{cashBasis?'Pix':'Preço na loja'}{announced?' · anunciado':''}</small><strong className="pix">{pix>0?money(pix):'—'}</strong></div>
+  <div className={active==='card'?'chosen':''}><small>Cartão{announced&&card>0?' · anunciado':''}</small>{card>0?<><strong>{money(card)}</strong>{s?<span>{s}</span>:null}</>:<span className="none">não informado</span>}</div>
+ </div>;
+}
 export function AltPrice({o}:{o:Offer}){
  if(isCardView(o))return o.pix_price?<small className="alt-price"><QrCode size={11} aria-hidden/>Pix {money(Number(o.pix_price))}</small>:null;
  if(Number(o.card_price)>0){const s=short(o);return <small className="alt-price"><CreditCard size={11} aria-hidden/>Cartão {money(Number(o.card_price))}{s?' · '+s:''}</small>;}

@@ -35,7 +35,7 @@ export function buildIndex(offers:Offer[],now=Date.now()):CatalogIndex{
  return {entries,byId:new Map(entries.map(e=>[e.o.id,e])),departments:departmentOptions(live,now),builtAt:now,buildMs:Math.round(performance.now()-t)};
 }
 
-export type CatalogParams={payment?:'pix'|'card';mode?:Mode;category?:string;q?:string;stores?:string[];maxPrice?:number;minDiscount?:number;comparable?:boolean;sort?:'quality'|'discount'|'price'|'recent';facets?:Record<string,string[]>;offset?:number;limit?:number};
+export type CatalogParams={payment?:'all'|'pix'|'card';mode?:Mode;category?:string;q?:string;stores?:string[];maxPrice?:number;minDiscount?:number;comparable?:boolean;sort?:'quality'|'discount'|'price'|'recent';facets?:Record<string,string[]>;offset?:number;limit?:number};
 function inMode(e:Entry,mode:Mode,minDiscount:number){
  if(mode==='all')return true;
  if(mode==='market')return isOpportunity(e.score);
@@ -60,8 +60,10 @@ const facetMatch=(e:Entry,facets:Record<string,string[]>,skip?:string)=>Object.e
 export function queryCatalog(index:CatalogIndex,p:CatalogParams,now=Date.now()){
  const live=index.entries.filter(e=>isLive(e.o,now));
  // Sem escolha explícita: modalidade Baixou! quando há oportunidade; senão, catálogo completo pelo Score.
- const mode:Mode=p.mode??(live.some(e=>isOpportunity(e.score))?'market':'all');
  const facets=p.facets??{},category=p.category&&p.category!=='all'?p.category:'all',q=p.q?.trim()??'';
+ // Sem escolha explícita: Baixou! quando há oportunidade NA CATEGORIA pedida (na modalidade de pagamento do índice);
+ // senão, catálogo completo pelo Score (ex.: cartão ainda sem histórico próprio).
+ const mode:Mode=p.mode??(live.some(e=>isOpportunity(e.score)&&(category==='all'||e.o.category===category))?'market':'all');
  const params={...p,q};
  const cache=new Map<Mode,Entry[]>();const sel=(m:Mode)=>{let r=cache.get(m);if(!r){r=select(index,live,m,params);cache.set(m,r);}return r;};
  const eligibleAll=sel(mode),eligible=p.comparable?eligibleAll.filter(e=>e.compare):eligibleAll;
