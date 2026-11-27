@@ -1,5 +1,5 @@
 // Cache do catálogo no servidor (por instância da Vercel), com atualização incremental para poupar o banco:
-// - carga completa (anúncios vivos, páginas de 1.000 em paralelo) no início e a cada 60 min;
+// - carga completa (anúncios vivos, páginas por ID) no início e a cada 60 min;
 // - a cada 120 s (sob demanda), só as linhas alteradas desde a última leitura (checked_at, last_attempt_at ou market_checked_at),
 //   que trazem também as que deixaram de estar disponíveis (são removidas).
 // A validade (expires_at) é sempre conferida na consulta: nada vencido é servido para ganhar velocidade.
@@ -15,7 +15,7 @@ import {encodeSnapshot,decodeSnapshot,type CatalogSnapshot} from './catalog-snap
 export const LIST_FIELDS='id,store,url,title,category,brand,mpn,image,price,original_price,available,seller,sold,rating,review_count,specs,checked_at,expires_at,historical_median,historical_samples,historical_days,discount,evidence,discoveries,coupon_hint,coupon_validated,payment_note,product_id,gtin,variant,last_attempt_at,verification_status,market_median,market_lowest,market_stores,market_highest,market_expires_at,market_checked_at,seller_key,payment_basis,historical_max,reference_median,reference_samples,reference_days,reference_min,reference_max,card_price,card_installments,card_installment_value,card_interest_free,card_reference_median,card_reference_samples,card_reference_days,card_reference_min,card_reference_max,card_historical_max,card_market_median,card_market_lowest,card_market_highest,card_market_stores,card_market_expires_at';
 // Egress (cota gratuita 5 GB/mês): carga completa ~5,8 MB sem compressão; delta traz só as linhas alteradas desde a
 // leitura anterior (margem de 45 s para relógio/réplica). Atualização sob demanda: sem visitas, nada é lido.
-const FULL_MS=60*60000,DELTA_MS=120000,META_MS=120000,PAGE=1000,MARGIN_MS=45000;
+const FULL_MS=60*60000,DELTA_MS=120000,META_MS=120000,PAGE=400,MARGIN_MS=45000;
 type Meta={sources:SourceStatus[];stores:StoreRecord[];coverage:{generated_at:string;stores:StoreCoverage[]}|null};
 type State={cardIndex?:CatalogIndex;pixIndex?:CatalogIndex;offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
 let state:State|null=null,inflight:Promise<State>|null=null,metaInflight:Promise<Meta|null>|null=null;
@@ -23,12 +23,19 @@ let state:State|null=null,inflight:Promise<State>|null=null,metaInflight:Promise
 async function fetchSnapshot():Promise<CatalogSnapshot>{
  const db=publicDb();if(!db)throw Error('Supabase não configurado');
  const started=new Date(Date.now()-MARGIN_MS).toISOString(),now=new Date().toISOString();
- const first=await db.from('catalog_offers').select(LIST_FIELDS,{count:'exact'}).eq('available',true).gt('expires_at',now).order('id').range(0,PAGE-1);
- if(first.error)throw first.error;
- const total=first.count??first.data.length,pages=Math.ceil(total/PAGE);
- const rest=await Promise.all(Array.from({length:Math.max(0,pages-1)},(_,i)=>db.from('catalog_offers').select(LIST_FIELDS).eq('available',true).gt('expires_at',now).order('id').range((i+1)*PAGE,(i+2)*PAGE-1)));
- const offers=new Map<string,Offer>();for(const r of [first,...rest]){if(r.error)throw r.error;for(const o of r.data as unknown as Offer[])offers.set(o.id,o);}
- return {offers:[...offers.values()],at:Date.now(),since:started};
+ const offers:Offer[]=[];
+ let after:string|undefined;
+ // O cursor evita recontar a tabela e reler todos os offsets anteriores em cada consulta.
+ for(;;){
+  const query=db.from('catalog_offers').select(LIST_FIELDS).eq('available',true).gt('expires_at',now).order('id').limit(PAGE);
+  const {data,error}=await (after?query.gt('id',after):query);
+  if(error)throw error;
+  const rows=data as unknown as Offer[];
+  offers.push(...rows);
+  if(rows.length<PAGE)break;
+  after=rows[rows.length-1].id;
+ }
+ return {offers,at:Date.now(),since:started};
 }
 const sharedSnapshot=unstable_cache(async()=>{const encoded=encodeSnapshot(await fetchSnapshot());return encoded.length<=1800000?encoded:'';},['baixou-public-catalog-brotli-v1',LIST_FIELDS,process.env.NEXT_PUBLIC_SUPABASE_URL??'unconfigured'],{revalidate:120});
 async function fullLoad():Promise<State>{
