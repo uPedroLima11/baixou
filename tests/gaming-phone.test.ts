@@ -37,3 +37,10 @@ test('confirmar telefone produz E.164 e mantém a variante do 9º dígito apenas
   assert.equal(internationalPhone('ligue +14155552671'),null);
   assert.deepEqual(phoneVariants('+351912345678'),['351912345678']);
 });
+test('listagem da KaBuM não enfileira jogos nem cartões-presente como produtos monitorados', async () => {
+  const {notMonitored} = await import('../lib/kabum-listing');
+  assert.equal(notMonitored('Jogo Astro Bot, PS5'), true);
+  assert.equal(notMonitored('Gift Card PlayStation Store R$ 100'), true);
+  assert.equal(notMonitored('Console Sony PlayStation 5 Slim'), false);
+  assert.equal(notMonitored('Controle Sem Fio DualSense, PS5'), false);
+});

@@ -14,6 +14,7 @@ import {excludedCondition} from './product-policy';
 // produtos novos de venda própria (vão para a fila; a página de detalhe confirma identidade antes de virar oferta).
 // Nunca: marketplace, open box, pré-venda, condição excluída, item ausente da listagem tratado como esgotado.
 export type ListingItem={id:string;code:number;url:string;title:string;pix:number;old:number|null;card:CardTerms;available:boolean;excluded:string|null};
+export const notMonitored=(title:string)=>/^(?:jogo|game|gift ?card|cartao (?:presente|pre pago)|vale presente|assinatura|card )\b/.test(normalize(title));
 const BRL=(s:string)=>Number(s.replace(/\./g,'').replace(',','.'));
 export function parseKabumListing(html:string,nowSec=Date.now()/1000):{items:ListingItem[];totalPages:number;total:number}{
  const $=cheerio.load(html);const next=JSON.parse($('#__NEXT_DATA__').text()||'{}');let d=next.props?.pageProps?.data;if(typeof d==='string')d=JSON.parse(d);
@@ -67,7 +68,8 @@ export async function applyKabumListing(db:SupabaseClient,items:ListingItem[],ro
  // Página de detalhe dispensada por ~20 h (ficha técnica/código), a listagem mantém preço e estoque.
  if(touched.length){const c=await db.from('product_candidates').update({last_attempt_at:iso,next_attempt_at:new Date(now.getTime()+20*3600000).toISOString(),failures:0}).eq('store','kabum').in('url',touched);if(c.error)throw c.error;}
  if(needsDetail.length){const c=await db.from('product_candidates').update({next_attempt_at:iso}).eq('store','kabum').eq('failures',0).gt('next_attempt_at',iso).in('url',needsDetail);if(c.error)throw c.error;}
- const fresh=usable.filter(i=>!known.has(i.id)&&i.available).slice(0,Math.max(0,room));
+ // Jogos (software), vales e cartões-presente do departamento Gamer não são hardware/eletrônicos monitorados.
+ const fresh=usable.filter(i=>!known.has(i.id)&&i.available&&!notMonitored(i.title)).slice(0,Math.max(0,room));
  if(fresh.length){const ins=await db.from('product_candidates').upsert(fresh.map(i=>({store:'kabum',url:i.url,category:classify(i.title)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(ins.error)throw ins.error;queued=ins.data?.length??0;}
  return {renewed,changed,unavailable,queued,known:known.size};
 }

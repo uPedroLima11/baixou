@@ -6,10 +6,16 @@ import robotsParser from 'robots-parser';
 import {adminDb} from '../lib/server';
 import {applyKabumListing,parseKabumListing} from '../lib/kabum-listing';
 const UA='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)',ORIGIN='https://www.kabum.com.br';
-// Prioridade: hardware monitorado nas estatísticas/alertas primeiro. Periféricos/notebooks (>10 mil itens) por último.
-export const LISTING_CATEGORIES=['/hardware/memoria-ram','/hardware/placa-de-video-vga','/hardware/processadores','/hardware/ssd-2-5','/hardware/placas-mae','/hardware/fontes','/hardware/kit-hardware/kit-upgrade','/hardware/coolers','/hardware/disco-rigido-hd','/espaco-gamer/cadeiras-gamer','/gamer/playstation','/gamer/xbox','/gamer/nintendo','/gamer/acessorios-gamer/joystick','/computadores/monitores','/promocao/gabinetes','/perifericos','/computadores/notebooks'];
-const MAX_PAGES:Record<string,number>={'/gamer/playstation':4,'/gamer/xbox':4,'/gamer/nintendo':4,'/gamer/acessorios-gamer/joystick':4,'/computadores/monitores':8,'/promocao/gabinetes':5,'/perifericos':30,'/computadores/notebooks':10};
-export const listingUrl=(path:string,page:number)=>ORIGIN+path+'?page_number='+page+'&page_size=100';
+// Departamentos inteiros filtrados por VENDA PRÓPRIA (facet kabum_product, o mesmo filtro "KaBuM!" da loja; robots
+// não restringe facet_filters). Medido em 27/11/2026: hardware 1.029, periféricos 1.796, computadores 301, gamer 221,
+// espaço gamer 164, áudio 225, celulares 68, tablets 33, câmeras/cartões 59, escritório 73 — ~4 mil produtos em ~43
+// páginas de 100, contra dezenas de páginas mistas com marketplace (periféricos tinha 10 mil itens, quase todos de
+// terceiros, descartados pela política de vendedor). O parser continua conferindo vendedor/marketplace item a item.
+// Prioridade: hardware (estatísticas/alertas) primeiro.
+export const LISTING_CATEGORIES=['/hardware','/perifericos','/computadores','/gamer','/espaco-gamer','/audio','/celular-smartphone','/tablets-ipads-e-e-readers','/cameras-e-drones','/escritorio'];
+const MAX_PAGES:Record<string,number>={};// sem teto por departamento além de 40 páginas (4 mil itens)
+const OWN_FILTER=Buffer.from(JSON.stringify({kabum_product:['true']})).toString('base64');
+export const listingUrl=(path:string,page:number)=>ORIGIN+path+'?page_number='+page+'&page_size=100&facet_filters='+OWN_FILTER;
 async function body(r:Response){let text='',size=0;const reader=r.body?.getReader(),d=new TextDecoder();if(!reader)throw Error('Resposta vazia');for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>8000000){await reader.cancel();throw Error('Resposta maior que 8MB');}text+=d.decode(value,{stream:true});}return text+d.decode();}
 async function main(){
  const db=adminDb(),deadline=Date.now()+Math.min(420000,Math.max(30000,Number(process.env.LISTING_DEADLINE_MS)||240000)),cap=Math.min(12000,Math.max(2000,Number(process.env.KABUM_CANDIDATE_CAP)||8000));
@@ -23,8 +29,8 @@ async function main(){
   // Páginas conhecidas (com última tentativa) + página 1 de cada categoria; ordem = tentativa mais antiga, prioridade da categoria.
   const seen=await db.from('collection_pages').select('url,last_attempt_at').eq('store','kabum').like('url','%#listing').limit(2000);if(seen.error)throw seen.error;
   const lastAt=new Map((seen.data??[]).map(r=>[r.url.replace(/#listing$/,''),Date.parse(r.last_attempt_at??'')||0]));
-  const queue:string[]=[];for(const c of LISTING_CATEGORIES)queue.push(listingUrl(c,1));for(const u of lastAt.keys())if(!queue.includes(u))queue.push(u);
-  const rank=(u:string)=>LISTING_CATEGORIES.findIndex(c=>u.startsWith(ORIGIN+c+'?'));
+  const rank=(u:string)=>LISTING_CATEGORIES.findIndex(c=>u.startsWith(ORIGIN+c+'?')&&u.includes('facet_filters='+OWN_FILTER));
+  const queue:string[]=[];for(const c of LISTING_CATEGORIES)queue.push(listingUrl(c,1));for(const u of lastAt.keys())if(rank(u)>=0&&!queue.includes(u))queue.push(u);
   queue.sort((a,b)=>(lastAt.get(a)??0)-(lastAt.get(b)??0)||rank(a)-rank(b));
   const done=new Set<string>();
   while(queue.length&&Date.now()<deadline-15000){
