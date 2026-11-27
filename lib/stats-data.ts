@@ -4,6 +4,7 @@
 // principal). Só preço verificado à vista/Pix comparável; anúncio apenas divulgado (Telegram) nunca entra.
 // Variação do período: mesma amostra consistente (mesmo anúncio no início e no fim; RPC price_changes).
 import {publicDb} from './supabase';
+import {withRetry} from './db-retry';
 import {catalogIndex} from './catalog-server';
 import {offerFacets,facetLabel} from './specs';
 import {statsGroup,cashComparable,isLive,panel,type ChangeRow,type StatOffer} from './stats';
@@ -38,9 +39,17 @@ export type Move={id:string;title:string;store:string;seller:string;base:number;
 
 // pay='card': índice do cartão (ofertas projetadas no total no cartão) e resumo diário SÓ do cartão (price_changes_card).
 // Histórico do cartão começa em 26–27/11/2026; nenhum dia vem do Pix.
+// Primeiro dia do histórico (muda uma vez por dia) e variações do período (resumo diário): memória da instância.
+// A variação usa dias completos, então 10 min de memória não altera o resultado do dia; falha não fica memorizada.
+const memo=new Map<string,{at:number;p:Promise<unknown>}>();
+function remember<T>(key:string,ms:number,run:()=>Promise<T>):Promise<T>{const hit=memo.get(key);if(hit&&Date.now()-hit.at<ms)return hit.p as Promise<T>;
+ const p=run();memo.set(key,{at:Date.now(),p});p.catch(()=>memo.delete(key));if(memo.size>200)for(const [k,v] of memo)if(Date.now()-v.at>ms)memo.delete(k);return p;}
+function loadFirstDay(pay:'pix'|'card'){return remember('first:'+pay,3600000,async()=>{const db=publicDb()!;const r=await withRetry(()=>(pay==='card'?db.from('price_daily').select('day').not('card_min_cents','is',null):db.from('price_daily').select('day')).order('day').limit(1));if(r.error)throw r.error;return r;});}
+async function priceChanges(pay:'pix'|'card',ids:string[],days:number):Promise<ChangeRow[]>{const key=pay+':'+days+':'+ids.slice().sort().join(',');
+ return remember('chg:'+key,600000,async()=>{const db=publicDb()!;const r=await withRetry(()=>db.rpc(pay==='card'?'price_changes_card':'price_changes',{p_ids:ids,p_days:days}));if(r.error)throw r.error;return r.data as ChangeRow[];});}
 export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted:number,pay:'pix'|'card'='pix'):Promise<StatsResult>{
  const db=publicDb();if(!db)throw Error('Supabase não configurado');
- const now=Date.now(),[index,first]=await Promise.all([catalogIndex(pay),(pay==='card'?db.from('price_daily').select('day').not('card_min_cents','is',null):db.from('price_daily').select('day')).order('day').limit(1)]);
+ const now=Date.now(),[index,first]=await Promise.all([catalogIndex(pay),loadFirstDay(pay)]);
  const live=index.entries.map(e=>e.o).filter(o=>o.category===c&&isLive(o,now)&&(pay==='card'?o.verification_status!=='announced':cashComparable(o))) as (Offer&StatOffer)[];
  const facts=new Map<string,Facts>();for(const o of live){const x=statFacts(o,c);if(x)facts.set(o.id,x);}
  // Opções de cada filtro respeitam os OUTROS filtros (contagens reais; valor desconhecido nunca vira opção).
@@ -55,7 +64,7 @@ export async function buildStats(c:StatsCategory,applied:StatsFilters,daysWanted
  const windows=[...(historyDays>=1&&historyDays<7?[historyDays]:[]),...[7,30,90,180,365].filter(d=>d<=historyDays)];
  const days=windows.includes(daysWanted)?daysWanted:windows[0]??0;
  let rows:ChangeRow[]=[];let changes=new Map<string,number>();
- if(days){const ids=chosen.map(o=>o.id).slice(0,600);const r=await db.rpc(pay==='card'?'price_changes_card':'price_changes',{p_ids:ids,p_days:days});if(r.error)throw r.error;rows=r.data as ChangeRow[];changes=panel(rows,spDay(now-DAY)).changes;}
+ if(days){const ids=chosen.map(o=>o.id).slice(0,600);rows=await priceChanges(pay,ids,days);changes=panel(rows,spDay(now-DAY)).changes;}
  const rowOf=new Map(rows.map(r=>[r.offer_id,r]));
  const pick=(o:Offer):Pick=>({id:o.id,title:o.title,store:o.store,seller:o.seller,price:Number(o.price)});
  const groups:(StatGroup&{order:number[]})[]=[...byGroup.values()].map(({g,list})=>{const prices=list.map(o=>Number(o.price)).sort((a,b)=>a-b),best=list.reduce((a,b)=>Number(b.price)<Number(a.price)?b:a);

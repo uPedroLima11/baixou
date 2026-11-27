@@ -3,6 +3,7 @@
 // Avaliações nunca são transferidas entre lojas. Comparação, alternativas e Score vêm do índice do catálogo, que
 // contém somente ofertas válidas agora.
 import {publicDb} from './supabase';
+import {withRetry} from './db-retry';
 import {catalogIndex} from './catalog-server';
 import {sameProduct} from './search';
 import {baixouScore,type BaixouScore} from './score';
@@ -14,13 +15,13 @@ export type ProductData={payment?:Payment;cardMissing?:boolean;partial?:boolean;
 // Sem total no cartão informado: devolve o Pix com cardMissing (nunca estima o cartão).
 export async function productData(id:string,pay:Payment='pix'):Promise<ProductData|null|'error'>{
  const db=publicDb();if(!db)return 'error';
- const [{data,error},index]=await Promise.all([db.from('offers').select('*').eq('id',id).maybeSingle(),// O índice frio leva ~3 s: a página não espera por ele (comparação e Score completos chegam depois pelo cliente).
+ const [{data,error},index]=await Promise.all([withRetry(()=>db.from('offers').select('*').eq('id',id).maybeSingle()),// O índice frio leva ~3 s: a página não espera por ele (comparação e Score completos chegam depois pelo cliente).
   Promise.race([catalogIndex(pay==='pix'?'all':pay).catch(()=>null),new Promise<null>(r=>setTimeout(()=>r(null),600))])]);
  if(error)return 'error';if(!data)return null;
  const raw=data as Offer,projected=offerForPayment(raw,pay),cardMissing=pay==='card'&&!projected;if(cardMissing)return productData(id,'pix').then(d=>d&&d!=='error'?{...d,cardMissing:true}:d);
  const offer=projected!;let related_specs:ProductData['related_specs']=null;
  if(offer.product_id&&Object.keys(offer.specs??{}).length<3){
-  const others=await db.from('offers').select('*').eq('product_id',offer.product_id).neq('store',offer.store).limit(10);
+  const others=await withRetry(()=>db.from('offers').select('*').eq('product_id',offer.product_id).neq('store',offer.store).limit(10));
   const best=((others.data??[]) as Offer[]).filter(o=>sameProduct(o,offer)).map(o=>({o,n:Object.keys(o.specs??{}).length})).sort((a,b)=>b.n-a.n)[0];
   if(best&&best.n>=3)related_specs={store:best.o.store,offer_id:best.o.id,specs:best.o.specs};
  }
