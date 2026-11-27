@@ -3,7 +3,6 @@ import ProductImage from './ProductImage';
 
 import {DualPrice} from './PaymentPrices';
 import {useWhatsAppAdmin,prefetchAdmin} from './whatsapp-role';
-import dynamic from 'next/dynamic';
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';import {useRouter} from 'next/navigation';import type {User} from '@supabase/supabase-js';
 import {Smartphone,CreditCard,QrCode,ChartLine,Megaphone,Search,Sun,Moon,Heart,Bell,ChevronDown,SlidersHorizontal,X,Flame,ShieldCheck,Clock,Tag,TrendingDown,Cpu,MemoryStick,Monitor,Mouse,Armchair,Gamepad2,LayoutGrid,LogOut,Settings,CheckCircle2,RefreshCw,Store} from 'lucide-react';
 import {getSupabase,localUser} from '@/lib/supabase-browser';import {effectiveDiscount,effectiveEvidence,announcedOverstated,marketStatus,discountReference} from '@/lib/market';import {categories,money,type Offer,type SourceStatus,type StoreCoverage} from '@/lib/types';
@@ -15,12 +14,20 @@ import type {CardOffer,Mode} from '@/lib/catalog-query';
 // Painéis da conta e do WhatsApp fora do pacote inicial (formulários, metadados de telefone, administração): a
 // página aparece e hidrata antes. Pré-carga quando a página fica ociosa e ao apontar/tocar no botão da conta, então
 // a abertura continua imediata; o esqueleto do painel só aparece se o pacote ainda não chegou.
-const loadAccount=()=>import('./Account'),loadWaAdmin=()=>import('./WhatsAppAdmin');
+type AccountModule=typeof import('./Account');type WaAdminModule=typeof import('./WhatsAppAdmin');
+let accountMod:AccountModule|null=null,waMod:WaAdminModule|null=null,accountP:Promise<AccountModule>|null=null,waP:Promise<WaAdminModule>|null=null;
+const loadAccount=()=>accountP??=import('./Account').then(m=>accountMod=m).catch(e=>{accountP=null;throw e;});
+const loadWaAdmin=()=>waP??=import('./WhatsAppAdmin').then(m=>waMod=m).catch(e=>{waP=null;throw e;});
 const PanelLoading=()=><div className="panel-skeleton" aria-hidden="true"><div className="sk-line w55"/><div className="sk-line tall"/><div className="sk-line w70"/><div className="sk-line tall"/><div className="sk-line w40"/></div>;
-const AuthForm=dynamic(()=>loadAccount().then(m=>m.AuthForm),{ssr:false,loading:PanelLoading});
-const ProfileSettings=dynamic(()=>loadAccount().then(m=>m.ProfileSettings),{ssr:false,loading:PanelLoading});
-const NotificationSettings=dynamic(()=>loadAccount().then(m=>m.NotificationSettings),{ssr:false,loading:PanelLoading});
-const WhatsAppAdmin=dynamic(()=>loadWaAdmin().then(m=>m.WhatsAppAdmin),{ssr:false,loading:PanelLoading});
+// Sem React.lazy/Suspense: o React 19 segura a troca do fallback por ~300 ms mesmo com o módulo pronto. Aqui, com
+// o pacote já pré-carregado, o painel renderiza no mesmo quadro do clique.
+function useModule<T>(get:()=>T|null,load:()=>Promise<unknown>):T|null{const [m,setM]=useState<T|null>(get);useEffect(()=>{if(!m)void load().then(()=>setM(get)).catch(()=>{});},[m]);// eslint-disable-line react-hooks/exhaustive-deps
+ return m;}
+type AuthProps=React.ComponentProps<AccountModule['AuthForm']>;type ProfileProps=React.ComponentProps<AccountModule['ProfileSettings']>;type NotifProps=React.ComponentProps<AccountModule['NotificationSettings']>;type WaProps=React.ComponentProps<WaAdminModule['WhatsAppAdmin']>;
+const AuthForm=(p:AuthProps)=>{const m=useModule(()=>accountMod,loadAccount);return m?<m.AuthForm {...p}/>:<PanelLoading/>;};
+const ProfileSettings=(p:ProfileProps)=>{const m=useModule(()=>accountMod,loadAccount);return m?<m.ProfileSettings {...p}/>:<PanelLoading/>;};
+const NotificationSettings=(p:NotifProps)=>{const m=useModule(()=>accountMod,loadAccount);return m?<m.NotificationSettings {...p}/>:<PanelLoading/>;};
+const WhatsAppAdmin=(p:WaProps)=>{const m=useModule(()=>waMod,loadWaAdmin);return m?<m.WhatsAppAdmin {...p}/>:<PanelLoading/>;};
 let accountPreloaded=false;
 function preloadAccount(admin=false){if(!accountPreloaded){accountPreloaded=true;void loadAccount().catch(()=>{accountPreloaded=false;});}if(admin)void loadWaAdmin().catch(()=>{});}
 const prefetchNotifications=(uid:string)=>loadAccount().then(m=>m.prefetchNotifications(uid));
