@@ -1,7 +1,8 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import * as cheerio from 'cheerio/slim';
-import {evidenceFromStats,type Offer} from './types';
-import {verificationTTL,candidateCategory} from './collection-policy';
+import {classify,evidenceFromStats,normalize,type Offer} from './types';
+import {controllerFacts} from './gaming';
+import {verificationTTL} from './collection-policy';
 import {cardTerms,loadCardReference,type CardTerms} from './payment';
 import {excludedCondition} from './product-policy';
 
@@ -33,7 +34,7 @@ export function parseKabumListing(html:string,nowSec=Date.now()/1000):{items:Lis
  return {items,totalPages:Number(cs.meta?.totalPagesCount)||1,total:Number(cs.meta?.totalItemsCount)||items.length};
 }
 
-type Row=Pick<Offer,'id'|'url'|'price'|'original_price'|'available'|'evidence'|'discount'|'card_price'|'card_installments'|'card_installment_value'|'card_interest_free'>&{specs?:Record<string,string>};
+type Row=Pick<Offer,'id'|'url'|'category'|'product_id'|'gtin'|'price'|'original_price'|'available'|'evidence'|'discount'|'card_price'|'card_installments'|'card_installment_value'|'card_interest_free'>;
 const sameCard=(r:Row,c:CardTerms)=>Number(r.card_price??0)===Number(c.card_price??0)&&Number(r.card_installments??0)===Number(c.card_installments??0)&&Number(r.card_installment_value??0)===Number(c.card_installment_value??0);
 
 // Aplica uma página da listagem. Itens conhecidos e inalterados: renovação em lote (checked_at, validade pela mesma
@@ -42,13 +43,17 @@ const sameCard=(r:Row,c:CardTerms)=>Number(r.card_price??0)===Number(c.card_pric
 export async function applyKabumListing(db:SupabaseClient,items:ListingItem[],room:number){
  const usable=items.filter(i=>!i.excluded),ids=usable.map(i=>i.id);let renewed=0,changed=0,unavailable=0,queued=0;
  if(!ids.length)return {renewed,changed,unavailable,queued,known:0};
- const {data,error}=await db.from('offers').select('id,url,price,original_price,available,evidence,discount,card_price,card_installments,card_installment_value,card_interest_free,verification_status,mpn,product_id').in('id',ids);if(error)throw error;
+ const {data,error}=await db.from('offers').select('id,url,category,price,original_price,available,evidence,discount,card_price,card_installments,card_installment_value,card_interest_free,verification_status,product_id,gtin').in('id',ids);if(error)throw error;
  // Só renova ofertas que já passaram pela página de detalhe (verificadas ou vencidas), nunca excluídas por política.
  const known=new Map(((data??[]) as (Row&{verification_status:string})[]).filter(r=>r.verification_status!=='excluded').map(r=>[r.id,r]));
  // Armazenamento (plano gratuito): renovação sem mudança grava no máximo 1 observação a cada 6 h (balde 00/06/12/18);
  // mudança de preço grava na hora. O resumo diário e o preço habitual continuam com observações reais todos os dias.
- const now=new Date(),iso=now.toISOString(),bucket=iso.slice(0,13),bucket6=iso.slice(0,11)+String(Math.floor(now.getUTCHours()/6)*6).padStart(2,'0');const renewBy:Record<number,string[]>={};const hist:{offer_id:string;price:number;card_price:number|null;bucket:string;observed_at:string}[]=[];const touched:string[]=[];
- for(const i of usable){const r=known.get(i.id);if(!r)continue;touched.push(r.url);
+ const now=new Date(),iso=now.toISOString(),bucket=iso.slice(0,13),bucket6=iso.slice(0,11)+String(Math.floor(now.getUTCHours()/6)*6).padStart(2,'0');const renewBy:Record<number,string[]>={};const hist:{offer_id:string;price:number;card_price:number|null;bucket:string;observed_at:string}[]=[];const touched:string[]=[],needsDetail:string[]=[];
+ for(const i of usable){const r=known.get(i.id);if(!r)continue;
+  // O detalhe deve confirmar categoria e identidade. A listagem não adia a próxima verificação desse anúncio.
+  if(i.available&&((r.category!=='consoles'&&classify(i.title)==='consoles')||
+      (r.product_id&&!r.gtin&&controllerFacts(normalize(i.title))))){needsDetail.push(r.url);continue;}
+  touched.push(r.url);
   if(!i.available){if(r.available){const u=await db.from('offers').update({available:false,checked_at:iso,last_attempt_at:iso,expires_at:iso,verification_status:'verified'}).eq('id',i.id);if(u.error)throw u.error;}unavailable++;continue;}
   if(r.available&&Number(r.price)===i.pix&&sameCard(r,i.card)){const ttl=verificationTTL(r.evidence,Number(r.discount));(renewBy[ttl]??=[]).push(i.id);hist.push({offer_id:i.id,price:i.pix,card_price:i.card.card_price,bucket:bucket6,observed_at:iso});renewed++;continue;}
   // Mudou: recalcula como o coletor (preço habitual por dia, preço "de" limitado ao máximo observado, cartão).
@@ -61,7 +66,8 @@ export async function applyKabumListing(db:SupabaseClient,items:ListingItem[],ro
  if(hist.length){const h=await db.from('price_history').upsert(hist,{onConflict:'offer_id,bucket',ignoreDuplicates:true});if(h.error)throw h.error;}
  // Página de detalhe dispensada por ~20 h (ficha técnica/código), a listagem mantém preço e estoque.
  if(touched.length){const c=await db.from('product_candidates').update({last_attempt_at:iso,next_attempt_at:new Date(now.getTime()+20*3600000).toISOString(),failures:0}).eq('store','kabum').in('url',touched);if(c.error)throw c.error;}
+ if(needsDetail.length){const c=await db.from('product_candidates').update({next_attempt_at:iso}).eq('store','kabum').eq('failures',0).gt('next_attempt_at',iso).in('url',needsDetail);if(c.error)throw c.error;}
  const fresh=usable.filter(i=>!known.has(i.id)&&i.available).slice(0,Math.max(0,room));
- if(fresh.length){const ins=await db.from('product_candidates').upsert(fresh.map(i=>({store:'kabum',url:i.url,category:candidateCategory(i.url)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(ins.error)throw ins.error;queued=ins.data?.length??0;}
+ if(fresh.length){const ins=await db.from('product_candidates').upsert(fresh.map(i=>({store:'kabum',url:i.url,category:classify(i.title)})),{onConflict:'store,url',ignoreDuplicates:true}).select('url');if(ins.error)throw ins.error;queued=ins.data?.length??0;}
  return {renewed,changed,unavailable,queued,known:known.size};
 }
