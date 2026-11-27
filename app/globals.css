@@ -288,6 +288,18 @@
 .product-image-button { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
 @media (max-width: 600px) {
   .category-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .category-tiles button { min-width: 0; overflow-wrap: anywhere; padding-inline: 2px; }
+  .category-tiles button { min-width: 0; min-height: 63px; overflow-wrap: anywhere; padding-inline: 2px; }
   .category-tiles button span { max-width: 100%; }
+  .header-main { gap: 8px 12px; padding-top: 10px; padding-bottom: 8px; }
+  .nav { gap: 3px 12px; }
+  .nav > button, .nav .departments { min-height: 32px; padding-block: 5px; }
+  .hero { min-height: 0; }
+  .hero-copy { padding: 18px; }
+  .hero h1 { font-size: clamp(21px, 6vw, 27px); margin: 10px 0 8px; }
+  .hero p { margin: 0 0 12px; }
+  .hero-buttons { margin-top: 0; }
+  .product-card .product-title { margin-block: 5px; }
+  .product-card .product-title h3 { min-height: 3lh; }
+  .product-card .price-block { margin-bottom: 7px; }
+  .product-card .price-block > small { min-height: 0; }
 }
