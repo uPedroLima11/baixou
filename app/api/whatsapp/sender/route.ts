@@ -15,6 +15,8 @@ async function admin(req:Request){
 }
 export async function GET(req:Request){
  const a=await admin(req);if(!a)return json({admin:false});
+ // Consulta leve só de permissão (menu da conta): sem histórico nem diagnóstico.
+ if(new URL(req.url).searchParams.get('role')==='1')return json({admin:true});
  const s=await senderStatus(a.db),since=new Date(Date.now()-7*86400000).toISOString(),day=new Date(Date.now()-86400000).toISOString();
  // Resumo de envios (sem números nem conteúdo): status por canal WhatsApp em 24 h e 7 dias, fila e confirmações pendentes.
  const [logs,queued,contacts,lastErrors]=await Promise.all([

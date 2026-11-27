@@ -132,7 +132,7 @@ export async function whatsappPulse(db:Db,{siteUrl,deadlineMs=40000,force=false}
  const sender=await senderStatus(db);if(sender?.status!=='connected')return {skipped:'remetente_'+(sender?.status??'ausente')};
  const now=new Date().toISOString();
  const [queued,awaiting]=await Promise.all([db.from('notification_log').select('id',{count:'exact',head:true}).eq('channel','whatsapp').eq('status','queued'),db.from('whatsapp_contacts').select('user_id',{count:'exact',head:true}).eq('status','pending').gt('code_expires_at',now)]);
- const idle=!sender.last_connected_at||Date.now()-Date.parse(sender.last_connected_at)>2*3600000; // mantém a sessão e atende PARAR
+ const idle=!sender.last_connected_at||Date.now()-Date.parse(sender.last_connected_at)>(Number(process.env.WHATSAPP_IDLE_MINUTES)||15)*60000; // mantém a sessão e lê PARAR (padrão 15 min)
  if(!force&&!(queued.count??0)&&!(awaiting.count??0)&&!idle)return {skipped:'sem_trabalho'};
  const until=Date.now()+deadlineMs;
  const r=await withWhatsApp(db,async s=>{const inbox=await processInbox(db,s,siteUrl);const out=await deliverQueue(db,s,{until});await wait(800);const late=await processInbox(db,s,siteUrl);return {confirmed:inbox.confirmed+late.confirmed,stopped:inbox.stopped+late.stopped,rejected:inbox.rejected+late.rejected,...out};},{deadlineMs});
