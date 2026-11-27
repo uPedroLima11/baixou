@@ -31,7 +31,7 @@ Evolution/WAHA usam o mesmo protocolo de "aparelho conectado" por baixo; usar a 
 ## Arquitetura
 
 - `lib/notifications.ts`: **mesma decisão** do e-mail (`notificationReason`). Para o WhatsApp, reserva (`claim_notification(..., 'whatsapp')`) e coloca a mensagem pronta na fila (`notification_log.status='queued'`, `body`). E-mail e WhatsApp têm reserva, deduplicação e falhas independentes.
-- `lib/whatsapp-session.ts`: `withWhatsApp` (lease exclusivo `whatsapp`, abre, aguarda 2,5 s por mensagens pendentes, executa, fecha), `processInbox` (BAIXOU/PARAR), `deliverQueue` (até 15 por ciclo, `accepted` com aceite do servidor, `delivered` só com recibo observado, `sending` antigo → `unknown` sem reenvio, fila >60 min → vencida), `whatsappPulse` (só conecta com fila, confirmação aguardando, ou a cada 6 h para manter a sessão e receber PARAR), `startPairing`, `unlinkSender`.
+- `lib/whatsapp-session.ts`: `withWhatsApp` (lease exclusivo `whatsapp`, abre, aguarda 2,5 s por mensagens pendentes, executa, fecha), `processInbox` (BAIXOU/PARAR), `deliverQueue` (até 15 por ciclo, `accepted` com aceite do servidor, `delivered` só com recibo observado, `sending` antigo → `unknown` sem reenvio, fila >60 min → vencida), `whatsappPulse` (só conecta com fila, confirmação aguardando, ou a cada 2 h para manter a sessão e receber PARAR), `startPairing`, `unlinkSender`.
 - Chamado por `/api/jobs/notifications` (Actions, após cada coleta) e `/api/jobs/collect` (pg_cron do Supabase, independe do GitHub) no tempo que sobrar.
 - Sessão: `whatsapp_auth` com valores AES-256-GCM (chave `WHATSAPP_STATE_KEY`, só na Vercel, sensível) e ids HMAC (sem número em texto claro). `whatsapp_sender`, `whatsapp_auth` e `whatsapp_contacts`: RLS ligado, sem privilégio para anon/authenticated.
 - Desconexão pelo celular (401) apaga a sessão e marca `logged_out`; e-mail segue normal.
@@ -41,3 +41,23 @@ Evolution/WAHA usam o mesmo protocolo de "aparelho conectado" por baixo; usar a 
 - Vercel (Production): `WHATSAPP_MODE` (off/test/on), `WHATSAPP_TEST_USERS`, `WHATSAPP_ADMIN_USERS` (proprietário), `WHATSAPP_STATE_KEY` (sensível; se perdida, basta parear de novo). Repositório: `vars.WHATSAPP_MODE`/`WHATSAPP_TEST_USERS` (os jobs do Actions só chamam a rota da Vercel).
 - Diagnóstico sem conexão: `POST /api/jobs/notifications?check=whatsapp` com a mesma assinatura HMAC das demais ações (escopo `whatsapp:`).
 - Liberar `on` só depois do envio controlado documentado no HANDOFF.
+
+## Mensagens recebidas entre os ciclos (27/11/2026)
+
+- O número remetente é um "aparelho conectado". Enquanto a sessão está fechada, o servidor do WhatsApp guarda as mensagens destinadas a esse aparelho e as entrega quando ele reconecta (dentro do período em que o aparelho continua vinculado; o celular precisa abrir o WhatsApp a cada ~14 dias).
+- No Baileys 7 (Socket/socket.js), ao conectar os eventos ficam retidos até o nó `ib/offline`, que marca o fim das pendências; então são liberados como `messages.upsert` ("append") e é emitido `receivedPendingNotifications: true`. O ciclo espera esse sinal (até 12 s) antes de processar a caixa de entrada; o que chegar depois é lido no fim do mesmo ciclo ou no seguinte.
+- Confirmação "BAIXOU código": o botão "Já enviei, conferir" abre um ciclo na hora; além disso, enquanto houver código aguardando, todo ciclo de alertas (a cada poucos minutos) conecta e confere. O código vale 30 min.
+- PARAR: cada ciclo processa a caixa de entrada ANTES de enviar a fila, então nenhuma mensagem sai depois de um PARAR já recebido pelo servidor. Sem outros eventos, a sessão abre pelo menos a cada 2 h e responde ao PARAR. O botão da tela desativa na hora.
+- Latência dos alertas: a decisão coloca a mensagem na fila e a mesma execução (rota de alertas da Vercel) abre a sessão e envia em seguida — na prática o mesmo tempo do e-mail. Mensagem com mais de 60 min na fila vence (preço pode ter mudado).
+- Prioridade de rechecagem (`due_rechecks`) agora considera alertas/favoritos de quem recebe por WhatsApp, não só por e-mail.
+
+## Roteiro do proprietário
+
+1. Ter um WhatsApp ativo no número remetente (recomendado chip dedicado) em um celular.
+2. Entrar em https://baixouofertas.vercel.app com a conta do proprietário → menu da conta → **Notificações** → seção **"Remetente do Baixou! no WhatsApp"** (só aparece para `WHATSAPP_ADMIN_USERS`).
+3. Digitar o número remetente com DDD → **Gerar código de pareamento**. No celular do remetente: WhatsApp → **Aparelhos conectados** → **Conectar aparelho** → **Conectar com número de telefone** → digitar o código de 8 caracteres (≈2 min). A tela mostra "Conectado".
+4. Primeiro teste: na mesma página, seção **"Alertas pelo WhatsApp"**, informar o SEU número pessoal (diferente do remetente), marcar a autorização → **Continuar** → **Abrir o WhatsApp e enviar** (mensagem "BAIXOU código" para o remetente) → **Já enviei, conferir**. Você recebe "✅ Número confirmado".
+5. Envio real: criar/usar um alerta que uma oferta atual atenda (Pix ou cartão) → no máximo um ciclo depois chegam e-mail e WhatsApp. Responder **PARAR** desativa.
+
+## Homologação (preencher no HANDOFF)
+Confirmação do número · alerta real · alerta de cartão · e-mail + WhatsApp simultâneos · nenhuma duplicata (notification_log por canal) · PARAR · recuperação da sessão (aguardar >2 h e conferir que o ciclo reconecta; desconectar pelo celular → painel mostra "Desconectado pelo celular", e-mail segue). Só então `WHATSAPP_MODE=on`.

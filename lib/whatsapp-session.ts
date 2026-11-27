@@ -61,6 +61,9 @@ export async function withWhatsApp<T>(db:Db,fn:(s:Session)=>Promise<T>,{deadline
    if(!pnJid&&B.isLidUser(chat)){try{pnJid=await sock.signalRepository.lidMapping.getPNForLID(chat);}catch{pnJid=null;}}
    inbox.push({pn:pnJid?String(pnJid).split('@')[0].split(':')[0].replace(/\D/g,''):null,chat,text});}});
   sock.ev.on('messages.update',(updates:Any[])=>{for(const u of updates??[])if(u.key?.fromMe&&Number(u.update?.status)>=3&&u.key.id)delivered.add(u.key.id);});
+  // Mensagens recebidas enquanto o aparelho estava desconectado (ex.: "BAIXOU 123456", "PARAR") são entregues pelo
+  // servidor ao reconectar; o Baileys segura os eventos até o sinal 'offline' e então emite receivedPendingNotifications.
+  let pendingDone=false;const pendingSignal=new Promise<void>(res=>{sock.ev.on('connection.update',(u:Any)=>{if(u.receivedPendingNotifications){pendingDone=true;res();}});});
   const opened=await new Promise<string>((resolve)=>{const t=setTimeout(()=>resolve('timeout'),20000);
    sock.ev.on('connection.update',(u:Any)=>{if(u.connection==='open'){clearTimeout(t);resolve('open');}if(u.connection==='close'){clearTimeout(t);resolve('close:'+Number(u.lastDisconnect?.error?.output?.statusCode??0));}});});
   if(opened!=='open'){
@@ -68,7 +71,8 @@ export async function withWhatsApp<T>(db:Db,fn:(s:Session)=>Promise<T>,{deadline
    else await setSender(db,{last_error:'conexão '+opened});
    return {ok:false,reason:'conexao_'+opened};}
   await setSender(db,{status:'connected',last_connected_at:new Date().toISOString(),last_error:null});
-  await wait(2500); // mensagens recebidas enquanto o aparelho estava desconectado chegam logo após abrir
+  await Promise.race([pendingSignal,wait(12000)]);await wait(500);
+  if(!pendingDone)console.error('WhatsApp: fila offline não confirmada em 12 s; mensagens restantes ficam para o próximo ciclo.');
   const value=await fn({sock,inbox,delivered});
   return {ok:true,value};
  }finally{
@@ -119,14 +123,14 @@ export async function deliverQueue(db:Db,s:Session,{max=15,until}:{max?:number;u
  return {accepted,failed,expired,delivered:[...ids.keys()].filter(id=>s.delivered.has(id)).length};
 }
 
-// Ciclo curto: só conecta quando há trabalho (fila, confirmação aguardando) ou a cada 6 h para manter a sessão ativa
+// Ciclo curto: só conecta quando há trabalho (fila, confirmação aguardando) ou a cada 2 h para manter a sessão ativa
 // e receber "PARAR". Chamado pelas rotas de notificação/coleta; nunca em paralelo (lease).
 export async function whatsappPulse(db:Db,{siteUrl,deadlineMs=40000,force=false}:{siteUrl:string;deadlineMs?:number;force?:boolean}){
  if(!stateKey())return {skipped:'sem_chave_de_estado'};
  const sender=await senderStatus(db);if(sender?.status!=='connected')return {skipped:'remetente_'+(sender?.status??'ausente')};
  const now=new Date().toISOString();
  const [queued,awaiting]=await Promise.all([db.from('notification_log').select('id',{count:'exact',head:true}).eq('channel','whatsapp').eq('status','queued'),db.from('whatsapp_contacts').select('user_id',{count:'exact',head:true}).eq('status','pending').gt('code_expires_at',now)]);
- const idle=!sender.last_connected_at||Date.now()-Date.parse(sender.last_connected_at)>6*3600000;
+ const idle=!sender.last_connected_at||Date.now()-Date.parse(sender.last_connected_at)>2*3600000; // mantém a sessão e atende PARAR
  if(!force&&!(queued.count??0)&&!(awaiting.count??0)&&!idle)return {skipped:'sem_trabalho'};
  const until=Date.now()+deadlineMs;
  const r=await withWhatsApp(db,async s=>{const inbox=await processInbox(db,s,siteUrl);const out=await deliverQueue(db,s,{until});await wait(800);const late=await processInbox(db,s,siteUrl);return {confirmed:inbox.confirmed+late.confirmed,stopped:inbox.stopped+late.stopped,rejected:inbox.rejected+late.rejected,...out};},{deadlineMs});
