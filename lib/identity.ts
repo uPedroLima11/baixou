@@ -1,3 +1,4 @@
+import {consoleFacts,controllerFacts} from './gaming';
 import {normalize,type Offer,type Alert} from './types';
 export type Variant=Record<string,string|number>;
 export function validGTIN(value:string){if(!/^(?:\d{8}|\d{12,14})$/.test(value)||/^(\d)\1+$/.test(value))return false;let sum=0;const digits=value.split('').map(Number);for(let i=digits.length-2,weight=3;i>=0;i--,weight=weight===3?1:3)sum+=digits[i]*weight;return (10-sum%10)%10===digits.at(-1);}
@@ -53,6 +54,14 @@ export function ramFormFromCode(code:string|null|undefined):'dimm'|'sodimm'|unde
 export function variantForOffer(o:Pick<Offer,'title'|'category'|'specs'>&{mpn?:string|null}):Variant{const text=normalize(joinThousands(o.title+' '+Object.values(o.specs??{}).join(' ')));const v:Variant={};if(o.category==='ram'||/kit.*memoria/.test(text)){const pack=text.match(/\b(\d{1,2})\s*x\s*(\d{1,3})\s*gb\b/);if(pack){v.modules=Number(pack[1]);v.per_module_gb=Number(pack[2]);v.total_gb=Number(pack[1])*Number(pack[2]);}else{const cap=text.match(/\b(\d{1,3})\s*gb\b/);if(cap)v.total_gb=Number(cap[1]);}const ddr=text.match(/\bddr\s*([345])\b/);if(ddr)v.ddr=ddr[1];const speed=text.match(/\b(\d{3,5})\s*(?:mhz|mts|mt\s*s)\b/);/* "3200MT/s" normalizado vira "3200mt s" */if(speed)v.frequency=Number(speed[1]);if(/notebook|sodimm|so dimm|\bs dimm\b/.test(text))v.form_factor='sodimm';else if(/desktop|udimm|dimm/.test(text))v.form_factor='dimm';else{const f=ramFormFromCode(o.mpn)??ramFormFromCode(o.title.split(/\s[-–]\s/).pop());if(f)v.form_factor=f;}}return v;}
 export function identityForOffer(o:Offer){if(o.category==='kit'||manufacturerConflict(o.mpn,o.title))return null;/* códigos conflitantes e kits não sustentam identidade */const brand=canonicalBrand(o.brand??'');if(!brand)return null;const mpn=manufacturerCode(o.mpn,o.title);
 const rawGTIN=Object.entries(o.specs??{}).find(([k])=>/^(ean|gtin|ean13|ean 13|upc)$/i.test(k))?.[1]?.replace(/\D/g,'')??o.gtin??'';const gtin=validGTIN(rawGTIN)?rawGTIN.padStart(14,'0'):null;
+// Para consoles e controles, um MPN pode aparecer em bundles, cores ou réplicas diferentes.
+if(o.category==='consoles'||(o.category==='peripherals'&&controllerFacts(normalize(o.title)))){
+ if(!gtin)return null;
+ const facts=consoleFacts(normalize(o.title));
+ const variant:Variant={};
+ if(facts)for(const [key,value] of Object.entries(facts))if(value!==undefined)variant[key]=value;
+ return {brand,mpn:null,gtin,variant};
+}
 return mpn||gtin?{brand,mpn,gtin,variant:variantForOffer(o)}:null;}
 export function matchesProductAlert(a:Alert,o:Offer){if(manufacturerConflict(o.mpn,o.title))return !!a.offer_id&&a.offer_id===o.id;if(a.product_id)return !!o.product_id&&a.product_id===o.product_id&&variantsCompatible(a.product_variant??{},o.variant??{});return !!a.offer_id&&a.offer_id===o.id;}
 export function notificationKey(o:Offer){return o.product_id&&!manufacturerConflict(o.mpn,o.title)?'product:'+o.product_id:'offer:'+o.id;}

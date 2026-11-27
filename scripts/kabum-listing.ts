@@ -7,8 +7,8 @@ import {adminDb} from '../lib/server';
 import {applyKabumListing,parseKabumListing} from '../lib/kabum-listing';
 const UA='BaixouBot/1.0 (+https://github.com/uPedroLima11/baixou)',ORIGIN='https://www.kabum.com.br';
 // Prioridade: hardware monitorado nas estatísticas/alertas primeiro. Periféricos/notebooks (>10 mil itens) por último.
-export const LISTING_CATEGORIES=['/hardware/memoria-ram','/hardware/placa-de-video-vga','/hardware/processadores','/hardware/ssd-2-5','/hardware/placas-mae','/hardware/fontes','/hardware/kit-hardware/kit-upgrade','/hardware/coolers','/hardware/disco-rigido-hd','/espaco-gamer/cadeiras-gamer','/perifericos','/computadores/notebooks'];
-const MAX_PAGES:Record<string,number>={'/perifericos':30,'/computadores/notebooks':10};
+export const LISTING_CATEGORIES=['/hardware/memoria-ram','/hardware/placa-de-video-vga','/hardware/processadores','/hardware/ssd-2-5','/hardware/placas-mae','/hardware/fontes','/hardware/kit-hardware/kit-upgrade','/hardware/coolers','/hardware/disco-rigido-hd','/espaco-gamer/cadeiras-gamer','/gamer/playstation','/gamer/xbox','/gamer/nintendo','/perifericos','/computadores/notebooks'];
+const MAX_PAGES:Record<string,number>={'/gamer/playstation':4,'/gamer/xbox':4,'/gamer/nintendo':4,'/perifericos':30,'/computadores/notebooks':10};
 export const listingUrl=(path:string,page:number)=>ORIGIN+path+'?page_number='+page+'&page_size=100';
 async function body(r:Response){let text='',size=0;const reader=r.body?.getReader(),d=new TextDecoder();if(!reader)throw Error('Resposta vazia');for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>8000000){await reader.cancel();throw Error('Resposta maior que 8MB');}text+=d.decode(value,{stream:true});}return text+d.decode();}
 async function main(){

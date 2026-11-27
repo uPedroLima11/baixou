@@ -1,4 +1,6 @@
-export const categories = [['all','Todas as ofertas'],['ram','Memória RAM'],['gpu','Placas de vídeo'],['motherboard','Placas-mãe'],['cpu','Processadores'],['ssd','SSDs e HDs'],['monitor','Monitores'],['mouse','Mouses'],['keyboard','Teclados'],['chair','Cadeiras'],['pc','PCs completos'],['kit','Kits upgrade'],['peripherals','Periféricos'],['notebook','Notebooks'],['other','Outros eletrônicos']] as const;
+import {consoleFacts,controllerFacts} from './gaming';
+
+export const categories = [['all','Todas as ofertas'],['ram','Memória RAM'],['gpu','Placas de vídeo'],['motherboard','Placas-mãe'],['cpu','Processadores'],['ssd','SSDs e HDs'],['monitor','Monitores'],['mouse','Mouses'],['keyboard','Teclados'],['chair','Cadeiras'],['pc','PCs completos'],['kit','Kits upgrade'],['consoles','Consoles'],['peripherals','Periféricos'],['notebook','Notebooks'],['other','Outros eletrônicos']] as const;
 export type Category=typeof categories[number][0];
 export type Offer={product_id?:string|null;gtin?:string|null;variant?:import("./identity").Variant;id:string;store:string;url:string;title:string;category:Category;brand:string|null;mpn:string|null;image:string|null;images:string[];price:number;original_price:number|null;available:boolean;seller:string;sold:number|null;rating:number|null;review_count:number|null;specs:Record<string,string>;discoveries?:{source:string;name:string;url:string}[];coupon_hint?:string|null;coupon_validated?:boolean;payment_note?:string;verification_status?:string;reference_median?:number|null;reference_samples?:number|null;reference_days?:number|null;reference_min?:number|null;reference_max?:number|null;checked_at:string;expires_at:string;historical_median:number|null;historical_max?:number|null;historical_samples:number;historical_days:number;discount:number;evidence:'history'|'retailer'|'none';market_median?:number|null;market_lowest?:number|null;market_stores?:number;market_highest?:number|null;market_expires_at?:string|null;seller_key?:string|null;payment_basis?:string|null;market_checked_at?:string|null;card_price?:number|null;card_installments?:number|null;card_installment_value?:number|null;card_interest_free?:boolean|null;card_reference_median?:number|null;card_reference_samples?:number|null;card_reference_days?:number|null;card_reference_min?:number|null;card_reference_max?:number|null;card_historical_max?:number|null;card_market_median?:number|null;card_market_lowest?:number|null;card_market_highest?:number|null;card_market_stores?:number|null;card_market_expires_at?:string|null;pix_price?:number|null};
 export type SourceStatus={store:string;status:string;checked_at:string;message:string;products:number};
@@ -9,6 +11,8 @@ export const money=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',c
 export const normalize=(s:string)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 export function classify(title:string):Category {
  const t=' '+normalize(title)+' ';
+ if(controllerFacts(t))return 'peripherals';
+ if(consoleFacts(t))return 'consoles';
  if(isUpgradeKit(t,title))return 'kit';
  // 1) Identidade principal: o tipo de produto no início do título prevalece sobre palavras soltas
  //    ("Cooler para Processador" é cooler; "Celular ... 8GB RAM" é celular; "Webcam Full HD" não é HD).

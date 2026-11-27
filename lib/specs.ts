@@ -1,3 +1,4 @@
+import {consoleFacts,controllerFacts} from './gaming';
 import {canonicalBrand,joinThousands,variantForOffer} from './identity';
 import {kitComponents,normalize,type Offer} from './types';
 // Características técnicas extraídas de forma conservadora do TÍTULO da loja (e das variantes já calculadas).
@@ -17,7 +18,8 @@ export const FACETS:Record<string,FacetDef[]>={
  kit:[{key:'cpu_vendor',label:'Plataforma'},{key:'cpu_model',label:'Processador incluído'},{key:'chipset',label:'Chipset da placa-mãe'},{key:'ram_included',label:'Memória incluída'},{key:'ram_gb',label:'Memória',numeric:true,unit:'GB'}],
  ssd:[{key:'kind',label:'Tipo'},{key:'capacity_gb',label:'Capacidade',numeric:true,unit:'GB'},{key:'interface',label:'Interface'},{key:'form',label:'Formato'},brand],
  chair:[{key:'chair_type',label:'Tipo'},brand],
- peripherals:[{key:'subtype',label:'Tipo'},{key:'connectivity',label:'Conexão'},brand],
+ consoles:[{key:'console_model',label:'Modelo'},{key:'storage_gb',label:'Armazenamento',numeric:true,unit:'GB'},{key:'drive',label:'Edição'},{key:'bundle',label:'Pacote'},{...brand,label:'Fabricante'}],
+ peripherals:[{key:'subtype',label:'Tipo'},{key:'connectivity',label:'Com ou sem fio'},{key:'controller_model',label:'Modelo do controle'},{key:'platform',label:'Compatibilidade'},{key:'controller_connection',label:'Conexão do controle'},brand],
  mouse:[{key:'connectivity',label:'Conexão'},brand],
  keyboard:[{key:'connectivity',label:'Conexão'},{key:'switch_type',label:'Tecnologia'},{key:'layout',label:'Layout'},brand],
  other:[brand],
@@ -30,6 +32,7 @@ export function offerFacets(o:Pick<Offer,'title'|'category'|'specs'|'brand'>&{va
  const cap=(k:string,re:RegExp)=>{const m=t.match(re);if(m)set(k,m[1]);};
  if(o.brand?.trim())set('brand',canonicalBrand(o.brand));
  const c=o.category;
+ if(c==='consoles'){const f=consoleFacts(t);if(f){set('console_model',f.model);set('brand',f.brand);set('storage_gb',f.storage);set('drive',f.drive);set('bundle',f.bundle);}}
  if(c==='ram'){const v={...(o.variant??{}),...variantForOffer(o)};for(const k of ['ddr','total_gb','per_module_gb','modules','frequency'])set(k,v[k]);if(v.form_factor)set('form_factor',v.form_factor==='sodimm'?'notebook':'desktop');}
  if(c==='gpu'||c==='notebook'||c==='pc'){
   const vendor=/\b(rtx|gtx|geforce|nvidia|quadro)\b/.test(t)?'nvidia':/\b(radeon|rx\s*\d{3,4})\b/.test(t)?'amd':/\barc\s*[ab]\d{3}\b/.test(t)?'intel':undefined;
@@ -72,7 +75,7 @@ export function offerFacets(o:Pick<Offer,'title'|'category'|'specs'|'brand'>&{va
  }
  if(c==='ssd'){set('kind',/^\s*(hd|hdd|disco)\b/.test(t)||/\b(hdd|hard drive|7200\s*rpm|5400\s*rpm|barracuda)\b/.test(t)?'HD':'SSD');set('capacity_gb',capacityGB(raw.match(/\b(\d+(?:[.,]\d+)?)\s*(gb|tb)\b/i)));cap('interface',/\b(nvme|sata)\b/);if(r.interface)r.interface=String(r.interface).toUpperCase();set('form',/\bm\s*2\b/.test(t)?'M.2':/\b2\s*5\b/.test(t)?'2,5"':undefined);}
  if(c==='chair')set('chair_type',/\bgamer\b/.test(t)?'gamer':/\b(escritorio|office|presidente|diretor|ergonomica)\b/.test(t)?'escritório':undefined);
- if(c==='peripherals'){const sub:[RegExp,string][]=[[/\b(headset|fones?)\b/,'Headset/fone'],[/\b(water\s*cooler|watercooler)\b/,'Water cooler'],[/\bcooler\b/,'Cooler'],[/\b(ventoinha|fan)\b/,'Ventoinha'],[/\bfonte\b/,'Fonte'],[/\bgabinete\b/,'Gabinete'],[/\b(webcam|camera web)\b/,'Webcam'],[/\bmicrofone\b/,'Microfone'],[/\b(mousepad|mouse pad)\b/,'Mousepad'],[/\b(controle|joystick|volante)\b/,'Controle'],[/\b(caixa de som|soundbar)\b/,'Caixa de som'],[/\b(teclado e mouse|kit|combo)\b/,'Kit teclado/mouse']];for(const [re,v] of sub)if(re.test(t)){set('subtype',v);break;}}
+ if(c==='peripherals'){const controller=controllerFacts(t);if(controller){set('subtype','Controles');set('controller_model',controller.model);set('platform',controller.platform);set('controller_connection',controller.connection);}else {const sub:[RegExp,string][]=[[/\b(headset|fones?)\b/,'Headset/fone'],[/\b(water\s*cooler|watercooler)\b/,'Water cooler'],[/\bcooler\b/,'Cooler'],[/\b(ventoinha|fan)\b/,'Ventoinha'],[/\bfonte\b/,'Fonte'],[/\bgabinete\b/,'Gabinete'],[/\b(webcam|camera web)\b/,'Webcam'],[/\bmicrofone\b/,'Microfone'],[/\b(mousepad|mouse pad)\b/,'Mousepad'],[/\b(caixa de som|soundbar)\b/,'Caixa de som'],[/\b(teclado e mouse|kit|combo)\b/,'Kit teclado/mouse']];for(const [re,v] of sub)if(re.test(t)){set('subtype',v);break;}}}
  if(['peripherals','mouse','keyboard'].includes(c))set('connectivity',/\b(sem fio|wireless|2 4 ?ghz|bluetooth)\b/.test(t)?'sem fio':/\b(com fio|cabo usb|usb)\b/.test(t)?'com fio':undefined);
  if(c==='keyboard'){set('switch_type',/\bmecanico\b/.test(t)?'mecânico':/\bmembrana\b/.test(t)?'membrana':undefined);if(/\babnt\s*2?\b/.test(t))set('layout','ABNT2');}
  // Chaves legadas dos alertas existentes (mantidas para compatibilidade).
