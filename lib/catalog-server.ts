@@ -19,7 +19,7 @@ export const LIST_FIELDS='id,store,url,title,category,brand,mpn,image,price,orig
 // leitura anterior (margem de 45 s para relógio/réplica). Atualização sob demanda: sem visitas, nada é lido.
 const FULL_MS=60*60000,DELTA_MS=120000,META_MS=120000,PAGE=400,MARGIN_MS=45000,SNAPSHOT_MAX_MS=10*60000,STALE_MAX_MS=10*60000;
 type Meta={sources:SourceStatus[];stores:StoreRecord[];coverage:{generated_at:string;stores:StoreCoverage[]}|null};
-type State={cardIndex?:CatalogIndex;pixIndex?:CatalogIndex;offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
+type State={cardIndex?:CatalogIndex;pixIndex?:CatalogIndex;offers:Map<string,Offer>;fullAt:number;deltaAt:number;since:string;index:CatalogIndex;meta:Meta|null;metaAt:number;stats:{fullMs?:number;shardsMs?:number;cacheMs?:number;decodeMs?:number;dbMs?:number;dbShards?:number;deltaMs?:number;deltaRows?:number;snapshotBytes?:number;snapshotAgeS?:number}};
 let state:State|null=null,inflight:Promise<State>|null=null,metaInflight:Promise<Meta|null>|null=null;
 
 // Faixas de ID lidas em paralelo (cursor dentro de cada faixa). Caminho crítico de ~13 páginas em série para ~2.
@@ -42,16 +42,19 @@ const shardCache=SHARDS.map((ranges,i)=>unstable_cache(async()=>{const encoded=e
 // Cada fatia: Data Cache se couber e tiver até SNAPSHOT_MAX_MS (a revalidação stale-while-revalidate pode devolver
 // uma versão antiga; cada oferta continua conferida pelo próprio expires_at e o delta vem logo depois, em segundo
 // plano); senão leitura direta só daquela fatia.
-async function loadShard(i:number):Promise<{snap:CatalogSnapshot;bytes:number}>{
- try{const encoded=await shardCache[i]();if(encoded){const snap=decodeSnapshot(encoded);if(Date.now()-snap.at<=SNAPSHOT_MAX_MS)return {snap,bytes:encoded.length};}}catch{/* Data Cache indisponível */}
- return {snap:await fetchRanges(SHARDS[i]),bytes:0};
+type ShardLoad={snap:CatalogSnapshot;bytes:number;cacheMs:number;decodeMs:number;dbMs:number};
+async function loadShard(i:number):Promise<ShardLoad>{
+ const t=performance.now();let cacheMs=0,decodeMs=0;
+ try{const encoded=await shardCache[i]();cacheMs=performance.now()-t;if(encoded){const d=performance.now(),snap=decodeSnapshot(encoded);decodeMs=performance.now()-d;if(Date.now()-snap.at<=SNAPSHOT_MAX_MS)return {snap,bytes:encoded.length,cacheMs,decodeMs,dbMs:0};}}catch{/* Data Cache indisponível */}
+ const d=performance.now(),snap=await fetchRanges(SHARDS[i]);
+ return {snap,bytes:0,cacheMs,decodeMs,dbMs:performance.now()-d};
 }
 async function fullLoad():Promise<State>{
- const t=performance.now(),shards=await Promise.all(SHARDS.map((_,i)=>loadShard(i)));
+ const t=performance.now(),shards=await Promise.all(SHARDS.map((_,i)=>loadShard(i))),loadedMs=performance.now()-t;
  const offers:Offer[]=shards.flatMap(x=>x.snap.offers),oldest=shards.reduce((a,x)=>x.snap.at<a.snap.at?x:a);
  const at=Date.now(),map=new Map(offers.map(o=>[o.id,o]));
  // O relógio da fatia mais antiga vale para o conjunto: o delta seguinte cobre tudo o que mudou desde ela.
- return {offers:map,fullAt:at,deltaAt:oldest.snap.at,since:oldest.snap.since,index:buildIndex(offers,at),meta:state?.meta??null,metaAt:state?.metaAt??0,stats:{fullMs:Math.round(performance.now()-t),snapshotBytes:shards.reduce((n,x)=>n+x.bytes,0),snapshotAgeS:Math.round((at-oldest.snap.at)/1000)}};
+ return {offers:map,fullAt:at,deltaAt:oldest.snap.at,since:oldest.snap.since,index:buildIndex(offers,at),meta:state?.meta??null,metaAt:state?.metaAt??0,stats:{fullMs:Math.round(performance.now()-t),shardsMs:Math.round(loadedMs),cacheMs:Math.round(Math.max(...shards.map(x=>x.cacheMs))),decodeMs:Math.round(shards.reduce((n,x)=>n+x.decodeMs,0)),dbMs:Math.round(Math.max(...shards.map(x=>x.dbMs))),dbShards:shards.filter(x=>x.dbMs>0).length,snapshotBytes:shards.reduce((n,x)=>n+x.bytes,0),snapshotAgeS:Math.round((at-oldest.snap.at)/1000)}};
 }
 // Delta paginado: o PostgREST corta cada resposta em 1.000 linhas (max-rows), então o antigo limit(5000) perdia o
 // restante em silêncio — inclusive ofertas que deixaram de estar disponíveis. Cursor por id até esgotar.
