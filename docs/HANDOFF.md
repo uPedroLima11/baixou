@@ -1,3 +1,13 @@
+# CHECKPOINT — cadastro, WhatsApp homologação, notificações compactas, "Pix ou cartão" (Claude Code, 27/11/2026, ~02h UTC)
+
+- **Erro de cadastro (print do proprietário):** logs do Auth mostraram que o cadastro FOI concluído (e-mail de confirmação em ~6 s); as novas tentativas receberam 429 `over_email_send_rate_limit` e o login `email_not_confirmed`, mas a tela mostrava só "Não foi possível concluir". Corrigido (36534ed): mensagens específicas por código de erro e botão "Reenviar e-mail de confirmação". A pessoa só precisa abrir o link de confirmação. tests/auth-messages.test.ts.
+- **WhatsApp:** proprietário pareou o remetente e recebeu o primeiro alerta real (26/11 21:33 BRT, status `delivered` com recibo, mesmo produto também por e-mail, 0 duplicatas). Sessão persistiu entre funções distintas (pareamento, envio 21:33 e ciclo 21:45 em execuções diferentes). Às 21:34 um pedido de código no fluxo antigo rebaixou o contato confirmado para pendente; restaurado (estava confirmado e ativo no envio) e corrigido (18e6bc0). Admin separado e fluxo de código enviado pelo Baixou! (312b383); ver docs/WHATSAPP.md.
+  - Homologação pendente (aguarda eventos reais, sem mensagens de teste): alerta de cartão por WhatsApp (0 até agora; o proprietário tem 1 alerta de cartão), PARAR pelo usuário, recuperação após >2 h ociosas e após desconexão. Manter `WHATSAPP_MODE=test` até concluir.
+- **Alertas "Pix ou cartão"** (c6f651d, pedido do proprietário): `alerts.payment='any'` — atende no Pix OU no cartão, cada um com seu preço/habitual/queda; um aviso por regra/produto (Pix preferido se ambos). Padrão para alertas novos (coluna default 'any', migration 20261127040000 aplicada); existentes mantêm pix/card.
+- **Modal de Notificações:** largo, duas colunas (Canais + Preferências | Seus alertas + "Novo alerta" expansível), interruptores salvam na hora, explicações em tooltips, uma coluna no celular. Conferido local em desktop e 375 px (página de QA temporária, removida).
+- **Operação (02h UTC):** KaBuM 1.687 vivas (1.292 no início do dia; 3.476 candidatos, 1.089 novos aguardando detalhe), total 4.401 vivas, 3.809 com cartão; banco 119 MB; atraso máx. ≤18,6 min. Run `schedule` cancelado sem jobs = descarte da fila de concorrência (benigno).
+- Terabyte/Pichau/Amazon: sem possibilidade técnica nova nesta rodada.
+
 # CHECKPOINT — loja por modalidade, KaBuM por listagens, Estatísticas e catálogo unificado (Claude Code, 27/11/2026, ~01h30 UTC)
 
 ## 1. Alertas: melhor loja na modalidade do alerta (b897477)

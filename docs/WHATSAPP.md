@@ -1,3 +1,9 @@
+# Atualização 27/11/2026 (madrugada) — confirmação por código enviado pelo Baixou!
+
+- Fluxo do usuário: número com DDD + autorização → **Enviar código** → o remetente confere se o número tem WhatsApp (`onWhatsApp`, grava o JID real) e envia "🔐 Baixou! Seu código de confirmação é: NNNNNN…" → o usuário digita o código no site → confirmado e ativado. O fluxo antigo (usuário enviar "BAIXOU código") deixou de ser oferecido; o processamento de PARAR continua.
+- Proteções: código com hash por usuário, 10 min, uso único, 5 tentativas; 60 s entre pedidos, 3/h e 6/dia por usuário; número já confirmado em outra conta recusado; máximo 40 códigos/h no sistema; tentativa registrada antes do envio; remetente desconectado/ocupado/número sem WhatsApp informados na tela. Nenhum alerta antes da confirmação. Pedido para o mesmo número já confirmado não rebaixa a confirmação.
+- Administração em tela própria ("Administrar WhatsApp" no menu da conta, só `WHATSAPP_ADMIN_USERS`; `/api/whatsapp/sender` recusa os demais no servidor): status, número, última conexão, pareamento, ciclo manual, desconectar, envios 24 h/7 dias, falhas recentes e diagnóstico.
+
 # Alertas pelo WhatsApp — remetente central (Claude Code, 27/11/2026)
 
 O proprietário recusou o CallMeBot (cada usuário teria de criar uma chave). Ele foi **removido**. Modelo atual: um número remetente do Baixou!, pareado uma única vez pelo proprietário; o usuário só informa o número e confirma.
