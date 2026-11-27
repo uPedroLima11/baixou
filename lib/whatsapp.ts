@@ -1,3 +1,4 @@
+import {parsePhoneNumberFromString} from 'libphonenumber-js/min';
 import {createHash,randomInt,timingSafeEqual} from 'node:crypto';
 import {money,type Offer} from './types';
 import {storeNames} from './stores';
@@ -20,7 +21,11 @@ export function normalizeBrazilPhone(raw:string){
  const local=d.slice(2);if(local.length===9&&local[0]!=='9')return null;if(local.length===8&&!/^[2-5]/.test(local))return null; // celular 9 dígitos começa com 9; fixo 8 dígitos 2–5
  return '55'+d;
 }
-export const maskPhone=(phone:string)=>'+'+phone.slice(0,2)+' ('+phone.slice(2,4)+') •••••-'+phone.slice(-4);
+export function maskPhone(phone:string){
+ if(/^55\d{10,11}$/.test(phone))return '+55 ('+phone.slice(2,4)+') •••••-'+phone.slice(-4);
+ const callingCode=parsePhoneNumberFromString('+'+phone)?.countryCallingCode;
+ return (callingCode?'+'+callingCode+' ':'')+'••••-'+phone.slice(-4);
+}
 
 export const newConfirmationCode=()=>String(randomInt(0,1000000)).padStart(6,'0');
 export const hashCode=(userId:string,code:string)=>createHash('sha256').update('baixou-whatsapp:'+userId+':'+code).digest('hex');

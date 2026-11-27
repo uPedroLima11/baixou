@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {adminDb} from '@/lib/server';
-import {canSendCode,codeMatches,hashCode,maskPhone,newConfirmationCode,normalizeBrazilPhone,whatsappAllowed} from '@/lib/whatsapp';
+import {canSendCode,codeMatches,hashCode,maskPhone,newConfirmationCode,whatsappAllowed} from '@/lib/whatsapp';
+import {internationalPhone} from '@/lib/phone';
 import {senderStatus,sendConfirmationCode} from '@/lib/whatsapp-session';
 
 export const runtime='nodejs';export const dynamic='force-dynamic';export const maxDuration=60;
@@ -42,9 +43,9 @@ export async function POST(req:Request){
  const row=current as Row|null;
 
  if(body.action==='start'||body.action==='resend'){
-  const phone=body.action==='resend'?(row?.status==='pending'?row.phone:null):normalizeBrazilPhone(body.phone??'');
+  const phone=body.action==='resend'?(row?.status==='pending'?row.phone:null):internationalPhone(body.phone)?.slice(1);
   if(body.action==='start'&&body.consent!==true)return json({error:'Confirme que autoriza o recebimento de alertas no WhatsApp.'},400);
-  if(!phone)return json({error:'Informe um celular brasileiro com DDD, por exemplo (11) 91234-5678.'},400);
+  if(!phone)return json({error:'Informe um número válido com código do país.'},400);
   const sent=row?.codes_sent??[],wait=Math.ceil((lastSent(row)+RESEND_SECONDS*1000-now.getTime())/1000);
   if(wait>0)return json({error:'Aguarde '+wait+' s para pedir outro código.'},429);
   if(row?.status==='confirmed'&&row.phone===phone)return json({ok:true,message:'Este número já está confirmado.'});
@@ -61,7 +62,7 @@ export async function POST(req:Request){
   const base={user_id:user.id,phone,provider:'baileys',status:row?.status==='confirmed'&&row.phone===phone?'confirmed':'pending',enabled:row?.status==='confirmed'&&row.phone===phone?row.enabled:false,consent_at:now.toISOString(),codes_sent:codes,code_hash:null,code_expires_at:null,code_attempts:0,updated_at:now.toISOString()};
   const pre=await db.from('whatsapp_contacts').upsert(base,{onConflict:'user_id'});if(pre.error)return json({error:'unavailable'},503);
   const r=await sendConfirmationCode(db,phone,confirmationMessage(code),site());
-  if(!r.ok){const msg=r.reason==='sem_whatsapp'?'Este número não tem WhatsApp. Confira o DDD e o número.':r.reason==='ocupado'?'Estamos enviando outros avisos agora. Tente de novo em 30 segundos.':r.reason.startsWith('remetente_')?'O envio pelo WhatsApp está indisponível no momento (remetente desconectado).':'Não conseguimos enviar o código agora. Tente de novo em instantes.';
+  if(!r.ok){const msg=r.reason==='sem_whatsapp'?'Este número não tem WhatsApp. Confira o código do país e o número.':r.reason==='ocupado'?'Estamos enviando outros avisos agora. Tente de novo em 30 segundos.':r.reason.startsWith('remetente_')?'O envio pelo WhatsApp está indisponível no momento (remetente desconectado).':'Não conseguimos enviar o código agora. Tente de novo em instantes.';
    return json({error:msg},r.reason==='sem_whatsapp'?400:503);}
   const {error}=await db.from('whatsapp_contacts').update({status:'pending',enabled:false,jid:r.jid,code_hash:hashCode(user.id,code),code_expires_at:new Date(now.getTime()+CODE_MINUTES*60000).toISOString(),code_attempts:0,confirmed_at:null,failures:0,last_error:null,updated_at:new Date().toISOString()}).eq('user_id',user.id);
   if(error)return json({error:'unavailable'},503);
