@@ -17,7 +17,7 @@ permissions:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 22
+    timeout-minutes: 27
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -43,6 +43,15 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Resolver links candidatos
         run: npm run discover || { echo "Nova tentativa em 45 s"; sleep 45; npm run discover; }
+      - name: Conferir listagens da KaBuM (100 produtos por requisição)
+        # lib/kabum-listing.ts: renova preço/cartão/estoque de produtos conhecidos e enfileira produtos novos de venda
+        # própria (página de detalhe confirma identidade). Mesmo lease e ritmo. Falha aqui não impede a coleta por detalhe.
+        env:
+          LISTING_DEADLINE_MS: '240000'
+          KABUM_CANDIDATE_CAP: '8000'
+        run: npm run collect:kabum-listing || echo "Listagem falhou; seguindo com a coleta por detalhe"
+      - name: Enviar alertas das ofertas conferidas na listagem
+        run: npm run notifications || true
       - name: Confirmar preços e estoque na KaBuM
         # Mesmas novas tentativas do ciclo comum para 5xx transitório do gateway Supabase. Idempotente (lease).
         run: npm run collect || { echo "Nova tentativa em 45 s"; sleep 45; npm run collect; } || { echo "Última tentativa em 90 s"; sleep 90; npm run collect; }

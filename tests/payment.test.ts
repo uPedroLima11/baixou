@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {readFileSync} from 'node:fs';import {parseKabumListing} from '../lib/kabum-listing';
 import assert from 'node:assert/strict';
 import {cardTerms,installmentRows,NO_CARD,offerForPayment,cardReferenceFields} from '../lib/payment';
 import {matchesAlert} from '../lib/alert-rules';
@@ -86,4 +87,15 @@ test('loja escolhida pela modalidade do alerta: A Pix 699/cartão 899, B Pix 749
  const favA={...A,card_reference_median:1000,card_reference_samples:8,card_reference_days:4} as Offer,favB={...B,card_reference_median:1000,card_reference_samples:8,card_reference_days:4} as Offer;
  const fav=selectNotifications([favA,favB],(o,only)=>notificationReason(o,{...profile,payment_preference:'card'},[],[{offer_id:'a',offers:{product_id:'p1'}}],now,only));
  assert.deepEqual(fav.map(c=>[c.o.id,c.payment]),[['b','card']]);
+});
+
+test('listagem KaBuM: campanha vigente, cartão e parcelas da listagem; marketplace e open box fora',()=>{
+ const html=readFileSync('tests/fixtures/kabum-listing-trimmed.html','utf8');
+ const l=parseKabumListing(html,1795800000);assert.equal(l.totalPages,17);assert.equal(l.total,1650);
+ const byId=Object.fromEntries(l.items.map(i=>[i.code,i]));
+ assert.equal(byId[922165].pix,669.99);assert.equal(byId[922165].card.card_price,788.22);assert.equal(byId[922165].card.card_installments,10);assert.equal(byId[922165].card.card_interest_free,true);assert.equal(byId[922165].excluded,null);
+ assert.equal(byId[172365].pix,649.99);assert.equal(byId[172365].card.card_price,649.99);
+ assert.equal(l.items.filter(i=>i.excluded==='seller_untrusted').length,1);assert.equal(byId[999001].excluded,'condition_excluded');
+ // Fora do período da campanha vale o preço normal da listagem (nunca o da campanha vencida).
+ const after=parseKabumListing(html,1899999999);assert.equal(after.items.find(i=>i.code===922165)!.pix,1099.99);
 });

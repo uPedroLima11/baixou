@@ -17,7 +17,8 @@
     "discover:social": "tsx scripts/discord.ts",
     "connectors": "tsx scripts/connectors.ts",
     "market:refresh": "tsx scripts/market-reference.ts",
-    "pricing:audit": "tsx scripts/pricing-audit.ts"
+    "pricing:audit": "tsx scripts/pricing-audit.ts",
+    "collect:kabum-listing": "tsx scripts/kabum-listing.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.86.0",
