@@ -1,6 +1,8 @@
 'use client';
+import ProductImage from './ProductImage';
+
 import {useEffect,useMemo,useState} from 'react';
-import {ArrowLeft,ExternalLink,ImageIcon,Megaphone,Info} from 'lucide-react';
+import {ArrowLeft,ExternalLink,Megaphone,Info} from 'lucide-react';
 import {money,categories} from '@/lib/types';
 import {storeNames} from '@/lib/stores';
 type Item={id:string;store:string;url:string;title:string;category:string;brand:string|null;mpn:string|null;image:string|null;price:number;posted_at:string;in_catalog:boolean;source:string|null;image_source:string|null;product_id:string|null;note:string|null};
@@ -25,7 +27,7 @@ export default function Announced(){
    {err?<p className="muted">Não foi possível carregar as publicações agora.</p>:!items?<div className="chart-skeleton" aria-busy="true"/>:<>
     <p className="muted small">{list.length} publicaç{list.length===1?'ão':'ões'} {store?'da '+(storeNames[store]??store):'das lojas'} nas últimas {hours} h.</p>
     <ul className="announced-list">{list.map(i=><li key={i.id} className="announced-item">
-     <div className="announced-photo">{i.image?<img src={i.image} alt="" loading="lazy" onError={e=>{e.currentTarget.style.visibility='hidden';}}/>:<ImageIcon size={36}/>}</div>
+     <div className="announced-photo"><ProductImage src={i.image} width={110} height={110}/></div>
      <div className="announced-body">
       <span className="store-badge"><Megaphone size={14}/>{storeNames[i.store]??i.store} · publicado {when(i.posted_at)} (há {ago(i.posted_at)})</span>
       <a className="announced-title-link" href={'/produto/'+encodeURIComponent(i.id)}>{i.title}</a>

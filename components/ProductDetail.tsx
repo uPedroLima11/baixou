@@ -1,4 +1,6 @@
-'use client';import {PaymentTable,paymentLabel} from './PaymentPrices';import {useEffect,useMemo,useRef,useState} from 'react';import {ImageIcon,Heart,Bell,Clock,ExternalLink,Info,ChevronDown,History,ListChecks,Store,Layers,TrendingDown} from 'lucide-react';import {discountReference} from '@/lib/market';import {storeNames} from '@/lib/stores';import {offerStateLabel} from '@/lib/wishlist';import {money,type Offer} from '@/lib/types';import {supabase} from '@/lib/supabase';import PriceHistory from './PriceHistory';import StoreBadge from './StoreBadge';import type {ProductData} from '@/lib/product-data';import {fetchHistory,type HistorySeries} from '@/lib/history-client';
+'use client';
+import ProductImage from './ProductImage';
+import {PaymentTable,paymentLabel} from './PaymentPrices';import {useEffect,useMemo,useRef,useState} from 'react';import {Heart,Bell,Clock,ExternalLink,Info,ChevronDown,History,ListChecks,Store,Layers,TrendingDown} from 'lucide-react';import {discountReference} from '@/lib/market';import {storeNames} from '@/lib/stores';import {offerStateLabel} from '@/lib/wishlist';import {money,type Offer} from '@/lib/types';import {supabase} from '@/lib/supabase';import PriceHistory from './PriceHistory';import StoreBadge from './StoreBadge';import type {ProductData} from '@/lib/product-data';import {fetchHistory,type HistorySeries} from '@/lib/history-client';
 import type {BaixouScore} from '@/lib/score';
 const age=(date:string)=>{const n=Math.max(0,Math.floor((Date.now()-Date.parse(date))/60000));return n<1?'agora':n<60?n+' min':Math.floor(n/60)+' h'+(n%60?' '+n%60+' min':'');};
 const pct=(x:number)=>Math.abs(x*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
@@ -21,7 +23,7 @@ export default function ProductDetail({offer:o,saved,save,alert,alternatives:alt
  const valid=o.available&&Date.parse(o.expires_at)>Date.now(),reference=discountReference(o),b=extra.score??null;
  const {main:specRows,long:longSpecs}=useMemo(()=>splitSpecs(specs),[specs]);
  return <><div className="product-detail">
-  <div className="gallery"><div className="main-photo">{image?<img src={image} alt={o.title} fetchPriority="high" onError={e=>{e.currentTarget.style.visibility='hidden';}}/>:<ImageIcon size={80}/>}</div>{gallery.length>1&&<div className="thumbnails">{gallery.map((src,i)=><button key={src} className={image===src?'active':''} aria-label={'Imagem '+(i+1)} onClick={()=>setImage(src)}><img src={src} alt="" loading="lazy"/></button>)}</div>}
+  <div className="gallery"><div className="main-photo"><ProductImage src={image} alt={o.title} width={600} height={340} priority/></div>{gallery.length>1&&<div className="thumbnails">{gallery.map((src,i)=><button key={src} className={image===src?'active':''} aria-label={'Imagem '+(i+1)} onClick={()=>setImage(src)}><ProductImage src={src} width={56} height={56}/></button>)}</div>}
    <HistorySummary o={o} s={hist} valid={valid} onOpen={()=>choose('history',true)}/>
    {specRows.length>0&&<section className="side-card"><h3><ListChecks size={15}/>Principais especificações</h3><dl className="key-specs">{specRows.slice(0,6).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>{specRows.length>6&&<button type="button" className="link-button" onClick={()=>choose('specs',true)}>Ver todas ({specRows.length})</button>}</section>}
   </div>
