@@ -7,6 +7,8 @@ import type {ProductData} from '@/lib/product-data';import type {Offer} from '@/
 // se o link foi aberto diretamente, leva ao catálogo.
 export default function ProductPage({data:initial}:{data:ProductData}){
  const router=useRouter(),[data,setData]=useState(initial),o=data.offer;
+ // HTML em cache (ISR, até ~1 min): a versão atual chega em segundo plano e substitui só se a verificação for mais nova.
+ useEffect(()=>{let live=true;fetch('/api/product?id='+encodeURIComponent(initial.offer.id)).then(r=>r.ok?r.json():null).then((d:ProductData|null)=>{if(live&&d?.offer&&Date.parse(d.offer.checked_at)>Date.parse(initial.offer.checked_at))setData(x=>x.payment==='card'?x:d);}).catch(()=>{});return()=>{live=false;};},[initial]);
  // Forma de pagamento: ?pag=cartao ou preferência salva. Cartão busca a mesma página projetada no cartão.
  const choose=async(pay:'pix'|'card')=>{try{localStorage.setItem('baixou-payment',pay);}catch{}if(pay==='pix'){setData(initial);return;}const r=await fetch('/api/product?id='+encodeURIComponent(initial.offer.id)+'&pag=cartao').catch(()=>null);const d=r?.ok?await r.json():null;if(d?.offer)setData(d);if(d?.cardMissing)setToast('Esta loja não informou o total no cartão; mostrando o preço no Pix.');};
  useEffect(()=>{let pref:string|null=null;try{pref=new URLSearchParams(location.search).get('pag')==='cartao'?'card':localStorage.getItem('baixou-payment');}catch{}if(pref==='card')choose('card');// eslint-disable-next-line react-hooks/exhaustive-deps

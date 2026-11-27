@@ -1,8 +1,13 @@
 import type {Metadata} from 'next';import {notFound} from 'next/navigation';
-import ProductPage from '@/components/ProductPage';import {productData} from '@/lib/product-data';import {money} from '@/lib/types';
+import ProductPage from '@/components/ProductPage';import {productData as loadProduct} from '@/lib/product-data';import {cache} from 'react';import {money} from '@/lib/types';
 // Página individual do produto, renderizada no servidor e regenerada a cada 60 s. A validade do preço continua
 // sendo conferida no cliente (oferta vencida aparece como "Verificação expirada", nunca como preço válido).
 export const revalidate=60;
+// Sem caminhos no build: cada produto é gerado na primeira visita e servido do cache por 60 s (ISR). Antes a rota era
+// dinâmica (sem generateStaticParams o revalidate não valia) e toda visita renderizava no servidor, 1,3–12,8 s.
+export async function generateStaticParams(){return [];}
+// Metadados e página usam a mesma leitura (antes eram duas consultas por visita).
+const productData=cache((id:string)=>loadProduct(id));
 type Props={params:Promise<{id:string}>};
 export async function generateMetadata({params}:Props):Promise<Metadata>{const {id}=await params;const d=await productData(id);if(!d||d==='error')return {title:'Oferta — Baixou!'};return {title:d.offer.title.slice(0,70)+' — Baixou!',description:'Preço verificado '+money(Number(d.offer.price))+' · histórico, comparação entre lojas e Baixou Score.'};}
 export default async function Product({params}:Props){
