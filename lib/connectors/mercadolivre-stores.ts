@@ -66,6 +66,7 @@ async function fetchStorefront(fetcher:typeof fetch,slug:string){
  const res=await fetcher(ORIGIN+'/loja/'+slug,{headers:{'User-Agent':agent,Accept:'text/html'},redirect:'manual',signal:AbortSignal.timeout(10000)});
  if(res.status!==200)throw Error('HTTP '+res.status+(res.headers.get('location')?.includes('account-verification')?' (verificação de conta: não contornar)':''));
  const text=await res.text();if(text.length>8_000_000)throw Error('Resposta maior que 8MB');return text;}
+export function rotateStores<T>(list:readonly T[],now:number,step=3,slotMs=15*60000):T[]{if(!list.length)return [];const start=(Math.floor(now/slotMs)*step)%list.length;return [...list.slice(start),...list.slice(0,start)];}
 export const mercadoLivreOfficialStores:Connector={
  id:'mercadolivre-lojas-oficiais',name:'Mercado Livre (lojas oficiais)',marketplace:true,requiredEnv:[],
  hosts:['www.mercadolivre.com.br','produto.mercadolivre.com.br'],
@@ -74,7 +75,9 @@ export const mercadoLivreOfficialStores:Connector={
  async *listings(ctx){
   if(ctx.env.ML_STOREFRONTS==='off')return;
   let count=0;
-  for(const store of ML_OFFICIAL_STORES){if(Date.now()>ctx.deadline||count>=ctx.maxListings)return;
+  // Rodízio: o prazo da execução alcança só 3–4 vitrines (cada anúncio passa por gravação completa). Começar sempre
+  // pela primeira deixava as do fim da lista sem nenhuma visita; o início avança 3 lojas a cada janela de 15 min.
+  for(const store of rotateStores(ML_OFFICIAL_STORES,Date.now())){if(Date.now()>ctx.deadline||count>=ctx.maxListings)return;
    await new Promise(r=>setTimeout(r,1500));
    try{for(const l of parseOfficialStorefront(await fetchStorefront(ctx.fetch,store.slug),store)){yield l;if(++count>=ctx.maxListings)return;}}
    catch(e){console.error('mercadolivre loja '+store.slug+':',e instanceof Error?e.message.slice(0,160):'erro');}}

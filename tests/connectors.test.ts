@@ -48,3 +48,10 @@ test('retailer storefront brand only when exactly one known manufacturer is in t
  assert.equal(brandFromTitle('PC Gamer Completo MCL, Intel i5, GT 730 4GB'),null);assert.equal(brandFromTitle('Notebook Lenovo IdeaPad Slim 3, Intel Core i5'),'Lenovo');assert.equal(brandFromTitle('Processador AMD Ryzen 5 5600'),'AMD');
  assert.equal(brandFromTitle('Gabinete Gamer Aquário'),null);
 });
+test('vitrines oficiais do ML entram em rodízio: todas são visitadas em janelas sucessivas', async () => {
+  const {rotateStores, ML_OFFICIAL_STORES} = await import('../lib/connectors/mercadolivre-stores');
+  const slot = 15 * 60000, seen = new Set<string>();
+  for (let i = 0; i < Math.ceil(ML_OFFICIAL_STORES.length / 3); i++) for (const s of rotateStores(ML_OFFICIAL_STORES, i * slot).slice(0, 3)) seen.add(s.slug);
+  assert.equal(seen.size, ML_OFFICIAL_STORES.length);
+  assert.equal(rotateStores(ML_OFFICIAL_STORES, 0).length, ML_OFFICIAL_STORES.length);
+});
