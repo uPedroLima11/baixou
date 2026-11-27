@@ -76,7 +76,9 @@ async function deltaLoad(s:State):Promise<State>{
 // cartão, habitual e lojas comparadas no cartão) e só contém ofertas com preço no cartão informado pela loja.
 // all = catálogo unificado (nada excluído; ordenação/Score pelo preço principal à vista). pix = só preços à vista/Pix
 // (exclui preços do ML sem Pix explícito). card = só ofertas com total no cartão.
-function indexFor(s:State,pay:Payment|'all'):CatalogIndex{if(pay==='all')return s.index;
+// Modalidades consultadas recentemente: o índice delas é remontado junto com a atualização em segundo plano.
+const usedAt:Record<'pix'|'card',number>={pix:0,card:0};
+function indexFor(s:State,pay:Payment|'all'):CatalogIndex{if(pay==='all')return s.index;usedAt[pay]=Date.now();
  if(pay==='pix'){if(!s.pixIndex){const cash=[...s.offers.values()].filter(o=>o.store!=='mercadolivre'||o.payment_basis==='cash');s.pixIndex={...buildIndex(cash,s.deltaAt),withoutCard:s.offers.size-cash.length};}return s.pixIndex;}
  if(!s.cardIndex){const projected=[...s.offers.values()].map(o=>offerForPayment(o,'card')).filter((o):o is Offer=>!!o);s.cardIndex={...buildIndex(projected,s.deltaAt),withoutCard:s.offers.size-projected.length};}
  return s.cardIndex;}
@@ -84,7 +86,10 @@ function indexFor(s:State,pay:Payment|'all'):CatalogIndex{if(pay==='all')return 
 // dele na hora (validade conferida por oferta na consulta) e o delta/carga completa roda depois da resposta (after).
 // Só espera o banco quando não há índice (instância nova sem snapshot recente) ou ele passou de STALE_MAX_MS.
 function refresh(now:number):Promise<State>{
- inflight??=(async()=>{try{state=!state||now-state.fullAt>=FULL_MS?await fullLoad():await deltaLoad(state).catch(()=>fullLoad());return state;}finally{inflight=null;}})();
+ inflight??=(async()=>{try{const next=!state||now-state.fullAt>=FULL_MS?await fullLoad():await deltaLoad(state).catch(()=>fullLoad());
+   // Antes de publicar o novo estado: monta os índices Pix/Cartão usados nos últimos 10 min (a troca não espera por eles).
+   for(const pay of ['pix','card'] as const)if(Date.now()-usedAt[pay]<STALE_MAX_MS){const keep=usedAt[pay];indexFor(next,pay);usedAt[pay]=keep;}
+   state=next;return state;}finally{inflight=null;}})();
  return inflight;
 }
 function inBackground(p:Promise<unknown>){p.catch(e=>console.error('catálogo: atualização em segundo plano',e instanceof Error?e.message:e));try{afterResponse(()=>p.catch(()=>{}));}catch{/* fora de uma requisição (testes/scripts) */}}
