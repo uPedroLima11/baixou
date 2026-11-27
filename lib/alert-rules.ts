@@ -26,10 +26,12 @@ export function alertCovers(a:Alert,o:Offer){
  // Listas = qualquer um dos valores; "<chave>_min" = mínimo numérico; especificação desconhecida nunca casa.
  return matchesSpecFilter(offerSpecs(o),(a.spec_filters??{}) as SpecFilter);
 }
-// Avaliado na modalidade do alerta (Pix padrão; cartão = total no cartão, habitual e queda do cartão). Sem preço no cartão
-// informado, alerta de cartão não dispara. Nunca compara cartão com Pix.
-export function matchesAlert(a:Alert,raw:Offer,now=Date.now()){
- const o=offerForPayment(raw,a.payment??'pix');if(!o)return false;
+// Modalidades em que o alerta é avaliado: pix (padrão antigo), card, ou any = Pix OU cartão (cada uma com seu preço,
+// habitual e queda; nunca misturando). Sem preço no cartão informado, a avaliação no cartão não casa.
+export const alertPayments=(a:Pick<Alert,'payment'>):('pix'|'card')[]=>a.payment==='any'?['pix','card']:[a.payment==='card'?'card':'pix'];
+export function matchesAlert(a:Alert,raw:Offer,now=Date.now()){return alertPayments(a).some(p=>matchesAlertIn(a,raw,p,now));}
+export function matchesAlertIn(a:Alert,raw:Offer,pay:'pix'|'card',now=Date.now()){
+ if(!alertPayments(a).includes(pay))return false;const o=offerForPayment(raw,pay);if(!o)return false;
  if(!a.enabled||!o.available||Date.parse(o.expires_at)<=now)return false;
  if(!alertCovers(a,o))return false;
  if(a.max_price!=null&&Number(o.price)>a.max_price)return false;

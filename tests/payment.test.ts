@@ -99,3 +99,14 @@ test('listagem KaBuM: campanha vigente, cartão e parcelas da listagem; marketpl
  // Fora do período da campanha vale o preço normal da listagem (nunca o da campanha vencida).
  const after=parseKabumListing(html,1899999999);assert.equal(after.items.find(i=>i.code===922165)!.pix,1099.99);
 });
+
+test('alerta "Pix ou cartão": atende em qualquer modalidade, um único aviso, sem misturar valores',()=>{
+ const any=(max:number)=>({...ramAlert(max),payment:'any'}) as Alert;
+ const r=notificationReason(synex,profile,[any(850)],[],now)!;assert.equal(r.payment,'pix');
+ assert.equal(notificationReason(synex,profile,[any(700)],[],now),null,'nem Pix (729,99) nem cartão (858,81) ≤ 700');
+ const cardOnly={...synex,price:860,card_price:845} as Offer;
+ assert.equal(notificationReason(cardOnly,profile,[any(850)],[],now)?.payment,'card');
+ const both=selectNotifications([synex],(o,only)=>notificationReason(o,profile,[any(900)],[],now,only));
+ assert.equal(both.length,1,'Pix e cartão atendem → um aviso só');assert.equal(both[0].payment,'pix');
+ assert.equal(matchesAlert(any(850),synex,now),true);assert.equal(matchesAlert(any(700),synex,now),false);
+});

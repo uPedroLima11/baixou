@@ -18,7 +18,8 @@ export function notificationProductName(o:Offer){
  if(o.category==='ram'&&facets.total_gb)return clean('Memória '+(o.brand??'')+' '+facets.total_gb+'GB'+(facets.modules&&Number(facets.modules)>1?' ('+facets.modules+'x'+Number(facets.total_gb)/Number(facets.modules)+'GB)':'')+(facets.ddr?' DDR'+facets.ddr:''));
  return cut(title.split(/,| - | – /)[0],48);
 }
-export function reasonForAlert(a:Alert,o:Offer):NotificationReason{
+export function reasonForAlert(a:Alert,o:Offer,pay?:'pix'|'card'):NotificationReason{
+ const paid=pay??(a.payment==='card'?'card':'pix');
  const history=(a.min_drop_amount??0)>0||(a.min_discount??0)>0,product=!!(a.offer_id||a.product_id),conditions:string[]=['Regra: '+(product?'alerta deste produto':'alerta de '+(a.category==='all'?'todas as categorias':(categories.find(([id])=>id===a.category)?.[1]??a.category)))+(history&&a.max_price!=null?' (todas as condições juntas)':'')+'.'];
  if(a.max_price!=null)conditions.push('Preço máximo de '+money(Number(a.max_price))+' atingido.');
  if(a.min_drop_amount!=null)conditions.push('Queda de pelo menos '+money(Number(a.min_drop_amount))+' em relação ao preço habitual.');
@@ -26,11 +27,11 @@ export function reasonForAlert(a:Alert,o:Offer):NotificationReason{
  if(!product&&a.category!=='all')conditions.push('Categoria: '+(categories.find(([id])=>id===a.category)?.[1]??a.category)+'.');
  if(a.brands?.length)conditions.push('Marca dentro da sua seleção.');
  if(Object.keys(a.spec_filters??{}).length)conditions.push('As características técnicas selecionadas foram atendidas.');
- conditions.push(a.payment==='card'?'Forma de pagamento: cartão de crédito (total no cartão informado pela loja).':'Forma de pagamento: Pix / à vista.');
+ conditions.push((paid==='card'?'Forma de pagamento: cartão de crédito (total no cartão informado pela loja)':'Forma de pagamento: Pix / à vista')+(a.payment==='any'?' — seu alerta vale para Pix ou cartão.':'.'));
  const summary=history?'Seu alerta de queda de preço foi atendido.':product?'O produto que você acompanha chegou ao preço desejado.':'Uma oferta atingiu o preço do seu alerta.';
  const parts=[a.max_price!=null?'até '+money(Number(a.max_price)):'',a.min_drop_amount!=null?'queda ≥ '+money(Number(a.min_drop_amount)):'',a.min_discount!=null?'queda ≥ '+a.min_discount+'%':''].filter(Boolean);
  const scope=product?'este produto':a.category==='all'?'todas as categorias':(categories.find(([id])=>id===a.category)?.[1]??a.category);
- return {kind:history?'history':'price',summary,conditions,product,short:'Seu alerta ('+scope+(a.payment==='card'?', cartão':'')+'): '+parts.join(' e ')+'.'};
+ return {kind:history?'history':'price',summary,conditions,product,short:'Seu alerta ('+scope+(paid==='card'?', cartão':a.payment==='any'?', Pix':'')+'): '+parts.join(' e ')+'.'};
 }
 // Regra explícita no e-mail: favoritos só avisam fora do escopo dos alertas ativos, salvo opção marcada pelo usuário.
 export function wishlistReason(ignoredAlertLimits=false):NotificationReason{return {kind:'wishlist',summary:'Um produto da sua lista de desejos caiu pelo menos 5% abaixo do preço habitual.',short:'Lista de desejos: ≥ 5% abaixo do preço habitual.',conditions:['Regra: lista de desejos.',ignoredAlertLimits?'Você permitiu avisos de favoritos fora dos limites dos seus alertas.':'Nenhum alerta ativo seu cobre este produto.']};}

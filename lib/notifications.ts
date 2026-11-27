@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';import {adminDb} from './server';
 import {notificationKey} from './identity';
-import {alertCovers,matchesAlert} from './alert-rules';
+import {alertCovers,alertPayments,matchesAlertIn} from './alert-rules';
 import {buildNotificationEmail,offerEmailUrl,reasonForAlert,wishlistReason,type NotificationReason} from './email-templates';
 import type {Alert,Offer} from './types';
 import {excludedCondition} from './product-policy';
@@ -20,8 +20,12 @@ export function notificationReason(o:Offer,p:Pick<Profile,'global_max_price'|'wi
  // Limite geral e regras na modalidade de cada alerta (preço que o usuário vai pagar naquela forma de pagamento).
  const cap=(x:Offer)=>!p.global_max_price||Number(x.price)<=Number(p.global_max_price);
  // only: decide apenas uma modalidade (alertas Pix e cartão do mesmo produto são avaliados separadamente).
- const rule=rules.filter(a=>!only||(a.payment??'pix')===only).find(a=>{const x=offerForPayment(o,a.payment??'pix');return !!x&&cap(x)&&matchesAlert(a,o,now);});
- if(rule){const pay=rule.payment??'pix';return {...reasonForAlert(rule,offerForPayment(o,pay)!),payment:pay};}
+ // Regra "Pix ou cartão" (any): no passe do cartão só conta se NÃO casou no Pix (um único aviso por regra/produto).
+ const hit=(a:Alert,pay:'pix'|'card')=>{const x=offerForPayment(o,pay);return !!x&&cap(x)&&matchesAlertIn(a,o,pay,now);};
+ for(const pay of only?[only]:(['pix','card'] as const)){
+  const rule=rules.find(a=>alertPayments(a).includes(pay)&&hit(a,pay)&&!(a.payment==='any'&&pay==='card'&&hit(a,'pix')));
+  if(rule)return {...reasonForAlert(rule,offerForPayment(o,pay)!,pay),payment:pay};
+ }
  const saved=wishlist.some(w=>w.offer_id===o.id||(!!o.product_id&&w.offers?.product_id===o.product_id));
  if(!p.wishlist_email_enabled||!saved)return null;
  if(!p.wishlist_ignore_alert_limits&&rules.some(a=>alertCovers(a,o)))return null;
